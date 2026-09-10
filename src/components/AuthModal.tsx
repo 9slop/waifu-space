@@ -1,5 +1,5 @@
 import { createSignal, Show } from 'solid-js';
-import { setUserAccount, showToast } from '../lib/store';
+import { setUserAccount, showToast, loadCloudProgress } from '../lib/store';
 import { t } from '../lib/i18n';
 
 export function AuthModal(props: { isOpen: boolean; onClose: () => void; initialMode?: 'login' | 'register' }) {
@@ -65,6 +65,8 @@ export function AuthModal(props: { isOpen: boolean; onClose: () => void; initial
         bio: data.user.bio,
         token: data.token
       });
+
+      await loadCloudProgress(data.token);
 
       showToast(mode() === 'register' ? t('auth.welcomeToast', { name: data.user.username }) : t('auth.loginSuccess'));
       props.onClose();

@@ -1,6 +1,10 @@
 ﻿import { json } from '@solidjs/router';
 import { verifySessionToken } from '../../../lib/server/auth';
 import { getSupabaseServerClient, isSupabaseConfigured } from '../../../lib/server/supabase';
+import { COSMETIC_CATALOG } from '../../../lib/store';
+
+const itemRarity = (itemId: string): string =>
+  COSMETIC_CATALOG.find(c => c.id === itemId)?.rarity || 'common';
 
 // Sync progress to cloud database
 export async function POST(event: { request: Request }) {
@@ -49,6 +53,29 @@ export async function POST(event: { request: Request }) {
           await supabase.from('user_showcase').insert(inserts);
         }
       }
+
+      // Update inventory (all unlocked cosmetics)
+      const unlockedOutfits: string[] = Array.isArray(rpg?.unlockedOutfits) ? rpg.unlockedOutfits : [];
+      const unlockedAccessories: string[] = Array.isArray(rpg?.unlockedAccessories) ? rpg.unlockedAccessories : [];
+      const unlockedHairstyles: string[] = Array.isArray(rpg?.unlockedHairstyles) ? rpg.unlockedHairstyles : [];
+
+      const allUnlocked = [
+        ...unlockedOutfits.filter(id => id !== 'none').map(id => ({ item_id: id, category: 'outfit' })),
+        ...unlockedAccessories.filter(id => id !== 'none').map(id => ({ item_id: id, category: 'accessory' })),
+        ...unlockedHairstyles.filter(id => id !== 'none').map(id => ({ item_id: id, category: 'hairstyle' }))
+      ];
+
+      if (allUnlocked.length > 0) {
+        await supabase.from('user_inventory').delete().eq('user_id', session.userId);
+        await supabase.from('user_inventory').insert(
+          allUnlocked.map(entry => ({
+            user_id: session.userId,
+            item_id: entry.item_id,
+            category: entry.category,
+            rarity: itemRarity(entry.item_id)
+          }))
+        );
+      }
     }
 
     return json({ success: true, syncedAt: new Date().toISOString() });
@@ -71,13 +98,15 @@ export async function GET(event: { request: Request }) {
     const supabase = getSupabaseServerClient()!;
     const { data: progress } = await supabase.from('user_progress').select('*').eq('user_id', session.userId).single();
     const { data: showcase } = await supabase.from('user_showcase').select('*').eq('user_id', session.userId).order('slot_index');
+    const { data: inventory } = await supabase.from('user_inventory').select('item_id, category, rarity').eq('user_id', session.userId);
 
     return json({
       success: true,
       progress,
-      showcaseItems: showcase ? showcase.map((s: any) => s.item_id) : []
+      showcaseItems: showcase ? showcase.map((s: any) => s.item_id) : [],
+      inventory: inventory || []
     });
   }
 
-  return json({ success: true, progress: null });
+  return json({ success: true, progress: null, showcaseItems: [] });
 }

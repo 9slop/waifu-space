@@ -337,6 +337,146 @@ export function saveState() {
   } catch (e) {
     console.error('Failed to save state to localStorage', e);
   }
+  scheduleCloudSync();
+}
+
+// ---------------------------------------------------------------------------
+// Cloud sync (Supabase via /api/sync/progress)
+// ---------------------------------------------------------------------------
+
+let cloudSyncTimer: any = null;
+
+export function scheduleCloudSync() {
+  if (typeof window === 'undefined') return;
+  if (!state.user?.token) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(() => {
+    void pushProgressToCloud();
+  }, 2500);
+}
+
+async function pushProgressToCloud() {
+  const token = state.user?.token;
+  if (!token) return;
+  try {
+    await fetch('/api/sync/progress', {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        waifu: {
+          name: state.waifu.name,
+          personality: state.waifu.personality,
+          bondLevel: state.waifu.bondLevel,
+          bondExp: state.waifu.bondExp,
+          appearance: state.waifu.appearance
+        },
+        rpg: {
+          coins: state.rpg.coins,
+          unlockedOutfits: state.rpg.unlockedOutfits,
+          unlockedAccessories: state.rpg.unlockedAccessories,
+          unlockedHairstyles: state.rpg.unlockedHairstyles,
+          claimedAffectionMilestones: state.rpg.claimedAffectionMilestones,
+          defenseHighWave: state.rpg.defenseHighWave,
+          defenseStats: state.rpg.defenseStats,
+          showcaseItems: state.rpg.showcaseItems
+        },
+        settings: state.settings
+      })
+    });
+  } catch {
+    // Cloud sync is best-effort; the local state already persists.
+  }
+}
+
+// Flush any pending debounced sync when the page is being unloaded, so a
+// reload right after earning coins doesn't leave the last save behind.
+if (typeof window !== 'undefined') {
+  const flushPendingSync = () => {
+    if (!state.user?.token) return;
+    clearTimeout(cloudSyncTimer);
+    void pushProgressToCloud();
+  };
+  window.addEventListener('pagehide', flushPendingSync);
+  window.addEventListener('beforeunload', flushPendingSync);
+}
+
+/**
+ * Pulls the logged-in user's saved progress from Supabase and merges it into
+ * local state. Cloud data wins for RPG/waifu save fields, except that a richer
+ * local save is never clobbered by the default 200-coin registration snapshot.
+ */
+export async function loadCloudProgress(token?: string): Promise<void> {
+  const authToken = token || state.user?.token;
+  if (!authToken) return;
+
+  try {
+    const res = await fetch('/api/sync/progress', {
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (!data.success) return;
+
+    const p = data.progress;
+    if (!p) {
+      // Nothing saved in the cloud yet -> upload the current local state.
+      scheduleCloudSync();
+      return;
+    }
+
+    const inventory: Array<{ item_id: string; category: string }> = Array.isArray(data.inventory) ? data.inventory : [];
+    const showcaseItems: string[] = Array.isArray(data.showcaseItems) ? data.showcaseItems : [];
+
+    // Never lose currency: the cloud can hold a stale snapshot (e.g. an older
+    // session), so the merge always keeps the larger balance on both sides.
+    const coins = Math.max(state.rpg.coins, typeof p.coins === 'number' ? p.coins : 0);
+
+    setState(
+      produce(s => {
+        s.rpg.coins = coins;
+        if (typeof p.bond_level === 'number' && p.bond_level > s.waifu.bondLevel) s.waifu.bondLevel = p.bond_level;
+        if (typeof p.bond_exp === 'number') s.waifu.bondExp = Math.max(p.bond_exp, s.waifu.bondExp);
+        if (p.waifu_name) s.waifu.name = p.waifu_name;
+        if (p.waifu_personality) s.waifu.personality = p.waifu_personality;
+        if (p.worn_outfit) s.waifu.appearance.outfit = p.worn_outfit;
+        if (p.worn_accessory) s.waifu.appearance.accessory = p.worn_accessory;
+        if (p.worn_hairstyle) s.waifu.appearance.hairstyle = p.worn_hairstyle;
+        if (p.appearance_data && typeof p.appearance_data === 'object') {
+          Object.assign(s.waifu.appearance, p.appearance_data);
+        }
+        if (p.settings_data && typeof p.settings_data === 'object') {
+          Object.assign(s.settings, p.settings_data);
+          s.settings.language = p.settings_data.language === 'ja' ? 'ja' : s.settings.language;
+        }
+        if (Array.isArray(p.claimed_milestones) && p.claimed_milestones.length > 0) {
+          s.rpg.claimedAffectionMilestones = Array.from(new Set([...(s.rpg.claimedAffectionMilestones || []), ...p.claimed_milestones]));
+        }
+        if (typeof p.defense_high_wave === 'number') {
+          s.rpg.defenseHighWave = Math.max(s.rpg.defenseHighWave || 0, p.defense_high_wave);
+        }
+        s.rpg.defenseStats.totalVictories = Math.max(s.rpg.defenseStats.totalVictories || 0, p.defense_victories || 0);
+        s.rpg.defenseStats.goblinsDefeated = Math.max(s.rpg.defenseStats.goblinsDefeated || 0, p.goblins_defeated || 0);
+
+        const unlockedOutfits = new Set(s.rpg.unlockedOutfits);
+        const unlockedAccessories = new Set(s.rpg.unlockedAccessories);
+        const unlockedHairstyles = new Set(s.rpg.unlockedHairstyles);
+        for (const item of inventory) {
+          if (item.category === 'outfit') unlockedOutfits.add(item.item_id);
+          else if (item.category === 'accessory') unlockedAccessories.add(item.item_id);
+          else if (item.category === 'hairstyle') unlockedHairstyles.add(item.item_id);
+        }
+        s.rpg.unlockedOutfits = [...unlockedOutfits];
+        s.rpg.unlockedAccessories = [...unlockedAccessories];
+        s.rpg.unlockedHairstyles = [...unlockedHairstyles];
+        if (showcaseItems.length > 0) s.rpg.showcaseItems = showcaseItems;
+      })
+    );
+    saveState();
+  } catch {
+    // Best-effort cloud load; the local state remains authoritative.
+  }
 }
 
 export function loadState() {

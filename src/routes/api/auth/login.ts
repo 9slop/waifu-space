@@ -22,7 +22,15 @@ export async function POST(event: { request: Request }) {
 
     if (isSupabaseConfigured()) {
       const supabase = getSupabaseServerClient()!;
-      const cleanEmail = cleanUsername.includes('@') ? cleanUsername : `${cleanUsername.toLowerCase()}@waifuspace.moe`;
+      const { data: profileByUsername } = await supabase
+        .from('profiles')
+        .select('email, username, avatar_url, bio')
+        .ilike('username', cleanUsername)
+        .maybeSingle();
+
+      const cleanEmail = cleanUsername.includes('@')
+        ? cleanUsername
+        : profileByUsername?.email || `${cleanUsername.toLowerCase()}@waifuspace.moe`;
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password
@@ -33,7 +41,11 @@ export async function POST(event: { request: Request }) {
       }
 
       const userId = data.user.id;
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      let profile = profileByUsername;
+      if (!profile?.username) {
+        const res = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+        profile = res.data;
+      }
 
       const token = createSessionToken({
         id: userId,

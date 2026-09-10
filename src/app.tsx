@@ -1,7 +1,7 @@
 import { createSignal, onMount, onCleanup, createEffect, Suspense } from 'solid-js';
 import { Router, A, useLocation } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { state, loadState, showToast, triggerWaifuResponse, setUserAccount } from './lib/store';
+import { state, loadState, loadCloudProgress, showToast, triggerWaifuResponse, setUserAccount } from './lib/store';
 import { t } from './lib/i18n';
 import { WallpaperBackground } from './components/WallpaperBackground';
 import { SakuraCanvas } from './components/SakuraCanvas';
@@ -26,6 +26,11 @@ function AppLayout(props: { children: any }) {
 
   onMount(() => {
     loadState();
+
+    // Restore cloud progress for a returning user with a saved session
+    if (state.user?.token) {
+      loadCloudProgress(state.user.token);
+    }
 
     // Clock
     const updateClock = () => {

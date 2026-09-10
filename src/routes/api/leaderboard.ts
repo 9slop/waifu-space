@@ -18,7 +18,7 @@ export async function GET(event: { request: Request }) {
     }
 
     const { data, error } = await query;
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       const entries = data.map((d: any, i: number) => ({
         rank: i + 1,
         username: d.username,

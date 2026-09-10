@@ -27,6 +27,16 @@ export async function POST(event: { request: Request }) {
     // Check if Supabase is active
     if (isSupabaseConfigured()) {
       const supabase = getSupabaseServerClient()!;
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .ilike('username', cleanUsername)
+        .maybeSingle();
+
+      if (existing) {
+        return json({ success: false, error: 'Username already taken.' }, { status: 409 });
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password
