@@ -1,7 +1,6 @@
 # 🌸 WaifuSpace
 
 > **Your personal anime companion & Google Calendar planner dashboard.**  
-> **Re-engineered with [SolidStart](https://start.solidjs.com/) & [Bun](https://bun.sh/) for ultra-fast reactive performance, SSR/client hydration, and modular component architecture.**
 
 ---
 
