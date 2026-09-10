@@ -5,7 +5,8 @@ import {
   saveState,
   showToast,
   resetAllData,
-  speakText
+  speakText,
+  isCosmeticUnlocked
 } from '../lib/store';
 import { PERSONALITIES } from '../lib/personality';
 import { STOCK_WALLPAPERS } from '../lib/wallpapers';
@@ -286,18 +287,27 @@ export function SettingsStudio() {
                       </div>
                       <select
                         class="modal-select"
-                        style={{ width: '170px' }}
+                        style={{ width: '190px' }}
                         value={state.waifu.appearance.outfit}
                         onChange={e => {
-                          setState('waifu', 'appearance', 'outfit', e.currentTarget.value);
+                          const val = e.currentTarget.value;
+                          if (!isCosmeticUnlocked('outfits', val)) {
+                            showToast('🔒 This outfit is locked! Unlock it from a Lootbox or Affection Road.');
+                            e.currentTarget.value = state.waifu.appearance.outfit;
+                            return;
+                          }
+                          setState('waifu', 'appearance', 'outfit', val);
                           saveState();
                         }}
                       >
-                        <option value="seifuku">🏫 Sailor Seifuku</option>
-                        <option value="maid">☕ Maid Uniform</option>
-                        <option value="casual">🛋️ Cozy Hoodie</option>
-                        <option value="kimono">👘 Summer Kimono</option>
-                        <option value="gothic">🥀 Gothic Lolita</option>
+                        <option value="seifuku">{isCosmeticUnlocked('outfits', 'seifuku') ? '🏫 Sailor Seifuku' : '🔒 🏫 Sailor Seifuku'}</option>
+                        <option value="casual">{isCosmeticUnlocked('outfits', 'casual') ? '🛋️ Cozy Hoodie' : '🔒 🛋️ Cozy Hoodie'}</option>
+                        <option value="maid">{isCosmeticUnlocked('outfits', 'maid') ? '☕ Maid Uniform' : '🔒 ☕ Maid Uniform'}</option>
+                        <option value="kimono">{isCosmeticUnlocked('outfits', 'kimono') ? '👘 Summer Kimono' : '🔒 👘 Summer Kimono'}</option>
+                        <option value="gothic">{isCosmeticUnlocked('outfits', 'gothic') ? '🥀 Gothic Lolita' : '🔒 🥀 Gothic Lolita'}</option>
+                        <option value="miko">{isCosmeticUnlocked('outfits', 'miko') ? '⛩️ Shrine Maiden (Miko)' : '🔒 ⛩️ Shrine Maiden'}</option>
+                        <option value="magical">{isCosmeticUnlocked('outfits', 'magical') ? '✨ Magical Girl' : '🔒 ✨ Magical Girl'}</option>
+                        <option value="armor">{isCosmeticUnlocked('outfits', 'armor') ? '🛡️ Guardian Armor' : '🔒 🛡️ Guardian Armor'}</option>
                       </select>
                     </div>
 
@@ -309,18 +319,28 @@ export function SettingsStudio() {
                       </div>
                       <select
                         class="modal-select"
-                        style={{ width: '170px' }}
+                        style={{ width: '190px' }}
                         value={state.waifu.appearance.accessory}
                         onChange={e => {
-                          setState('waifu', 'appearance', 'accessory', e.currentTarget.value);
+                          const val = e.currentTarget.value;
+                          if (!isCosmeticUnlocked('accessories', val)) {
+                            showToast('🔒 This accessory is locked! Unlock it from a Lootbox or Affection Road.');
+                            e.currentTarget.value = state.waifu.appearance.accessory;
+                            return;
+                          }
+                          setState('waifu', 'appearance', 'accessory', val);
                           saveState();
                         }}
                       >
-                        <option value="ribbon">🎀 Ribbon</option>
-                        <option value="cat_ears">🐱 Nekomimi Cat Ears</option>
-                        <option value="glasses">👓 Red-rim Glasses</option>
-                        <option value="headphones">🎧 Cyber Headphones</option>
                         <option value="none">None</option>
+                        <option value="ribbon">{isCosmeticUnlocked('accessories', 'ribbon') ? '🎀 Ribbon' : '🔒 🎀 Ribbon'}</option>
+                        <option value="glasses">{isCosmeticUnlocked('accessories', 'glasses') ? '👓 Red-rim Glasses' : '🔒 👓 Red-rim Glasses'}</option>
+                        <option value="flower_pin">{isCosmeticUnlocked('accessories', 'flower_pin') ? '🌸 Sakura Hairpin' : '🔒 🌸 Sakura Hairpin'}</option>
+                        <option value="headphones">{isCosmeticUnlocked('accessories', 'headphones') ? '🎧 Cyber Headphones' : '🔒 🎧 Cyber Headphones'}</option>
+                        <option value="cat_ears">{isCosmeticUnlocked('accessories', 'cat_ears') ? '🐱 Cat Ears' : '🔒 🐱 Cat Ears'}</option>
+                        <option value="bunny_ears">{isCosmeticUnlocked('accessories', 'bunny_ears') ? '🐰 Bunny Ears' : '🔒 🐰 Bunny Ears'}</option>
+                        <option value="kitsune_mask">{isCosmeticUnlocked('accessories', 'kitsune_mask') ? '🦊 Kitsune Mask' : '🔒 🦊 Kitsune Mask'}</option>
+                        <option value="halo">{isCosmeticUnlocked('accessories', 'halo') ? '😇 Angel Halo' : '🔒 😇 Angel Halo'}</option>
                       </select>
                     </div>
 

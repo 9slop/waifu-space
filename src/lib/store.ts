@@ -14,8 +14,82 @@ export interface ChatMessage {
   emotion?: string;
 }
 
+export interface RpgCosmeticItem {
+  id: string;
+  name: string;
+  category: 'outfit' | 'accessory' | 'hairstyle';
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  description: string;
+  icon: string;
+}
+
+export const COSMETIC_CATALOG: RpgCosmeticItem[] = [
+  // Outfits
+  { id: 'seifuku', name: 'Sailor Seifuku', category: 'outfit', rarity: 'common', description: 'Classic Japanese school uniform with navy sailor collar.', icon: '🏫' },
+  { id: 'casual', name: 'Cozy Hoodie', category: 'outfit', rarity: 'common', description: 'Soft oversized pastel hoodie for relaxing at home.', icon: '🛋️' },
+  { id: 'maid', name: 'Maid Uniform', category: 'outfit', rarity: 'rare', description: 'Elegant frilled black-and-white café maid outfit.', icon: '☕' },
+  { id: 'kimono', name: 'Summer Kimono', category: 'outfit', rarity: 'rare', description: 'Traditional indigo yukata with gold obi and sakura blossoms.', icon: '👘' },
+  { id: 'gothic', name: 'Gothic Lolita', category: 'outfit', rarity: 'epic', description: 'Dark Victorian gothic dress adorned with crimson ribbons.', icon: '🥀' },
+  { id: 'miko', name: 'Shrine Maiden (Miko)', category: 'outfit', rarity: 'epic', description: 'Sacred red hakama and white robe blessed by shrine spirits.', icon: '⛩️' },
+  { id: 'magical', name: 'Magical Girl', category: 'outfit', rarity: 'legendary', description: 'Sparkling cosmic dress imbued with pure starlight.', icon: '✨' },
+  { id: 'armor', name: 'Guardian Knight Armor', category: 'outfit', rarity: 'legendary', description: 'Polished silver breastplate & pauldrons forged for battle.', icon: '🛡️' },
+
+  // Accessories
+  { id: 'none', name: 'None', category: 'accessory', rarity: 'common', description: 'No accessory equipped.', icon: '✖️' },
+  { id: 'ribbon', name: 'Red Ribbon', category: 'accessory', rarity: 'common', description: 'Cute silk bow tied gracefully into her hair.', icon: '🎀' },
+  { id: 'glasses', name: 'Stylish Glasses', category: 'accessory', rarity: 'common', description: 'Chic frames that give an intellectual charm.', icon: '👓' },
+  { id: 'flower_pin', name: 'Sakura Hairpin', category: 'accessory', rarity: 'rare', description: 'Delicate cherry blossom petal pin with soft morning dew.', icon: '🌸' },
+  { id: 'headphones', name: 'Cyber Headphones', category: 'accessory', rarity: 'rare', description: 'Glowing cyan headphones tuned to lo-fi beats.', icon: '🎧' },
+  { id: 'cat_ears', name: 'Fluffy Cat Ears', category: 'accessory', rarity: 'epic', description: 'Twitching soft feline ears with tiny golden bells.', icon: '🐱' },
+  { id: 'bunny_ears', name: 'Bunny Ears', category: 'accessory', rarity: 'epic', description: 'Playful velvet rabbit ears that bounce when she moves.', icon: '🐰' },
+  { id: 'kitsune_mask', name: 'Kitsune Mask', category: 'accessory', rarity: 'legendary', description: 'Mystical fox spirit festival mask worn on the side of her hair.', icon: '🦊' },
+  { id: 'halo', name: 'Angel Halo', category: 'accessory', rarity: 'legendary', description: 'Gleaming celestial halo floating serenely above her crown.', icon: '😇' },
+
+  // Hairstyles
+  { id: 'twintails', name: 'Classic Twintails', category: 'hairstyle', rarity: 'common', description: 'Bouncy twin ponytails tied high on both sides.', icon: '👧' },
+  { id: 'long', name: 'Long Straight', category: 'hairstyle', rarity: 'common', description: 'Flowing silky hair reaching down past her shoulders.', icon: '💇‍♀️' },
+  { id: 'short_bob', name: 'Short Bob', category: 'hairstyle', rarity: 'rare', description: 'Cute, sporty chin-length bob cut.', icon: '💁‍♀️' },
+  { id: 'ponytail', name: 'High Ponytail', category: 'hairstyle', rarity: 'rare', description: 'Energetic ponytail fastened with a ribbon.', icon: '👱‍♀️' },
+  { id: 'wavy', name: 'Wavy Curls', category: 'hairstyle', rarity: 'epic', description: 'Romantic flowing waves with gentle volume.', icon: '👩‍🦱' }
+];
+
+export interface AffectionMilestone {
+  level: number;
+  title: string;
+  rewardType: 'coins' | 'cosmetic' | 'title';
+  rewardValue: string | number;
+  rewardLabel: string;
+  description: string;
+  icon: string;
+}
+
+export const AFFECTION_MILESTONES: AffectionMilestone[] = [
+  { level: 2, title: 'Acquaintance', rewardType: 'coins', rewardValue: 75, rewardLabel: '75 Coins', description: 'Akari begins to look forward to your presence.', icon: '🪙' },
+  { level: 3, title: 'Friend', rewardType: 'cosmetic', rewardValue: 'flower_pin', rewardLabel: 'Sakura Hairpin', description: 'Unlocks the delicate Sakura hair ornament.', icon: '🌸' },
+  { level: 5, title: 'Close Friend', rewardType: 'cosmetic', rewardValue: 'maid', rewardLabel: 'Maid Uniform', description: 'Unlocks the frilly Maid Outfit in your Wardrobe.', icon: '☕' },
+  { level: 7, title: 'Trusted Confidant', rewardType: 'coins', rewardValue: 200, rewardLabel: '200 Coins', description: 'Akari trusts you with her deepest thoughts.', icon: '🪙' },
+  { level: 8, title: 'Sweetheart', rewardType: 'cosmetic', rewardValue: 'kimono', rewardLabel: 'Summer Kimono', description: 'Unlocks the traditional festival Kimono dress.', icon: '👘' },
+  { level: 10, title: 'Soulmate', rewardType: 'cosmetic', rewardValue: 'bunny_ears', rewardLabel: 'Bunny Ears', description: 'Unlocks the playful Bunny Ears accessory.', icon: '🐰' },
+  { level: 12, title: 'Inseparable', rewardType: 'coins', rewardValue: 500, rewardLabel: '500 Coins', description: 'A massive treasury gift for staying by her side.', icon: '💰' },
+  { level: 15, title: 'Eternal Devotion', rewardType: 'cosmetic', rewardValue: 'magical', rewardLabel: 'Magical Girl Outfit', description: 'Unlocks the legendary Magical Girl cosmic dress!', icon: '✨' },
+  { level: 20, title: 'Celestial Bond', rewardType: 'cosmetic', rewardValue: 'halo', rewardLabel: 'Angel Halo', description: 'Unlocks the divine glowing Angel Halo.', icon: '😇' }
+];
+
+export interface RpgState {
+  coins: number;
+  unlockedOutfits: string[];
+  unlockedAccessories: string[];
+  unlockedHairstyles: string[];
+  claimedAffectionMilestones: number[];
+  defenseHighWave: number;
+  defenseStats: {
+    totalVictories: number;
+    goblinsDefeated: number;
+  };
+}
+
 export interface AppState {
-  activeTab: 'main' | 'calendar' | 'settings';
+  activeTab: 'main' | 'calendar' | 'rpg' | 'settings';
   waifu: {
     name: string;
     personality: string;
@@ -33,6 +107,7 @@ export interface AppState {
     bondLevel: number;
     bondExp: number;
   };
+  rpg: RpgState;
   calendar: {
     view: 'month' | 'week' | 'day';
     selectedDate: string;
@@ -130,6 +205,19 @@ export const DEFAULT_EVENTS: CalendarEventItem[] = [
   }
 ];
 
+export const DEFAULT_RPG: RpgState = {
+  coins: 200,
+  unlockedOutfits: ['seifuku', 'casual'],
+  unlockedAccessories: ['none', 'ribbon', 'glasses'],
+  unlockedHairstyles: ['twintails', 'long', 'short_bob'],
+  claimedAffectionMilestones: [],
+  defenseHighWave: 0,
+  defenseStats: {
+    totalVictories: 0,
+    goblinsDefeated: 0
+  }
+};
+
 export const DEFAULT_STATE: AppState = {
   activeTab: 'main',
   waifu: {
@@ -149,6 +237,7 @@ export const DEFAULT_STATE: AppState = {
     bondLevel: 12,
     bondExp: 45
   },
+  rpg: DEFAULT_RPG,
   calendar: {
     view: 'month',
     selectedDate: new Date().toISOString(),
@@ -242,6 +331,14 @@ export function loadState() {
             ...DEFAULT_STATE,
             ...parsed,
             waifu: { ...DEFAULT_STATE.waifu, ...(parsed.waifu || {}), appearance: { ...DEFAULT_STATE.waifu.appearance, ...(parsed.waifu?.appearance || {}) } },
+            rpg: {
+              ...DEFAULT_STATE.rpg,
+              ...(parsed.rpg || {}),
+              unlockedOutfits: Array.from(new Set([...DEFAULT_STATE.rpg.unlockedOutfits, ...(parsed.rpg?.unlockedOutfits || [])])),
+              unlockedAccessories: Array.from(new Set([...DEFAULT_STATE.rpg.unlockedAccessories, ...(parsed.rpg?.unlockedAccessories || [])])),
+              unlockedHairstyles: Array.from(new Set([...DEFAULT_STATE.rpg.unlockedHairstyles, ...(parsed.rpg?.unlockedHairstyles || [])])),
+              claimedAffectionMilestones: parsed.rpg?.claimedAffectionMilestones || []
+            },
             calendar: { ...DEFAULT_STATE.calendar, ...(parsed.calendar || {}), events: Array.isArray(parsed.calendar?.events) ? parsed.calendar.events : DEFAULT_STATE.calendar.events },
             settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
             chat: { ...DEFAULT_STATE.chat, ...(parsed.chat || {}) }
@@ -264,7 +361,9 @@ export function gainBondExp(amount: number) {
       if (exp >= needed) {
         exp -= needed;
         level += 1;
-        showToast(`🌸 Bond Level Up! Akari reached Lv. ${level}!`);
+        const bonusCoins = level * 25;
+        s.rpg.coins += bonusCoins;
+        showToast(`🌸 Bond Level Up! ${s.waifu.name} reached Lv. ${level}! (+${bonusCoins} 🪙)`);
       }
       s.waifu.bondExp = exp;
       s.waifu.bondLevel = level;
@@ -356,7 +455,137 @@ export function pokeAvatar() {
   const pokes = persona.poke;
   const item = pokes[Math.floor(Math.random() * pokes.length)];
   gainBondExp(8);
+  addCoins(5);
   triggerWaifuResponse(item.text, item.mood);
+}
+
+// Economy & RPG Operations
+export function addCoins(amount: number) {
+  setState('rpg', 'coins', c => c + amount);
+  saveState();
+}
+
+export function spendCoins(amount: number): boolean {
+  if (state.rpg.coins < amount) return false;
+  setState('rpg', 'coins', c => c - amount);
+  saveState();
+  return true;
+}
+
+export function unlockCosmetic(category: 'outfits' | 'accessories' | 'hairstyles', id: string) {
+  const key = category === 'outfits' ? 'unlockedOutfits' : category === 'accessories' ? 'unlockedAccessories' : 'unlockedHairstyles';
+  if (!state.rpg[key].includes(id)) {
+    setState('rpg', key, list => [...list, id]);
+    saveState();
+  }
+}
+
+export function isCosmeticUnlocked(category: 'outfits' | 'accessories' | 'hairstyles', id: string): boolean {
+  if (id === 'none') return true;
+  const key = category === 'outfits' ? 'unlockedOutfits' : category === 'accessories' ? 'unlockedAccessories' : 'unlockedHairstyles';
+  return state.rpg[key].includes(id);
+}
+
+export function claimAffectionReward(level: number): boolean {
+  const milestone = AFFECTION_MILESTONES.find(m => m.level === level);
+  if (!milestone) return false;
+  if (state.waifu.bondLevel < level) return false;
+  if (state.rpg.claimedAffectionMilestones.includes(level)) return false;
+
+  setState('rpg', 'claimedAffectionMilestones', list => [...list, level]);
+
+  if (milestone.rewardType === 'coins' && typeof milestone.rewardValue === 'number') {
+    addCoins(milestone.rewardValue);
+    showToast(`🎁 Claimed ${milestone.rewardLabel} for reaching Affection Lv. ${level}!`);
+  } else if (milestone.rewardType === 'cosmetic' && typeof milestone.rewardValue === 'string') {
+    const item = COSMETIC_CATALOG.find(c => c.id === milestone.rewardValue);
+    if (item) {
+      if (item.category === 'outfit') unlockCosmetic('outfits', item.id);
+      else if (item.category === 'accessory') unlockCosmetic('accessories', item.id);
+      else if (item.category === 'hairstyle') unlockCosmetic('hairstyles', item.id);
+    }
+    showToast(`🎁 Unlocked ${milestone.rewardLabel} for reaching Affection Lv. ${level}!`);
+  }
+
+  saveState();
+  return true;
+}
+
+export interface LootboxResult {
+  item: RpgCosmeticItem;
+  isDuplicate: boolean;
+  duplicateCoins: number;
+  duplicateExp: number;
+}
+
+export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null {
+  const cost = boxType === 'standard' ? 100 : 250;
+  if (!spendCoins(cost)) {
+    showToast('Not enough coins to open this chest!');
+    return null;
+  }
+
+  const rand = Math.random() * 100;
+  let targetRarity: 'common' | 'rare' | 'epic' | 'legendary';
+
+  if (boxType === 'standard') {
+    if (rand < 60) targetRarity = 'common';
+    else if (rand < 90) targetRarity = 'rare';
+    else if (rand < 99) targetRarity = 'epic';
+    else targetRarity = 'legendary';
+  } else {
+    if (rand < 30) targetRarity = 'rare';
+    else if (rand < 80) targetRarity = 'epic';
+    else targetRarity = 'legendary';
+  }
+
+  let candidates = COSMETIC_CATALOG.filter(c => c.id !== 'none' && c.rarity === targetRarity);
+  if (candidates.length === 0) candidates = COSMETIC_CATALOG.filter(c => c.id !== 'none');
+
+  const picked = candidates[Math.floor(Math.random() * candidates.length)];
+
+  const categoryKey = picked.category === 'outfit' ? 'unlockedOutfits' : picked.category === 'accessory' ? 'unlockedAccessories' : 'unlockedHairstyles';
+  const isDuplicate = state.rpg[categoryKey].includes(picked.id);
+
+  let duplicateCoins = 0;
+  let duplicateExp = 0;
+
+  if (isDuplicate) {
+    if (picked.rarity === 'common') { duplicateCoins = 40; duplicateExp = 25; }
+    else if (picked.rarity === 'rare') { duplicateCoins = 80; duplicateExp = 50; }
+    else if (picked.rarity === 'epic') { duplicateCoins = 160; duplicateExp = 100; }
+    else { duplicateCoins = 300; duplicateExp = 200; }
+
+    addCoins(duplicateCoins);
+    gainBondExp(duplicateExp);
+  } else {
+    unlockCosmetic(picked.category === 'outfit' ? 'outfits' : picked.category === 'accessory' ? 'accessories' : 'hairstyles', picked.id);
+  }
+
+  saveState();
+  return {
+    item: picked,
+    isDuplicate,
+    duplicateCoins,
+    duplicateExp
+  };
+}
+
+export function recordDefenseWaveVictory(wave: number, goblinsKilled: number) {
+  const coinsReward = wave * 75 + 50;
+  const expReward = wave * 50 + 40;
+
+  addCoins(coinsReward);
+  gainBondExp(expReward);
+
+  setState('rpg', produce(r => {
+    if (wave > r.defenseHighWave) r.defenseHighWave = wave;
+    r.defenseStats.totalVictories += 1;
+    r.defenseStats.goblinsDefeated += goblinsKilled;
+  }));
+
+  saveState();
+  showToast(`⚔️ Wave ${wave} Cleared! (+${coinsReward} 🪙, +${expReward} EXP)`);
 }
 
 // Calendar date & recurrence helpers
@@ -447,7 +676,8 @@ export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEve
   };
 
   setState('calendar', 'events', events => [newEvent, ...events]);
-  gainBondExp(10);
+  gainBondExp(15);
+  addCoins(20);
   saveState();
   return newEvent;
 }
@@ -471,7 +701,8 @@ export function toggleTask(id: string) {
   updateCalendarEvent(id, { completed: isNowCompleted });
 
   if (isNowCompleted) {
-    gainBondExp(15);
+    gainBondExp(25);
+    addCoins(35);
     const persona = getPersonality(state.waifu.personality);
     const praises = persona.taskComplete;
     const praise = praises[Math.floor(Math.random() * praises.length)];
@@ -492,6 +723,7 @@ export async function sendUserMessage(rawText: string) {
   };
   setState('chat', 'messages', msgs => [...msgs, userMsg]);
   gainBondExp(5);
+  addCoins(5);
   saveState();
 
   setState('chat', 'isTyping', true);

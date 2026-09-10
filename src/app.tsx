@@ -12,6 +12,7 @@ import './styles/style.css';
 import './styles/waifu.css';
 import './styles/calendar.css';
 import './styles/settings.css';
+import './styles/rpg.css';
 
 function AppLayout(props: { children: any }) {
   const [clockTime, setClockTime] = createSignal('');
@@ -97,6 +98,10 @@ function AppLayout(props: { children: any }) {
             <span>📅</span>
             <span>Calendar</span>
           </A>
+          <A href="/rpg" class="nav-tab-btn" activeClass="active">
+            <span>⚔️</span>
+            <span>RPG Hub</span>
+          </A>
           <A href="/settings" class="nav-tab-btn" activeClass="active">
             <span>⚙️</span>
             <span>Settings</span>
@@ -105,6 +110,10 @@ function AppLayout(props: { children: any }) {
 
         {/* RIGHT HEADER META */}
         <div class="header-right">
+          <A href="/rpg" class="header-coin-pill" title="RPG Gold Coins - Click to visit RPG Hub">
+            <span>🪙</span>
+            <span>{state.rpg ? state.rpg.coins : 0}</span>
+          </A>
           <div class="header-clock">{clockTime() || '12:00 PM'}</div>
         </div>
       </header>
