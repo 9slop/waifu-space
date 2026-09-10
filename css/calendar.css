@@ -710,3 +710,192 @@
   gap: 10px;
   margin-top: 20px;
 }
+
+/* ---------------- SEARCH BAR ---------------- */
+.gcal-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 6px 14px;
+  min-width: 220px;
+  transition: border-color 0.2s ease;
+}
+
+.gcal-search-wrap:focus-within {
+  border-color: var(--primary-accent);
+}
+
+.search-icon {
+  font-size: 13px;
+  opacity: 0.6;
+}
+
+.gcal-search-input {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+}
+
+/* ---------------- GOOGLE CALENDAR POPOVER CARD ---------------- */
+.gcal-popover {
+  position: fixed;
+  width: 320px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  z-index: 1500;
+  overflow: hidden;
+  animation: popoverFadeIn 0.18s ease-out;
+}
+
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.popover-header {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.popover-color-stripe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+}
+
+.popover-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.popover-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.popover-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.popover-btn-del:hover {
+  background: rgba(255, 71, 87, 0.2);
+  color: #ff4757;
+}
+
+.popover-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.popover-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.3;
+}
+
+.popover-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.popover-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.popover-loc, .popover-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* ---------------- SELECTION & RESIZE STYLES ---------------- */
+.event-pill.is-selected, .week-event-card.is-selected {
+  outline: 2px solid #fff !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.6) !important;
+}
+
+/* RESIZE HANDLE */
+.event-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: ns-resize;
+  background: transparent;
+  z-index: 10;
+}
+
+.event-resize-handle:hover, .is-resizing-event .event-resize-handle {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+body.is-resizing-event {
+  cursor: ns-resize !important;
+  user-select: none;
+}
+
+/* TASK CHECKBOXES ON CALENDAR */
+.pill-task-check, .card-task-check {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: #00cec9;
+  flex-shrink: 0;
+}
+
+.pill-icon {
+  margin-right: 4px;
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.week-event-card.completed, .event-pill.completed {
+  opacity: 0.55;
+}
+
+.week-event-card.completed .card-title, .event-pill.completed .pill-title {
+  text-decoration: line-through;
+}
+

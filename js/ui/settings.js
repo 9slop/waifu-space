@@ -205,8 +205,8 @@ export class SettingsUI {
               <h4 class="form-label">Curated Japanese Aesthetic Wallpapers</h4>
               <div class="wallpaper-gallery-grid">
                 ${STOCK_WALLPAPERS.map(wp => `
-                  <div class="wallpaper-card ${settings.wallpaperId === wp.id && settings.wallpaperType === 'stock' ? 'active' : ''}" data-wp-id="${wp.id}">
-                    <img src="${wp.thumb}" alt="${wp.name}" class="wp-thumb-img" />
+                  <div class="wallpaper-card ${settings.wallpaperId === wp.id && settings.wallpaperType === 'stock' ? 'active' : ''}" data-wp-id="${wp.id}" style="background: ${wp.fallback || '#1a102f'};">
+                    <img src="${wp.thumb}" alt="${wp.name}" class="wp-thumb-img" onerror="this.style.opacity='0';" />
                     <div class="wp-info-overlay">
                       <span class="wp-name">${wp.name}</span>
                       <span class="wp-cat">${wp.category}</span>

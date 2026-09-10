@@ -62,14 +62,34 @@ class WaifuSpaceApp {
     const dim = this.store.get('settings.wallpaperDim') ?? 45;
 
     let imageUrl = '';
+    let fallbackGradient = 'linear-gradient(135deg, #1f1435 0%, #3e1b4b 50%, #d85c7a 100%)';
+
     if (wpType === 'custom' && customUrl) {
       imageUrl = customUrl;
     } else {
       const found = STOCK_WALLPAPERS.find(w => w.id === wpId) || STOCK_WALLPAPERS[0];
       imageUrl = found.url;
+      fallbackGradient = found.fallback || fallbackGradient;
     }
 
-    bgContainer.style.backgroundImage = `url("${imageUrl}")`;
+    // Set fallback gradient immediately so wallpaper is never black or blank
+    bgContainer.style.background = fallbackGradient;
+    bgContainer.style.backgroundSize = 'cover';
+    bgContainer.style.backgroundPosition = 'center center';
+    bgContainer.style.backgroundRepeat = 'no-repeat';
+
+    if (imageUrl) {
+      const img = new Image();
+      img.onload = () => {
+        bgContainer.style.backgroundImage = `url("${imageUrl}")`;
+      };
+      img.onerror = () => {
+        // Keep fallback gradient if image fails
+        console.warn(`Wallpaper image failed to load (${imageUrl}), using fallback atmosphere gradient.`);
+      };
+      img.src = imageUrl;
+    }
+
     bgContainer.style.filter = `blur(${blur}px)`;
     if (overlay) {
       overlay.style.backgroundColor = `rgba(10, 10, 15, ${dim / 100})`;
