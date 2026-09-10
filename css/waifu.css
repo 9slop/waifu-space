@@ -444,11 +444,40 @@
   40% { transform: translateY(-6px); }
 }
 
+/* QUICK SUGGESTION CHIPS */
+.chat-quick-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+.suggestion-chip {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.suggestion-chip:hover {
+  background: var(--primary-accent);
+  color: #fff;
+  border-color: var(--primary-accent);
+  transform: translateY(-1px);
+}
+
 /* CHAT INPUT FORM */
 .chat-input-form {
   display: flex;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 8px;
 }
 
 .chat-input {

@@ -4,63 +4,72 @@
 
   /* --- Source: js/assets/wallpapers.js --- */
 
-// Curated Japanese Aesthetic Wallpapers
+// Curated Japanese Aesthetic Wallpapers with Fallback Gradients
+
 const STOCK_WALLPAPERS = [
   {
     id: 'sakura-shrine',
     name: 'Sakura Shrine',
-    category: 'Japan Traditional',
-    url: 'https://images.unsplash.com/photo-1528164344705-475426879c0d?q=80&w=2092&auto=format&fit=crop',
-    thumb: 'https://images.unsplash.com/photo-1528164344705-475426879c0d?q=80&w=400&auto=format&fit=crop'
+    category: 'Traditional Japan',
+    url: 'https://images.unsplash.com/photo-1528164344705-475426879c0d?auto=format&fit=crop&w=2000&q=80',
+    thumb: 'https://images.unsplash.com/photo-1528164344705-475426879c0d?auto=format&fit=crop&w=400&q=80',
+    fallback: 'linear-gradient(135deg, #2b1028 0%, #7b1e42 50%, #d85c7a 100%)'
   },
   {
     id: 'shibuya-neon',
     name: 'Shibuya Cyber Neon',
     category: 'Cyberpunk Tokyo',
-    url: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?q=80&w=2070&auto=format&fit=crop',
-    thumb: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?q=80&w=400&auto=format&fit=crop'
+    url: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=2000&q=80',
+    thumb: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=400&q=80',
+    fallback: 'linear-gradient(135deg, #070014 0%, #1f0438 40%, #00d2d3 80%, #ff007f 100%)'
   },
   {
     id: 'fuji-pagoda',
     name: 'Mt. Fuji & Pagoda',
     category: 'Iconic Japan',
-    url: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=2070&auto=format&fit=crop',
-    thumb: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=400&auto=format&fit=crop'
+    url: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=2000&q=80',
+    thumb: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=400&q=80',
+    fallback: 'linear-gradient(135deg, #101935 0%, #3b2c65 45%, #f37b67 85%, #fec882 100%)'
   },
   {
     id: 'rainy-tokyo',
     name: 'Rainy Night in Shinjuku',
     category: 'Lo-Fi Rain',
-    url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?q=80&w=2070&auto=format&fit=crop',
-    thumb: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?q=80&w=400&auto=format&fit=crop'
+    url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=2000&q=80',
+    thumb: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&w=400&q=80',
+    fallback: 'linear-gradient(135deg, #090e17 0%, #182638 50%, #294e6b 100%)'
   },
   {
     id: 'kyoto-torii',
     name: 'Fushimi Inari Torii',
     category: 'Kyoto Sanctuary',
-    url: 'https://images.unsplash.com/photo-1478436127897-769e00d2c715?q=80&w=2070&auto=format&fit=crop',
-    thumb: 'https://images.unsplash.com/photo-1478436127897-769e00d2c715?q=80&w=400&auto=format&fit=crop'
+    url: 'https://images.unsplash.com/photo-1478436127897-769e00d2c715?auto=format&fit=crop&w=2000&q=80',
+    thumb: 'https://images.unsplash.com/photo-1478436127897-769e00d2c715?auto=format&fit=crop&w=400&q=80',
+    fallback: 'linear-gradient(135deg, #1f0b09 0%, #681f14 50%, #e04a28 100%)'
   },
   {
     id: 'arashiyama-bamboo',
     name: 'Arashiyama Bamboo Grove',
     category: 'Kyoto Nature',
-    url: 'https://images.unsplash.com/photo-1509099836639-18ba1795216d?q=80&w=2062&auto=format&fit=crop',
-    thumb: 'https://images.unsplash.com/photo-1509099836639-18ba1795216d?q=80&w=400&auto=format&fit=crop'
+    url: 'https://images.unsplash.com/photo-1509099836639-18ba1795216d?auto=format&fit=crop&w=2000&q=80',
+    thumb: 'https://images.unsplash.com/photo-1509099836639-18ba1795216d?auto=format&fit=crop&w=400&q=80',
+    fallback: 'linear-gradient(135deg, #0b1a13 0%, #173827 50%, #2f6b4f 100%)'
   },
   {
     id: 'anime-starry-sky',
     name: 'Anime Starry Night',
     category: 'Anime Aesthetic',
-    url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=2070&auto=format&fit=crop',
-    thumb: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=400&auto=format&fit=crop'
+    url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=2000&q=80',
+    thumb: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=400&q=80',
+    fallback: 'linear-gradient(135deg, #06091f 0%, #151b47 45%, #3d2361 75%, #814674 100%)'
   },
   {
     id: 'cozy-lofi-room',
     name: 'Cozy Lo-Fi Sunset',
     category: 'Anime Room',
-    url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=2068&auto=format&fit=crop',
-    thumb: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=400&auto=format&fit=crop'
+    url: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=2000&q=80',
+    thumb: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=400&q=80',
+    fallback: 'linear-gradient(135deg, #241429 0%, #542247 45%, #9b3d58 75%, #e27d60 100%)'
   }
 ];
 
@@ -238,6 +247,21 @@ class StateManager {
     if (this.listeners.has(key)) {
       this.listeners.get(key).forEach(cb => cb(data, this.state));
     }
+    // Also notify parent/ancestor paths (e.g. 'waifu.appearance.hairstyle' notifies 'waifu.appearance' and 'waifu')
+    const parts = key.split('.');
+    let prefix = '';
+    for (let i = 0; i < parts.length - 1; i++) {
+      prefix = prefix ? `${prefix}.${parts[i]}` : parts[i];
+      if (this.listeners.has(prefix)) {
+        this.listeners.get(prefix).forEach(cb => cb(this.get(prefix), this.state));
+      }
+    }
+    // Also notify child paths
+    this.listeners.forEach((callbacks, lKey) => {
+      if (lKey.startsWith(key + '.')) {
+        callbacks.forEach(cb => cb(this.get(lKey), this.state));
+      }
+    });
     // Also trigger wildcard subscribers
     if (this.listeners.has('*')) {
       this.listeners.get('*').forEach(cb => cb(key, data, this.state));
@@ -798,14 +822,14 @@ class SpeechEngine {
 
   /* --- Source: js/waifu/avatar.js --- */
 
-// Layered Anime Avatar Generator (SVG & Custom Upload Support)
+// Layered Anime Avatar Generator (Vector SVG & Custom Upload)
 
 class WaifuAvatar {
   constructor(containerElement, stateManager) {
     this.container = containerElement;
     this.store = stateManager;
+    this.idPrefix = 'wa_' + Math.random().toString(36).substr(2, 6);
     this.blinkInterval = null;
-    this.isBlinking = false;
     this.mouthTalking = false;
 
     this.init();
@@ -815,17 +839,26 @@ class WaifuAvatar {
     this.render();
     this.startBlinkLoop();
 
-    // Subscribe to appearance and mood changes
-    this.store.subscribe('waifu.appearance', () => this.render());
-    this.store.subscribe('waifu.mood', () => this.render());
-    this.store.subscribe('waifu.appearance.avatarMode', () => this.render());
-    this.store.subscribe('waifu.appearance.customAvatarUrl', () => this.render());
+    // Subscribe to all appearance & mood change events
+    const paths = [
+      'waifu.appearance',
+      'waifu.appearance.hairstyle',
+      'waifu.appearance.hairColor',
+      'waifu.appearance.eyeColor',
+      'waifu.appearance.skinTone',
+      'waifu.appearance.outfit',
+      'waifu.appearance.accessory',
+      'waifu.appearance.avatarMode',
+      'waifu.appearance.customAvatarUrl',
+      'waifu.mood'
+    ];
+    paths.forEach(p => this.store.subscribe(p, () => this.render()));
   }
 
   startBlinkLoop() {
     if (this.blinkInterval) clearInterval(this.blinkInterval);
     const scheduleNextBlink = () => {
-      const delay = 2500 + Math.random() * 3500;
+      const delay = 2600 + Math.random() * 3200;
       this.blinkInterval = setTimeout(() => {
         this.blink();
         scheduleNextBlink();
@@ -840,36 +873,32 @@ class WaifuAvatar {
     eyesGroup.classList.add('blinking');
     setTimeout(() => {
       eyesGroup.classList.remove('blinking');
-    }, 180);
+    }, 160);
   }
 
   setTalking(isTalking) {
     this.mouthTalking = isTalking;
     const mouth = this.container.querySelector('.avatar-mouth');
     if (mouth) {
-      if (isTalking) {
-        mouth.classList.add('talking');
-      } else {
-        mouth.classList.remove('talking');
-      }
+      if (isTalking) mouth.classList.add('talking');
+      else mouth.classList.remove('talking');
     }
   }
 
   render() {
-    const app = this.store.get('waifu.appearance');
+    const app = this.store.get('waifu.appearance') || {};
     const mood = this.store.get('waifu.mood') || 'neutral';
 
     if (app.avatarMode === 'custom' && app.customAvatarUrl) {
       this.container.innerHTML = `
-        <div class="custom-avatar-wrapper ${mood}">
-          <img src="${app.customAvatarUrl}" alt="Custom Waifu Avatar" class="custom-avatar-img animate-breathe" />
+        <div class="custom-avatar-wrapper mood-${mood}">
+          <img src="${app.customAvatarUrl}" alt="Custom Companion Avatar" class="custom-avatar-img animate-breathe" />
           <div class="custom-avatar-mood-badge">${this.getMoodEmoji(mood)}</div>
         </div>
       `;
       return;
     }
 
-    // Render layered SVG avatar
     const svgContent = this.generateSVG(app, mood);
     this.container.innerHTML = `
       <div class="svg-avatar-wrapper animate-breathe mood-${mood}">
@@ -890,236 +919,287 @@ class WaifuAvatar {
   }
 
   generateSVG(app, mood) {
+    const pfx = this.idPrefix;
     const hairColor = app.hairColor || '#ff7597';
     const eyeColor = app.eyeColor || '#4f86f7';
     const skinTone = app.skinTone || '#fff0ea';
-    const blushColor = 'rgba(255, 99, 132, 0.45)';
-    const shadowColor = 'rgba(200, 150, 160, 0.25)';
+    const skinShadow = this.shadeColor(skinTone, -12);
+    const blushColor = 'rgba(255, 95, 130, 0.55)';
 
     return `
-      <svg viewBox="0 0 400 500" class="waifu-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 400 520" class="waifu-avatar-svg" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="hairGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="${hairColor}" />
+          <linearGradient id="${pfx}_hairGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${this.shadeColor(hairColor, 15)}" />
+            <stop offset="40%" stop-color="${hairColor}" />
             <stop offset="100%" stop-color="${this.shadeColor(hairColor, -25)}" />
           </linearGradient>
-          <linearGradient id="hairHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8" />
-            <stop offset="100%" stop-color="${hairColor}" stop-opacity="0" />
-          </linearGradient>
-          <radialGradient id="eyeGrad" cx="50%" cy="40%" r="60%">
-            <stop offset="0%" stop-color="${this.shadeColor(eyeColor, 40)}" />
-            <stop offset="60%" stop-color="${eyeColor}" />
-            <stop offset="100%" stop-color="${this.shadeColor(eyeColor, -40)}" />
+
+          <radialGradient id="${pfx}_eyeGrad" cx="50%" cy="38%" r="62%">
+            <stop offset="0%" stop-color="${this.shadeColor(eyeColor, 50)}" />
+            <stop offset="45%" stop-color="${eyeColor}" />
+            <stop offset="100%" stop-color="${this.shadeColor(eyeColor, -45)}" />
           </radialGradient>
-          <radialGradient id="yandereGaze" cx="50%" cy="50%" r="50%">
+
+          <radialGradient id="${pfx}_yandereGrad" cx="50%" cy="50%" r="55%">
             <stop offset="0%" stop-color="#ff0055" />
-            <stop offset="60%" stop-color="#800020" />
+            <stop offset="55%" stop-color="#99002a" />
             <stop offset="100%" stop-color="#2a0008" />
           </radialGradient>
-          <filter id="softGaze" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="1.5" />
+
+          <linearGradient id="${pfx}_yandereShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#140008" stop-opacity="0.9" />
+            <stop offset="60%" stop-color="#880022" stop-opacity="0.25" />
+            <stop offset="100%" stop-color="#ff0044" stop-opacity="0" />
+          </linearGradient>
+
+          <filter id="${pfx}_glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
 
-        <!-- BACK HAIR -->
-        <g id="back-hair">
-          ${this.renderBackHair(app.hairstyle, hairColor)}
+        <!-- 1. BACK HAIR LAYER (Behind head & body) -->
+        <g id="${pfx}_back_hair">
+          ${this.renderBackHair(app.hairstyle, hairColor, pfx)}
         </g>
 
-        <!-- BODY & OUTFIT BASE -->
-        <g id="body-base">
+        <!-- 2. UPPER BODY & ARMS BASE -->
+        <g id="${pfx}_body_base">
+          <!-- Shoulders & Upper Chest -->
+          <path d="M 125,330 C 135,270 170,258 200,258 C 230,258 265,270 275,330 L 305,520 L 95,520 Z" fill="${skinTone}" />
+          <!-- Left Upper Arm -->
+          <path d="M 125,330 C 115,360 105,420 95,520 L 140,520 C 145,430 150,370 155,330 Z" fill="${skinTone}" />
+          <!-- Right Upper Arm -->
+          <path d="M 275,330 C 285,360 295,420 305,520 L 260,520 C 255,430 250,370 245,330 Z" fill="${skinTone}" />
           <!-- Neck -->
-          <polygon points="184,240 216,240 220,290 180,290" fill="${this.shadeColor(skinTone, -8)}" />
-          <polygon points="188,248 212,248 216,285 184,285" fill="${skinTone}" />
-          <!-- Shoulders & Upper Body -->
-          <path d="M 140,330 C 145,280 180,270 200,270 C 220,270 255,280 260,330 L 275,500 L 125,500 Z" fill="${skinTone}" />
+          <polygon points="182,230 218,230 224,285 176,285" fill="${skinShadow}" />
+          <polygon points="185,235 215,235 220,280 180,280" fill="${skinTone}" />
+          <!-- Collarbone lines -->
+          <path d="M 170,285 Q 185,292 200,288 Q 215,292 230,285" stroke="${skinShadow}" stroke-width="2" fill="none" stroke-linecap="round" />
         </g>
 
-        <!-- CLOTHES / OUTFIT -->
-        <g id="outfit">
-          ${this.renderOutfit(app.outfit)}
+        <!-- 3. CLOTHING & SLEEVES -->
+        <g id="${pfx}_outfit">
+          ${this.renderOutfit(app.outfit, skinTone)}
         </g>
 
-        <!-- HEAD & FACE -->
-        <g id="head-base">
-          <!-- Face Contour -->
-          <path d="M 140,160 C 135,215 170,265 200,268 C 230,265 265,215 260,160 C 255,100 145,100 140,160 Z" fill="${skinTone}" />
-          <!-- Chin Shadow -->
-          <path d="M 175,255 C 190,264 210,264 225,255 C 210,268 190,268 175,255 Z" fill="${shadowColor}" />
-          
+        <!-- 4. HEAD BASE -->
+        <g id="${pfx}_head_base">
+          <!-- Head Silhouette (Full round cranium and cheeks) -->
+          <path d="M 134,165 C 128,110 160,82 200,82 C 240,82 272,110 266,165 C 262,215 232,258 200,262 C 168,258 138,215 134,165 Z" fill="${skinTone}" />
+          <!-- Chin drop-shadow onto neck -->
+          <path d="M 172,254 C 188,264 212,264 228,254 C 215,268 185,268 172,254 Z" fill="${skinShadow}" />
           <!-- Ears -->
-          <path d="M 137,175 C 128,175 125,190 133,200 C 137,195 138,185 137,175 Z" fill="${skinTone}" />
-          <path d="M 263,175 C 272,175 275,190 267,200 C 263,195 262,185 263,175 Z" fill="${skinTone}" />
+          <path d="M 135,170 C 124,170 122,192 133,200 C 136,192 136,178 135,170 Z" fill="${skinTone}" />
+          <path d="M 265,170 C 276,170 278,192 267,200 C 264,192 264,178 265,170 Z" fill="${skinTone}" />
+          <!-- Inner ear pink touch -->
+          <path d="M 132,176 C 126,178 126,190 132,194" stroke="#ffb8c6" stroke-width="2" fill="none" />
+          <path d="M 268,176 C 274,178 274,190 268,194" stroke="#ffb8c6" stroke-width="2" fill="none" />
 
-          <!-- Blush cheeks -->
+          <!-- Cheeks Blush -->
           ${this.renderBlush(mood, blushColor)}
         </g>
 
-        <!-- EYES & EYEBROWS -->
-        <g id="eyes" class="avatar-eyes-group">
+        <!-- 5. EYES & BROWS -->
+        <g id="${pfx}_eyes" class="avatar-eyes-group">
           ${this.renderEyebrows(mood)}
-          ${this.renderEyes(mood, eyeColor)}
+          ${this.renderEyes(mood, eyeColor, pfx)}
         </g>
 
-        <!-- NOSE -->
-        <circle cx="200" cy="198" r="1.5" fill="#e0a39a" />
-
-        <!-- MOUTH -->
-        <g id="mouth" class="avatar-mouth">
+        <!-- 6. NOSE & MOUTH -->
+        <circle cx="200" cy="198" r="1.8" fill="#e29b93" />
+        <g id="${pfx}_mouth" class="avatar-mouth">
           ${this.renderMouth(mood)}
         </g>
 
-        <!-- BANGS & FRONT HAIR -->
-        <g id="front-hair">
-          ${this.renderFrontHair(app.hairstyle, hairColor)}
+        <!-- 7. BANGS & FRONT HAIR -->
+        <g id="${pfx}_front_hair">
+          ${this.renderFrontHair(app.hairstyle, hairColor, pfx)}
         </g>
 
-        <!-- ACCESSORIES -->
-        <g id="accessory">
-          ${this.renderAccessory(app.accessory)}
+        <!-- 8. ACCESSORIES -->
+        <g id="${pfx}_accessory">
+          ${this.renderAccessory(app.accessory, pfx, hairColor)}
         </g>
 
-        <!-- YANDERE DARK VIGNETTE EFFECT -->
+        <!-- 9. YANDERE VIGNETTE SHADOW -->
         ${mood === 'yandere' ? `
-          <rect x="0" y="0" width="400" height="230" fill="url(#yandereShadow)" opacity="0.35" pointer-events="none" />
-          <defs>
-            <linearGradient id="yandereShadow" x1="0" y1="0" x2="0" y2="100%">
-              <stop offset="0%" stop-color="#110008" stop-opacity="0.9" />
-              <stop offset="100%" stop-color="#ff0044" stop-opacity="0" />
-            </linearGradient>
-          </defs>
+          <rect x="0" y="0" width="400" height="240" fill="url(#${pfx}_yandereShadow)" opacity="0.45" pointer-events="none" />
         ` : ''}
       </svg>
     `;
   }
 
-  renderBackHair(style, color) {
-    const dark = this.shadeColor(color, -20);
+  renderBackHair(style, color, pfx) {
+    const dark = this.shadeColor(color, -22);
+    // Common solid skull crown base so the head is never hollow
+    const crown = `<path d="M 124,165 C 118,85 282,85 276,165 C 285,210 275,250 265,270 L 135,270 C 125,250 115,210 124,165 Z" fill="url(#${pfx}_hairGrad)" />`;
+
     switch (style) {
       case 'twintails':
         return `
+          ${crown}
           <!-- Left Twintail -->
-          <path d="M 140,150 C 90,180 50,260 70,360 C 80,410 95,440 90,460 C 80,430 75,370 85,320 C 95,270 120,200 145,170 Z" fill="url(#hairGrad)" />
-          <path d="M 85,320 C 80,380 90,420 88,450 C 75,410 70,350 75,300 Z" fill="${dark}" />
+          <path d="M 130,135 C 75,150 40,240 55,340 C 65,410 90,470 82,510 C 68,460 55,390 62,320 C 70,250 100,170 135,145 Z" fill="url(#${pfx}_hairGrad)" />
+          <path d="M 70,330 C 60,400 78,460 76,495 C 64,450 56,380 65,310 Z" fill="${dark}" />
           <!-- Right Twintail -->
-          <path d="M 260,150 C 310,180 350,260 330,360 C 320,410 305,440 310,460 C 320,430 325,370 315,320 C 305,270 280,200 255,170 Z" fill="url(#hairGrad)" />
-          <path d="M 315,320 C 320,380 310,420 312,450 C 325,410 330,350 325,300 Z" fill="${dark}" />
+          <path d="M 270,135 C 325,150 360,240 345,340 C 335,410 310,470 318,510 C 332,460 345,390 338,320 C 330,250 300,170 265,145 Z" fill="url(#${pfx}_hairGrad)" />
+          <path d="M 330,330 C 340,400 322,460 324,495 C 336,450 344,380 335,310 Z" fill="${dark}" />
+          <!-- Twin Ribbon Ties -->
+          <circle cx="130" cy="138" r="7" fill="#ff4757" />
+          <circle cx="270" cy="138" r="7" fill="#ff4757" />
         `;
       case 'long':
         return `
-          <path d="M 130,150 C 110,210 100,320 115,460 C 140,470 170,475 200,475 C 230,475 260,470 285,460 C 300,320 290,210 270,150 Z" fill="url(#hairGrad)" />
-          <path d="M 115,460 C 150,470 250,470 285,460 C 275,440 260,340 270,220 C 255,300 240,400 200,410 C 160,400 145,300 130,220 Z" fill="${dark}" />
+          ${crown}
+          <!-- Long Flowing Silky Hair Falling Over Back and Shoulders -->
+          <path d="M 120,150 C 95,210 90,320 105,460 C 112,500 130,520 200,520 C 270,520 288,500 295,460 C 310,320 305,210 280,150 Z" fill="url(#${pfx}_hairGrad)" />
+          <!-- Deep shadow strands -->
+          <path d="M 105,460 C 135,485 170,490 200,490 C 230,490 265,485 295,460 C 285,420 280,310 290,200 C 270,280 250,420 200,430 C 150,420 130,280 110,200 C 120,310 115,420 105,460 Z" fill="${dark}" />
         `;
       case 'ponytail':
         return `
-          <path d="M 240,120 C 290,130 340,190 335,280 C 330,350 300,400 310,430 C 295,380 310,320 305,260 C 300,200 260,150 240,140 Z" fill="url(#hairGrad)" />
+          ${crown}
+          <!-- High Anime Side-Swept Ponytail -->
+          <path d="M 255,115 C 315,100 375,170 365,270 C 355,360 320,440 330,480 C 315,430 325,350 330,280 C 335,210 295,145 260,130 Z" fill="url(#${pfx}_hairGrad)" />
+          <circle cx="258" cy="120" r="9" fill="#ff6b81" />
         `;
       case 'wavy':
         return `
-          <path d="M 135,160 C 100,220 110,310 90,380 C 80,420 115,450 120,470 C 105,440 100,380 120,320 C 135,270 130,200 140,160 Z" fill="url(#hairGrad)" />
-          <path d="M 265,160 C 300,220 290,310 310,380 C 320,420 285,450 280,470 C 295,440 300,380 280,320 C 265,270 270,200 260,160 Z" fill="url(#hairGrad)" />
+          ${crown}
+          <!-- Wavy / Luscious Locks -->
+          <path d="M 125,160 C 85,220 95,310 75,390 C 65,435 95,480 105,510 C 90,460 85,400 100,330 C 115,270 115,200 130,165 Z" fill="url(#${pfx}_hairGrad)" />
+          <path d="M 275,160 C 315,220 305,310 325,390 C 335,435 305,480 295,510 C 310,460 315,400 300,330 C 285,270 285,200 270,165 Z" fill="url(#${pfx}_hairGrad)" />
         `;
       case 'short_bob':
       default:
         return `
-          <path d="M 135,150 C 120,200 125,250 140,280 C 160,290 240,290 260,280 C 275,250 280,200 265,150 Z" fill="url(#hairGrad)" />
+          ${crown}
+          <!-- Cute Curved Bob Framing Neck -->
+          <path d="M 125,150 C 110,210 115,280 135,315 C 160,330 240,330 265,315 C 285,280 290,210 275,150 Z" fill="url(#${pfx}_hairGrad)" />
+          <path d="M 135,290 C 165,315 235,315 265,290 C 255,270 240,240 200,240 C 160,240 145,270 135,290 Z" fill="${dark}" />
         `;
     }
   }
 
-  renderFrontHair(style, color) {
-    const shine = 'rgba(255, 255, 255, 0.4)';
+  renderFrontHair(style, color, pfx) {
     return `
-      <!-- Hair Crown & Base -->
-      <path d="M 135,160 C 130,95 270,95 265,160 C 255,140 240,130 200,130 C 160,130 145,140 135,160 Z" fill="url(#hairGrad)" />
-      
-      <!-- Bangs -->
-      <path d="M 135,155 C 145,180 155,200 160,195 C 165,190 170,165 175,155 C 180,185 190,205 198,205 C 205,205 215,180 220,155 C 225,175 235,195 242,190 C 248,185 255,170 265,155 C 260,120 140,120 135,155 Z" fill="url(#hairGrad)" />
-      
-      <!-- Side Strands Framing Face -->
-      <path d="M 137,150 C 130,190 132,230 145,260 C 142,235 140,190 145,160 Z" fill="url(#hairGrad)" />
-      <path d="M 263,150 C 270,190 268,230 255,260 C 258,235 260,190 255,160 Z" fill="url(#hairGrad)" />
+      <!-- Hair Crown Dome -->
+      <path d="M 128,165 C 122,80 278,80 272,165 C 265,140 245,122 200,122 C 155,122 135,140 128,165 Z" fill="url(#${pfx}_hairGrad)" />
 
-      <!-- Anime Hair Gloss / Halo Highlight -->
-      <ellipse cx="200" cy="125" rx="55" ry="8" fill="${shine}" opacity="0.75" />
-      <path d="M 155,125 Q 200,118 245,125 Q 200,128 155,125 Z" fill="#ffffff" opacity="0.6" />
+      <!-- Layered Anime Bangs -->
+      <path d="M 130,155 C 138,185 146,205 152,198 C 158,190 162,165 168,155 C 174,188 184,210 192,208 C 200,206 208,182 214,155 C 220,182 230,208 238,202 C 246,196 250,175 260,155 C 270,140 130,140 130,155 Z" fill="url(#${pfx}_hairGrad)" />
+
+      <!-- Sidelocks framing face cheeks -->
+      <path d="M 130,150 C 120,200 124,250 142,280 C 136,245 132,195 140,155 Z" fill="url(#${pfx}_hairGrad)" />
+      <path d="M 270,150 C 280,200 276,250 258,280 C 264,245 268,195 260,155 Z" fill="url(#${pfx}_hairGrad)" />
+
+      <!-- Halo Shine Highlight -->
+      <ellipse cx="200" cy="122" rx="55" ry="7" fill="#ffffff" opacity="0.45" />
+      <path d="M 155,122 Q 200,116 245,122 Q 200,126 155,122 Z" fill="#ffffff" opacity="0.6" />
     `;
   }
 
-  renderOutfit(outfit) {
+  renderOutfit(outfit, skinTone) {
     switch (outfit) {
       case 'maid':
         return `
-          <!-- Maid Dress (Black & White Frills) -->
-          <path d="M 155,285 L 245,285 L 265,420 L 135,420 Z" fill="#1e1e24" />
+          <!-- Maid Uniform: Black Dress + Puffed Sleeves + Frilly Apron -->
+          <!-- Puffed Sleeves -->
+          <ellipse cx="115" cy="335" rx="28" ry="24" fill="#1e1e24" />
+          <ellipse cx="285" cy="335" rx="28" ry="24" fill="#1e1e24" />
+          <path d="M 92,345 Q 115,355 138,345" stroke="#ffffff" stroke-width="4" fill="none" />
+          <path d="M 262,345 Q 285,355 308,345" stroke="#ffffff" stroke-width="4" fill="none" />
+          
+          <!-- Black Bodice -->
+          <path d="M 138,300 L 262,300 L 285,520 L 115,520 Z" fill="#1e1e24" />
           <!-- White Pinafore Apron -->
-          <path d="M 175,285 L 225,285 L 235,420 L 165,420 Z" fill="#ffffff" />
-          <!-- Frills on straps -->
-          <path d="M 165,285 Q 160,330 170,380" stroke="#f1f2f6" stroke-width="6" fill="none" />
-          <path d="M 235,285 Q 240,330 230,380" stroke="#f1f2f6" stroke-width="6" fill="none" />
-          <!-- Collar & Maid Bow -->
-          <path d="M 185,280 L 200,295 L 215,280 Z" fill="#ffffff" />
-          <circle cx="200" cy="295" r="4" fill="#ff4757" />
-          <path d="M 200,295 L 188,305 L 195,315 L 200,300 L 205,315 L 212,305 Z" fill="#ff4757" />
+          <path d="M 165,300 L 235,300 L 248,520 L 152,520 Z" fill="#ffffff" />
+          <!-- Ruffled Apron Shoulder Straps -->
+          <path d="M 152,295 Q 146,340 156,410" stroke="#f1f2f6" stroke-width="8" fill="none" stroke-linecap="round" />
+          <path d="M 248,295 Q 254,340 244,410" stroke="#f1f2f6" stroke-width="8" fill="none" stroke-linecap="round" />
+          <!-- Collar Frills & Red Bow -->
+          <polygon points="182,290 200,310 218,290" fill="#ffffff" />
+          <circle cx="200" cy="310" r="5" fill="#ff4757" />
+          <polygon points="200,310 186,322 195,334 200,318 205,334 214,322" fill="#ff4757" />
         `;
       case 'kimono':
         return `
-          <!-- Japanese Summer Kimono / Yukata (Floral Indigo & Gold) -->
-          <path d="M 145,280 L 255,280 L 275,440 L 125,440 Z" fill="#2c3e50" />
-          <!-- Kimono Lapels (Crossed Right over Left) -->
-          <polygon points="160,280 200,335 240,280 225,280 200,315 175,280" fill="#ecf0f1" />
-          <polygon points="165,285 200,335 180,335 150,285" fill="#e74c3c" />
-          <!-- Obi Sash (Gold / Scarlet) -->
-          <rect x="155" y="340" width="90" height="35" rx="3" fill="#f1c40f" />
-          <rect x="155" y="352" width="90" height="10" fill="#e74c3c" />
-          <!-- Subtle Floral Blossoms on Fabric -->
-          <circle cx="150" cy="390" r="5" fill="#e84393" opacity="0.7" />
-          <circle cx="245" cy="410" r="6" fill="#e84393" opacity="0.7" />
-          <circle cx="160" cy="425" r="4" fill="#e84393" opacity="0.7" />
+          <!-- Traditional Japanese Summer Yukata / Kimono -->
+          <!-- Flowing Kimono Sleeves -->
+          <path d="M 125,320 L 70,440 L 125,520 L 145,390 Z" fill="#1e2c3a" />
+          <path d="M 275,320 L 330,440 L 275,520 L 255,390 Z" fill="#1e2c3a" />
+          <!-- Robe Body -->
+          <path d="M 135,290 L 265,290 L 285,520 L 115,520 Z" fill="#243447" />
+          <!-- Crossed Lapels (Right Over Left) -->
+          <polygon points="160,285 200,345 240,285 224,285 200,325 176,285" fill="#f5f6fa" />
+          <polygon points="166,290 200,345 180,345 152,290" fill="#e74c3c" />
+          <!-- Vibrant Golden Obi Sash -->
+          <rect x="140" y="360" width="120" height="48" rx="4" fill="#f1c40f" />
+          <rect x="140" y="378" width="120" height="12" fill="#e74c3c" />
+          <!-- Cherry Blossom Decals on Kimono -->
+          <circle cx="150" cy="440" r="6" fill="#ff7597" opacity="0.8" />
+          <circle cx="250" cy="460" r="7" fill="#ff7597" opacity="0.8" />
+          <circle cx="170" cy="490" r="5" fill="#ff7597" opacity="0.8" />
         `;
       case 'gothic':
         return `
-          <!-- Gothic Lolita (Dark Crimson & Velvet Black) -->
-          <path d="M 150,280 L 250,280 L 270,440 L 130,440 Z" fill="#140a10" />
-          <!-- Corset Lacing -->
-          <path d="M 175,285 L 225,285 L 220,380 L 180,380 Z" fill="#4a0e2e" />
-          <line x1="185" y1="300" x2="215" y2="315" stroke="#ff3860" stroke-width="2" />
-          <line x1="215" y1="300" x2="185" y2="315" stroke="#ff3860" stroke-width="2" />
-          <line x1="185" y1="325" x2="215" y2="340" stroke="#ff3860" stroke-width="2" />
-          <line x1="215" y1="325" x2="185" y2="340" stroke="#ff3860" stroke-width="2" />
-          <!-- Black Choker with Cross Gem -->
-          <rect x="186" y="260" width="28" height="6" rx="2" fill="#000000" />
-          <polygon points="200,263 203,266 200,269 197,266" fill="#ff0055" />
+          <!-- Gothic Lolita Velvet Dress -->
+          <!-- Puffed Gothic Sleeves -->
+          <ellipse cx="118" cy="335" rx="26" ry="24" fill="#12080e" />
+          <ellipse cx="282" cy="335" rx="26" ry="24" fill="#12080e" />
+          <!-- Velvet Bodice -->
+          <path d="M 138,295 L 262,295 L 285,520 L 115,520 Z" fill="#12080e" />
+          <!-- Crimson Corset Panel -->
+          <path d="M 170,305 L 230,305 L 222,420 L 178,420 Z" fill="#3a0c20" />
+          <!-- Corset Ribbon Cross-Lacing -->
+          <line x1="178" y1="325" x2="222" y2="345" stroke="#ff3860" stroke-width="2.5" />
+          <line x1="222" y1="325" x2="178" y2="345" stroke="#ff3860" stroke-width="2.5" />
+          <line x1="178" y1="360" x2="222" y2="380" stroke="#ff3860" stroke-width="2.5" />
+          <line x1="222" y1="360" x2="178" y2="380" stroke="#ff3860" stroke-width="2.5" />
+          <!-- Velvet Choker with Ruby Pendant -->
+          <rect x="184" y="254" width="32" height="7" rx="2" fill="#000000" />
+          <polygon points="200,258 204,262 200,266 196,262" fill="#ff0055" />
         `;
       case 'casual':
         return `
-          <!-- Cozy Oversized Hoodie -->
-          <path d="M 140,280 C 145,270 255,270 260,280 L 275,440 L 125,440 Z" fill="#6c5ce7" />
-          <!-- Hood neckline -->
-          <ellipse cx="200" cy="285" rx="35" ry="15" fill="#a29bfe" />
-          <ellipse cx="200" cy="283" rx="25" ry="10" fill="#5848c2" />
-          <!-- Hoodie Drawstrings -->
-          <path d="M 188,290 L 188,340" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
-          <path d="M 212,290 L 212,335" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
-          <circle cx="188" cy="342" r="2.5" fill="#ffffff" />
-          <circle cx="212" cy="337" r="2.5" fill="#ffffff" />
-          <!-- Cute pocket motif -->
-          <path d="M 170,370 L 230,370 L 225,410 L 175,410 Z" fill="#5848c2" opacity="0.6" rx="4" />
+          <!-- Cozy Oversized Lilac Hoodie -->
+          <!-- Slouchy Dropped Sleeves -->
+          <path d="M 125,310 C 110,350 95,420 85,520 L 138,520 C 142,430 148,360 152,310 Z" fill="#6c5ce7" />
+          <path d="M 275,310 C 290,350 305,420 315,520 L 262,520 C 258,430 252,360 248,310 Z" fill="#6c5ce7" />
+          <!-- Hoodie Torso -->
+          <path d="M 132,295 C 140,285 260,285 268,295 L 285,520 L 115,520 Z" fill="#6c5ce7" />
+          <!-- Hood Collar Neckline -->
+          <ellipse cx="200" cy="295" rx="42" ry="18" fill="#a29bfe" />
+          <ellipse cx="200" cy="293" rx="30" ry="12" fill="#5243b8" />
+          <!-- White Drawstrings -->
+          <path d="M 186,305 L 186,365" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" />
+          <path d="M 214,305 L 214,358" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round" />
+          <circle cx="186" cy="368" r="3" fill="#ffffff" />
+          <circle cx="214" cy="361" r="3" fill="#ffffff" />
+          <!-- Front Pocket -->
+          <path d="M 160,410 L 240,410 L 235,460 L 165,460 Z" fill="#5243b8" opacity="0.5" />
         `;
       case 'seifuku':
       default:
         return `
-          <!-- Japanese High School Sailor Uniform (Seifuku) -->
-          <path d="M 150,285 L 250,285 L 265,430 L 135,430 Z" fill="#ffffff" />
-          <!-- Navy Sailor Flap / Collar -->
-          <polygon points="175,280 200,320 225,280 255,280 260,330 230,340 200,325 170,340 140,330 145,280" fill="#2d3436" />
-          <!-- White Ribbon Stripes on Collar -->
-          <path d="M 148,322 L 170,332 L 195,318" stroke="#ffffff" stroke-width="1.5" fill="none" />
-          <path d="M 252,322 L 230,332 L 205,318" stroke="#ffffff" stroke-width="1.5" fill="none" />
-          <!-- Sailor Scarf / Red Ribbon Tie -->
-          <polygon points="194,318 206,318 209,355 200,370 191,355" fill="#ff4757" />
-          <circle cx="200" cy="320" r="4.5" fill="#d63031" />
+          <!-- Classic Japanese High School Sailor Uniform (Seifuku) -->
+          <!-- White Sleeves with Navy Trim -->
+          <path d="M 125,320 C 115,355 105,410 95,490 L 135,490 C 140,425 145,365 152,320 Z" fill="#ffffff" />
+          <path d="M 95,480 L 135,480 L 135,490 L 95,490 Z" fill="#2d3436" />
+          <path d="M 275,320 C 285,355 295,410 305,490 L 265,490 C 260,425 255,365 248,320 Z" fill="#ffffff" />
+          <path d="M 265,480 L 305,480 L 305,490 L 265,490 Z" fill="#2d3436" />
+          <!-- White Shirt Bodice -->
+          <path d="M 140,295 L 260,295 L 280,520 L 120,520 Z" fill="#ffffff" />
+          <!-- Sailor Navy Flap Collar -->
+          <polygon points="172,290 200,335 228,290 262,290 268,348 234,358 200,342 166,358 132,348 138,290" fill="#2d3436" />
+          <!-- Double White Trim Stripes on Sailor Flap -->
+          <path d="M 140,338 L 165,348 L 195,332" stroke="#ffffff" stroke-width="1.8" fill="none" />
+          <path d="M 260,338 L 235,348 L 205,332" stroke="#ffffff" stroke-width="1.8" fill="none" />
+          <!-- Red Ribbon Scarf Tie -->
+          <polygon points="193,332 207,332 210,375 200,392 190,375" fill="#ff4757" />
+          <circle cx="200" cy="336" r="5" fill="#d63031" />
         `;
     }
   }
@@ -1128,103 +1208,92 @@ class WaifuAvatar {
     const browColor = '#2d3436';
     switch (mood) {
       case 'pout':
-        // Angry / Tsundere slanted brows
         return `
-          <path d="M 160,165 Q 175,172 188,168" stroke="${browColor}" stroke-width="2.5" stroke-linecap="round" fill="none" />
-          <path d="M 240,165 Q 225,172 212,168" stroke="${browColor}" stroke-width="2.5" stroke-linecap="round" fill="none" />
+          <path d="M 158,166 Q 174,174 190,170" stroke="${browColor}" stroke-width="3" stroke-linecap="round" fill="none" />
+          <path d="M 242,166 Q 226,174 210,170" stroke="${browColor}" stroke-width="3" stroke-linecap="round" fill="none" />
         `;
       case 'blush':
-        // Shy arched brows
         return `
-          <path d="M 160,166 Q 173,161 188,166" stroke="${browColor}" stroke-width="2.5" stroke-linecap="round" fill="none" />
-          <path d="M 240,166 Q 227,161 212,166" stroke="${browColor}" stroke-width="2.5" stroke-linecap="round" fill="none" />
+          <path d="M 158,168 Q 172,162 190,168" stroke="${browColor}" stroke-width="2.6" stroke-linecap="round" fill="none" />
+          <path d="M 242,168 Q 228,162 210,168" stroke="${browColor}" stroke-width="2.6" stroke-linecap="round" fill="none" />
         `;
       case 'surprised':
-        // High raised brows
         return `
-          <path d="M 160,158 Q 175,152 188,158" stroke="${browColor}" stroke-width="2.5" stroke-linecap="round" fill="none" />
-          <path d="M 240,158 Q 225,152 212,158" stroke="${browColor}" stroke-width="2.5" stroke-linecap="round" fill="none" />
+          <path d="M 158,158 Q 174,150 190,158" stroke="${browColor}" stroke-width="2.6" stroke-linecap="round" fill="none" />
+          <path d="M 242,158 Q 226,150 210,158" stroke="${browColor}" stroke-width="2.6" stroke-linecap="round" fill="none" />
         `;
       case 'yandere':
-        // Slightly tense, lowered predatory brows
         return `
-          <path d="M 160,164 Q 175,160 188,166" stroke="${browColor}" stroke-width="2.8" stroke-linecap="round" fill="none" />
-          <path d="M 240,164 Q 225,160 212,166" stroke="${browColor}" stroke-width="2.8" stroke-linecap="round" fill="none" />
+          <path d="M 158,164 Q 175,160 190,167" stroke="${browColor}" stroke-width="3.2" stroke-linecap="round" fill="none" />
+          <path d="M 242,164 Q 225,160 210,167" stroke="${browColor}" stroke-width="3.2" stroke-linecap="round" fill="none" />
         `;
       case 'happy':
       default:
-        // Gentle relaxed brows
         return `
-          <path d="M 160,164 Q 175,161 188,164" stroke="${browColor}" stroke-width="2.2" stroke-linecap="round" fill="none" />
-          <path d="M 240,164 Q 225,161 212,164" stroke="${browColor}" stroke-width="2.2" stroke-linecap="round" fill="none" />
+          <path d="M 158,164 Q 174,160 190,164" stroke="${browColor}" stroke-width="2.5" stroke-linecap="round" fill="none" />
+          <path d="M 242,164 Q 226,160 210,164" stroke="${browColor}" stroke-width="2.5" stroke-linecap="round" fill="none" />
         `;
     }
   }
 
-  renderEyes(mood, eyeColor) {
+  renderEyes(mood, eyeColor, pfx) {
     if (mood === 'yandere') {
       return `
-        <!-- Left Eye (Yandere Glowing Iris with Heart Pupil) -->
-        <g id="eye-left">
-          <ellipse cx="174" cy="182" rx="14" ry="12" fill="#ffffff" />
-          <ellipse cx="174" cy="182" rx="11" ry="11" fill="url(#yandereGaze)" />
-          <!-- Eerie Heart / Concentric Pupil -->
-          <circle cx="174" cy="182" r="5" fill="#ff0055" />
-          <circle cx="174" cy="182" r="2.5" fill="#ffffff" opacity="0.9" />
-          <path d="M 160,175 C 166,170 182,170 188,175" stroke="#1e272e" stroke-width="3" fill="none" stroke-linecap="round" />
+        <!-- Left Eye: Yandere Crimson Glowing Iris & Heart Pupil -->
+        <g id="${pfx}_eye_l">
+          <ellipse cx="174" cy="183" rx="14" ry="13" fill="#ffffff" />
+          <ellipse cx="174" cy="183" rx="11" ry="11" fill="url(#${pfx}_yandereGrad)" />
+          <circle cx="174" cy="183" r="5" fill="#ff0055" />
+          <circle cx="174" cy="183" r="2" fill="#ffffff" opacity="0.9" />
+          <path d="M 158,175 C 166,169 184,169 190,175" stroke="#1a1a24" stroke-width="3.5" fill="none" stroke-linecap="round" />
         </g>
         <!-- Right Eye -->
-        <g id="eye-right">
-          <ellipse cx="226" cy="182" rx="14" ry="12" fill="#ffffff" />
-          <ellipse cx="226" cy="182" rx="11" ry="11" fill="url(#yandereGaze)" />
-          <circle cx="226" cy="182" r="5" fill="#ff0055" />
-          <circle cx="226" cy="182" r="2.5" fill="#ffffff" opacity="0.9" />
-          <path d="M 212,175 C 218,170 234,170 240,175" stroke="#1e272e" stroke-width="3" fill="none" stroke-linecap="round" />
+        <g id="${pfx}_eye_r">
+          <ellipse cx="226" cy="183" rx="14" ry="13" fill="#ffffff" />
+          <ellipse cx="226" cy="183" rx="11" ry="11" fill="url(#${pfx}_yandereGrad)" />
+          <circle cx="226" cy="183" r="5" fill="#ff0055" />
+          <circle cx="226" cy="183" r="2" fill="#ffffff" opacity="0.9" />
+          <path d="M 210,175 C 216,169 234,169 242,175" stroke="#1a1a24" stroke-width="3.5" fill="none" stroke-linecap="round" />
         </g>
       `;
     }
 
     if (mood === 'happy') {
-      // Smiling closed crescent anime eyes
       return `
-        <g id="eye-left">
-          <path d="M 162,185 Q 174,173 186,185" stroke="#2d3436" stroke-width="3.5" stroke-linecap="round" fill="none" />
-          <!-- Cute lash -->
-          <line x1="185" y1="184" x2="190" y2="180" stroke="#2d3436" stroke-width="2.5" stroke-linecap="round" />
+        <!-- Smiling Closed Anime Crescent Eyes -->
+        <g id="${pfx}_eye_l">
+          <path d="M 160,185 Q 174,172 188,185" stroke="#2d3436" stroke-width="3.8" stroke-linecap="round" fill="none" />
+          <line x1="187" y1="184" x2="192" y2="179" stroke="#2d3436" stroke-width="2.5" stroke-linecap="round" />
         </g>
-        <g id="eye-right">
-          <path d="M 214,185 Q 226,173 238,185" stroke="#2d3436" stroke-width="3.5" stroke-linecap="round" fill="none" />
-          <line x1="237" y1="184" x2="242" y2="180" stroke="#2d3436" stroke-width="2.5" stroke-linecap="round" />
+        <g id="${pfx}_eye_r">
+          <path d="M 212,185 Q 226,172 240,185" stroke="#2d3436" stroke-width="3.8" stroke-linecap="round" fill="none" />
+          <line x1="239" y1="184" x2="244" y2="179" stroke="#2d3436" stroke-width="2.5" stroke-linecap="round" />
         </g>
       `;
     }
 
     // Standard Open Sparkling Anime Eyes
     return `
-      <g id="eye-left">
-        <!-- Sclera -->
-        <ellipse cx="174" cy="184" rx="13" ry="12" fill="#ffffff" />
-        <!-- Iris -->
-        <ellipse cx="174" cy="184" rx="10" ry="11" fill="url(#eyeGrad)" />
-        <!-- Pupil -->
-        <ellipse cx="174" cy="184" rx="5" ry="6" fill="#1b1464" />
-        <!-- Highlights -->
-        <ellipse cx="171" cy="179" rx="3.5" ry="3.5" fill="#ffffff" />
-        <ellipse cx="177" cy="188" rx="1.8" ry="1.8" fill="#ffffff" opacity="0.8" />
+      <g id="${pfx}_eye_l">
+        <ellipse cx="174" cy="184" rx="14" ry="13" fill="#ffffff" />
+        <ellipse cx="174" cy="184" rx="11" ry="12" fill="url(#${pfx}_eyeGrad)" />
+        <ellipse cx="174" cy="184" rx="5" ry="6" fill="#120d36" />
+        <!-- Big highlight + secondary highlight -->
+        <ellipse cx="171" cy="179" rx="4" ry="4" fill="#ffffff" />
+        <ellipse cx="177" cy="189" rx="2" ry="2" fill="#ffffff" opacity="0.85" />
         <!-- Eyelash / Upper Lid -->
-        <path d="M 160,177 C 166,172 182,172 188,177" stroke="#2d3436" stroke-width="3.2" fill="none" stroke-linecap="round" />
-        <!-- Wing lash -->
-        <line x1="187" y1="176" x2="192" y2="173" stroke="#2d3436" stroke-width="2.5" stroke-linecap="round" />
+        <path d="M 158,177 C 165,171 183,171 190,177" stroke="#2d3436" stroke-width="3.5" fill="none" stroke-linecap="round" />
+        <line x1="189" y1="176" x2="194" y2="172" stroke="#2d3436" stroke-width="2.6" stroke-linecap="round" />
       </g>
 
-      <g id="eye-right">
-        <ellipse cx="226" cy="184" rx="13" ry="12" fill="#ffffff" />
-        <ellipse cx="226" cy="184" rx="10" ry="11" fill="url(#eyeGrad)" />
-        <ellipse cx="226" cy="184" rx="5" ry="6" fill="#1b1464" />
-        <ellipse cx="223" cy="179" rx="3.5" ry="3.5" fill="#ffffff" />
-        <ellipse cx="229" cy="188" rx="1.8" ry="1.8" fill="#ffffff" opacity="0.8" />
-        <path d="M 212,177 C 218,172 234,172 240,177" stroke="#2d3436" stroke-width="3.2" fill="none" stroke-linecap="round" />
-        <line x1="239" y1="176" x2="244" y2="173" stroke="#2d3436" stroke-width="2.5" stroke-linecap="round" />
+      <g id="${pfx}_eye_r">
+        <ellipse cx="226" cy="184" rx="14" ry="13" fill="#ffffff" />
+        <ellipse cx="226" cy="184" rx="11" ry="12" fill="url(#${pfx}_eyeGrad)" />
+        <ellipse cx="226" cy="184" rx="5" ry="6" fill="#120d36" />
+        <ellipse cx="223" cy="179" rx="4" ry="4" fill="#ffffff" />
+        <ellipse cx="229" cy="189" rx="2" ry="2" fill="#ffffff" opacity="0.85" />
+        <path d="M 210,177 C 217,171 235,171 242,177" stroke="#2d3436" stroke-width="3.5" fill="none" stroke-linecap="round" />
+        <line x1="241" y1="176" x2="246" y2="172" stroke="#2d3436" stroke-width="2.6" stroke-linecap="round" />
       </g>
     `;
   }
@@ -1232,107 +1301,102 @@ class WaifuAvatar {
   renderBlush(mood, blushColor) {
     if (mood === 'blush' || mood === 'pout') {
       return `
-        <!-- Intense Rosy Blush -->
-        <ellipse cx="158" cy="202" rx="14" ry="8" fill="${blushColor}" />
-        <ellipse cx="242" cy="202" rx="14" ry="8" fill="${blushColor}" />
-        <!-- Manga blush hatch lines -->
-        <line x1="150" y1="204" x2="155" y2="198" stroke="#ff4757" stroke-width="1.5" />
-        <line x1="155" y1="205" x2="160" y2="199" stroke="#ff4757" stroke-width="1.5" />
-        <line x1="160" y1="206" x2="165" y2="200" stroke="#ff4757" stroke-width="1.5" />
-        <line x1="235" y1="204" x2="240" y2="198" stroke="#ff4757" stroke-width="1.5" />
-        <line x1="240" y1="205" x2="245" y2="199" stroke="#ff4757" stroke-width="1.5" />
-        <line x1="245" y1="206" x2="250" y2="200" stroke="#ff4757" stroke-width="1.5" />
+        <!-- Intense Anime Blush -->
+        <ellipse cx="156" cy="204" rx="16" ry="9" fill="${blushColor}" />
+        <ellipse cx="244" cy="204" rx="16" ry="9" fill="${blushColor}" />
+        <!-- Manga hatch lines -->
+        <line x1="148" y1="205" x2="153" y2="199" stroke="#ff4757" stroke-width="1.6" />
+        <line x1="154" y1="206" x2="159" y2="200" stroke="#ff4757" stroke-width="1.6" />
+        <line x1="160" y1="207" x2="165" y2="201" stroke="#ff4757" stroke-width="1.6" />
+        <line x1="235" y1="205" x2="240" y2="199" stroke="#ff4757" stroke-width="1.6" />
+        <line x1="241" y1="206" x2="246" y2="200" stroke="#ff4757" stroke-width="1.6" />
+        <line x1="247" y1="207" x2="252" y2="201" stroke="#ff4757" stroke-width="1.6" />
       `;
     }
-    // Subtle natural blush
     return `
-      <ellipse cx="160" cy="202" rx="10" ry="5" fill="${blushColor}" opacity="0.6" />
-      <ellipse cx="240" cy="202" rx="10" ry="5" fill="${blushColor}" opacity="0.6" />
+      <ellipse cx="158" cy="204" rx="12" ry="6" fill="${blushColor}" opacity="0.6" />
+      <ellipse cx="242" cy="204" rx="12" ry="6" fill="${blushColor}" opacity="0.6" />
     `;
   }
 
   renderMouth(mood) {
     switch (mood) {
       case 'pout':
-        // Cute wavy pout / tsundere mouth
         return `
-          <path d="M 194,222 Q 198,220 200,222 Q 202,224 206,222" stroke="#d63031" stroke-width="2.5" stroke-linecap="round" fill="none" />
+          <path d="M 193,222 Q 197,219 200,222 Q 203,225 207,222" stroke="#d63031" stroke-width="2.8" stroke-linecap="round" fill="none" />
         `;
       case 'blush':
-        // Tiny shy open mouth
         return `
-          <path d="M 196,220 Q 200,225 204,220 Z" fill="#ff7675" stroke="#d63031" stroke-width="1.2" />
+          <path d="M 195,221 Q 200,226 205,221 Z" fill="#ff7675" stroke="#d63031" stroke-width="1.2" />
         `;
       case 'surprised':
-        // Round open mouth
         return `
-          <ellipse cx="200" cy="223" rx="4" ry="6" fill="#ff7675" stroke="#d63031" stroke-width="1.5" />
+          <ellipse cx="200" cy="224" rx="4.5" ry="6.5" fill="#ff7675" stroke="#d63031" stroke-width="1.5" />
         `;
       case 'happy':
-        // Open cheerful smile showing tongue
         return `
-          <path d="M 192,218 Q 200,228 208,218 Z" fill="#e84118" />
-          <path d="M 195,223 Q 200,221 205,223 Q 200,227 195,223 Z" fill="#ff7675" />
+          <path d="M 191,218 Q 200,229 209,218 Z" fill="#e84118" />
+          <path d="M 194,223 Q 200,221 206,223 Q 200,227 194,223 Z" fill="#ff7675" />
         `;
       case 'yandere':
-        // Eerie wide playful smile
         return `
-          <path d="M 190,217 Q 200,227 210,217" stroke="#800020" stroke-width="2.5" stroke-linecap="round" fill="none" />
+          <path d="M 189,217 Q 200,228 211,217" stroke="#800020" stroke-width="2.6" stroke-linecap="round" fill="none" />
         `;
       case 'neutral':
       default:
-        // Gentle subtle smile
         return `
-          <path d="M 194,220 Q 200,224 206,220" stroke="#d63031" stroke-width="2" stroke-linecap="round" fill="none" />
+          <path d="M 193,220 Q 200,225 207,220" stroke="#d63031" stroke-width="2.2" stroke-linecap="round" fill="none" />
         `;
     }
   }
 
-  renderAccessory(acc) {
+  renderAccessory(acc, pfx, hairColor) {
     switch (acc) {
       case 'cat_ears':
         return `
-          <!-- Nekomimi / Fluffy Anime Cat Ears -->
-          <path d="M 130,120 L 115,70 L 160,95 Z" fill="url(#hairGrad)" />
-          <path d="M 130,110 L 123,80 L 150,97 Z" fill="#ff99bb" />
-          <path d="M 270,120 L 285,70 L 240,95 Z" fill="url(#hairGrad)" />
-          <path d="M 270,110 L 277,80 L 250,97 Z" fill="#ff99bb" />
+          <!-- Fluffy Nekomimi Cat Ears -->
+          <path d="M 125,125 L 110,65 L 160,95 Z" fill="url(#${pfx}_hairGrad)" />
+          <path d="M 125,115 L 118,75 L 150,98 Z" fill="#ff99bb" />
+          <circle cx="120" cy="118" r="3.5" fill="#f1c40f" />
+          <path d="M 275,125 L 290,65 L 240,95 Z" fill="url(#${pfx}_hairGrad)" />
+          <path d="M 275,115 L 282,75 L 250,98 Z" fill="#ff99bb" />
+          <circle cx="280" cy="118" r="3.5" fill="#f1c40f" />
         `;
       case 'glasses':
         return `
-          <!-- Red Rim Anime Glasses -->
-          <rect x="156" y="172" width="34" height="22" rx="6" fill="rgba(255,255,255,0.25)" stroke="#ff4757" stroke-width="2.5" />
-          <rect x="210" y="172" width="34" height="22" rx="6" fill="rgba(255,255,255,0.25)" stroke="#ff4757" stroke-width="2.5" />
-          <line x1="190" y1="182" x2="210" y2="182" stroke="#ff4757" stroke-width="2.5" />
-          <!-- Glare line on lenses -->
-          <line x1="162" y1="176" x2="175" y2="188" stroke="#ffffff" stroke-width="1.8" opacity="0.8" />
-          <line x1="216" y1="176" x2="229" y2="188" stroke="#ffffff" stroke-width="1.8" opacity="0.8" />
+          <!-- Stylish Red-Rim Anime Glasses with Lens Glare -->
+          <rect x="154" y="171" width="36" height="24" rx="7" fill="rgba(255,255,255,0.22)" stroke="#ff4757" stroke-width="2.8" />
+          <rect x="210" y="171" width="36" height="24" rx="7" fill="rgba(255,255,255,0.22)" stroke="#ff4757" stroke-width="2.8" />
+          <line x1="190" y1="181" x2="210" y2="181" stroke="#ff4757" stroke-width="2.8" />
+          <line x1="160" y1="176" x2="174" y2="190" stroke="#ffffff" stroke-width="2" opacity="0.85" />
+          <line x1="216" y1="176" x2="230" y2="190" stroke="#ffffff" stroke-width="2" opacity="0.85" />
         `;
       case 'headphones':
         return `
-          <!-- Cyberpunk / Anime Headset -->
-          <path d="M 130,150 C 130,80 270,80 270,150" stroke="#00d2d3" stroke-width="5" fill="none" />
-          <rect x="120" y="165" width="16" height="35" rx="8" fill="#1e272e" stroke="#00d2d3" stroke-width="2.5" />
-          <rect x="264" y="165" width="16" height="35" rx="8" fill="#1e272e" stroke="#00d2d3" stroke-width="2.5" />
-          <!-- Glowing Ear Indicator -->
-          <circle cx="128" cy="182" r="3.5" fill="#00d2d3" />
-          <circle cx="272" cy="182" r="3.5" fill="#00d2d3" />
+          <!-- Cyberpunk / Gaming Headset -->
+          <path d="M 125,150 C 125,75 275,75 275,150" stroke="#00d2d3" stroke-width="6" fill="none" />
+          <rect x="115" y="165" width="18" height="38" rx="8" fill="#1e272e" stroke="#00d2d3" stroke-width="2.5" />
+          <rect x="267" y="165" width="18" height="38" rx="8" fill="#1e272e" stroke="#00d2d3" stroke-width="2.5" />
+          <circle cx="124" cy="184" r="4" fill="#00d2d3" />
+          <circle cx="276" cy="184" r="4" fill="#00d2d3" />
         `;
       case 'ribbon':
-      default:
         return `
-          <!-- Cute Hair Ribbon / Bow -->
-          <circle cx="150" cy="130" r="4" fill="#ff4757" />
-          <path d="M 150,130 L 135,118 L 138,135 Z" fill="#ff6b81" />
-          <path d="M 150,130 L 165,118 L 162,135 Z" fill="#ff6b81" />
-          <path d="M 150,130 L 140,146 L 148,142 Z" fill="#ff4757" />
-          <path d="M 150,130 L 158,148 L 153,142 Z" fill="#ff4757" />
+          <!-- Cute Hair Bow Ribbon -->
+          <circle cx="150" cy="130" r="5" fill="#ff4757" />
+          <path d="M 150,130 L 132,116 L 136,136 Z" fill="#ff6b81" />
+          <path d="M 150,130 L 168,116 L 164,136 Z" fill="#ff6b81" />
+          <path d="M 150,130 L 138,148 L 148,143 Z" fill="#ff4757" />
+          <path d="M 150,130 L 162,148 L 152,143 Z" fill="#ff4757" />
         `;
+      case 'none':
+      default:
+        return '';
     }
   }
 
   shadeColor(color, percent) {
-    if (!color.startsWith('#')) return color;
+    if (!color || !color.startsWith('#')) return color || '#ff7597';
     let num = parseInt(color.slice(1), 16);
     if (isNaN(num)) return color;
     let amt = Math.round(2.55 * percent);
@@ -1437,7 +1501,7 @@ You are ${name}, an anime waifu companion with the ${persona.toUpperCase()} pers
 
   /* --- Source: js/waifu/dialogue.js --- */
 
-// Dialogue Engine with Context Awareness and Fallback Processing
+// Dialogue Engine with Rich Offline Fallbacks, Context Awareness & Dynamic Reply Chips
 
 
 class DialogueEngine {
@@ -1455,36 +1519,27 @@ class DialogueEngine {
     const persona = getPersonality(state.waifu.personality);
     const personaId = state.waifu.personality;
 
-    // Check if user is asking about schedule or tasks
+    // 1. Check if user is asking about schedule or tasks
     if (this.isScheduleIntent(lower)) {
-      const today = new Date();
-      const events = state.calendar.events.filter(e => {
-        const start = new Date(e.start);
-        return start.getFullYear() === today.getFullYear() &&
-               start.getMonth() === today.getMonth() &&
-               start.getDate() === today.getDate();
-      });
-      const eventsCount = events.filter(e => e.type === 'event').length;
-      const tasksCount = events.filter(e => e.type === 'task' && !e.completed).length;
-
-      const review = persona.scheduleReview(eventsCount, tasksCount);
-      this.respond(review.text, review.mood);
-      return review;
+      const scheduleResult = this.generateScheduleResponse(state, personaId, persona);
+      this.respond(scheduleResult.text, scheduleResult.mood, scheduleResult.suggestions);
+      return scheduleResult;
     }
 
-    // Try optional LLM if configured
+    // 2. Try optional LLM if configured and an API key exists
     if (state.settings.llmProvider !== 'none' && state.settings.llmApiKey) {
       const llmResult = await callLLM(text, state);
       if (llmResult) {
         const inferredMood = this.inferMood(llmResult, personaId);
-        this.respond(llmResult, inferredMood);
-        return { text: llmResult, mood: inferredMood };
+        const dynamicSuggestions = this.generateContextualSuggestions(lower, personaId);
+        this.respond(llmResult, inferredMood, dynamicSuggestions);
+        return { text: llmResult, mood: inferredMood, suggestions: dynamicSuggestions };
       }
     }
 
-    // Offline Persona Dialogue Processor
+    // 3. Fallback to Extensive Pre-Made Responses and Replies
     const localReply = this.generateOfflineReply(lower, personaId, persona);
-    this.respond(localReply.text, localReply.mood);
+    this.respond(localReply.text, localReply.mood, localReply.suggestions);
     return localReply;
   }
 
@@ -1492,26 +1547,148 @@ class DialogueEngine {
     return text.includes('schedule') || 
            text.includes('calendar') || 
            text.includes('today') || 
-           text.includes('tasks') || 
+           text.includes('task') || 
            text.includes('plans') || 
            text.includes('agenda') || 
            text.includes('what do i have');
   }
 
+  generateScheduleResponse(state, personaId, persona) {
+    const today = new Date();
+    const isSameDay = (d1, d2) => 
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate();
+
+    const todayEvents = state.calendar.events.filter(e => isSameDay(new Date(e.start), today));
+    const events = todayEvents.filter(e => e.type === 'event');
+    const tasks = todayEvents.filter(e => e.type === 'task');
+    const pendingTasks = tasks.filter(t => !t.completed);
+    const completedTasks = tasks.filter(t => t.completed);
+
+    let details = '';
+    if (todayEvents.length > 0) {
+      const titles = todayEvents.map(e => `• ${e.title} (${e.type}${e.completed ? ' - Done' : ''})`).slice(0, 3).join(' ');
+      details = ` Upcoming: ${titles}`;
+    }
+
+    let text = '';
+    let mood = persona.defaultMood;
+
+    switch (personaId) {
+      case 'tsundere':
+        if (todayEvents.length === 0) {
+          text = "Your calendar is completely empty today! Don't you dare slack off all day, baka! Go add something productive right now!";
+          mood = 'pout';
+        } else {
+          text = `H-Hmph! You have ${events.length} event${events.length === 1 ? '' : 's'} and ${pendingTasks.length} pending task${pendingTasks.length === 1 ? '' : 's'} today.${details} Don't make me nag you about them, idiot!`;
+          mood = 'pout';
+        }
+        break;
+
+      case 'kuudere':
+        text = `Agenda parsed: ${events.length} event(s), ${pendingTasks.length} pending task(s), and ${completedTasks.length} completed task(s).${details} Execution status: pending user action.`;
+        mood = 'neutral';
+        break;
+
+      case 'yandere':
+        text = `You have ${todayEvents.length} items on your calendar today...${details} Make sure you finish them all swiftly, darling, so nobody steals your attention from ME~`;
+        mood = 'yandere';
+        break;
+
+      case 'deredere':
+        text = `Woohoo! Today's mission: ${events.length} fun event(s) and ${pendingTasks.length} exciting task(s) to conquer!${details} You've got this, superstar! I'm cheering for you! 🌟`;
+        mood = 'happy';
+        break;
+
+      case 'dandere':
+        text = `U-Um... looking at today's schedule... you have ${events.length} event(s) and ${pendingTasks.length} task(s)...${details} P-Please do your best, I'll be quietly supporting you...`;
+        mood = 'blush';
+        break;
+    }
+
+    return {
+      text,
+      mood,
+      suggestions: [
+        "I finished a task!",
+        "Cheer me on!",
+        "What should I do next?",
+        "You look cute today"
+      ]
+    };
+  }
+
   generateOfflineReply(lower, personaId, persona) {
     // Compliments / Love
-    if (lower.includes('love you') || lower.includes('cute') || lower.includes('pretty') || lower.includes('marry') || lower.includes('beautiful')) {
+    if (lower.includes('love') || lower.includes('cute') || lower.includes('pretty') || lower.includes('marry') || lower.includes('beautiful') || lower.includes('adorable')) {
       switch (personaId) {
         case 'tsundere':
-          return { text: "W-WHAT?! What are you blabbering about, dummy?! Don't just say things like that with a straight face! ...B-Baka!", mood: 'blush' };
+          return {
+            text: "W-WHAT?! What are you blabbering about, dummy?! Don't just say things like that with a straight face! ...B-Baka!",
+            mood: 'blush',
+            suggestions: ["You're blushing!", "It's true though", "Review my schedule", "Headpat"]
+          };
         case 'kuudere':
-          return { text: "Compliment received. Heart rate telemetry indicates unexpected elevation... Please refrain from causing system anomalies.", mood: 'blush' };
+          return {
+            text: "Compliment registered. Heart rate telemetry indicates unexpected elevation... Please refrain from causing uncalibrated emotional spikes.",
+            mood: 'blush',
+            suggestions: ["Did I make you nervous?", "You're doing great", "Check schedule", "Thank you"]
+          };
         case 'yandere':
-          return { text: "I love you more, darling! Forever and ever! You will never leave me, right? Never, ever, ever~!", mood: 'yandere' };
+          return {
+            text: "I love you more, darling! Forever and ever and ever! You will never ever look at anyone else, right? NEVER~!",
+            mood: 'yandere',
+            suggestions: ["Only you, darling", "What are you doing today?", "Review schedule", "Headpat"]
+          };
         case 'deredere':
-          return { text: "Awwww! I love you so much too!! You just made my entire heart explode into sparkles! ✨🥰", mood: 'happy' };
+          return {
+            text: "Awwww! I love you so much too!! You just made my entire heart explode into magical sparkles! ✨🥰",
+            mood: 'happy',
+            suggestions: ["High five!", "Let's do our best!", "Check calendar", "Tell me a joke"]
+          };
         case 'dandere':
-          return { text: "U-Um... y-you really think that about me...? M-My heart feels like it's going to burst... thank you...", mood: 'blush' };
+          return {
+            text: "U-Um... y-you really think that about me...? M-My heart feels like it's going to burst... thank you so much...",
+            mood: 'blush',
+            suggestions: ["You're precious", "Headpat", "Review schedule", "Are you happy?"]
+          };
+      }
+    }
+
+    // Task completion feedback
+    if (lower.includes('done') || lower.includes('finished') || lower.includes('completed') || lower.includes('i did it')) {
+      switch (personaId) {
+        case 'tsundere':
+          return {
+            text: "Hmph! Well... I guess you're not completely useless after all. Good job... dummy. Don't let it go to your head!",
+            mood: 'blush',
+            suggestions: ["Give me praise!", "What's next on calendar?", "Headpat", "Thanks Akari!"]
+          };
+        case 'kuudere':
+          return {
+            text: "Task completion logged into telemetry. Productivity quotient increased. Outstanding performance.",
+            mood: 'happy',
+            suggestions: ["Check next task", "Time for a break?", "Review schedule", "Headpat"]
+          };
+        case 'yandere':
+          return {
+            text: "You finished it for ME?! Ahaha, you're the most wonderful darling in existence! Now give all your attention to me~",
+            mood: 'yandere',
+            suggestions: ["All for you~", "Check calendar", "You're cute", "Headpat"]
+          };
+        case 'deredere':
+          return {
+            text: "OMG YAAAY!! 🎉 Look at you go, absolute productivity champion! High five!! I'm so proud of you!!",
+            mood: 'happy',
+            suggestions: ["High five!", "What's my next task?", "You're the best!", "Time for coffee"]
+          };
+        case 'dandere':
+          return {
+            text: "U-Um, you finished it! That's... that's so impressive! You always work so earnestly, I admire you so much...",
+            mood: 'blush',
+            suggestions: ["Thank you!", "Headpat", "Check calendar", "How are you feeling?"]
+          };
       }
     }
 
@@ -1519,98 +1696,199 @@ class DialogueEngine {
     if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey') || lower.includes('konnichiwa') || lower.includes('ohayo')) {
       switch (personaId) {
         case 'tsundere':
-          return { text: "Oh, you finally decided to say hi? What do you want, baka?", mood: 'pout' };
+          return {
+            text: "Oh, you finally decided to say hi? What do you want, baka? Don't tell me you forgot your tasks already!",
+            mood: 'pout',
+            suggestions: ["What's my schedule today?", "You look cute!", "Poke", "Just wanted to say hi"]
+          };
         case 'kuudere':
-          return { text: "Salutations. Ready to proceed with current objectives.", mood: 'neutral' };
+          return {
+            text: "Salutations. System ready to assist with daily operations and schedule tracking.",
+            mood: 'neutral',
+            suggestions: ["Review today's schedule", "How are my tasks?", "Check efficiency", "Headpat"]
+          };
         case 'yandere':
-          return { text: "Hello darling! I missed you every single microsecond you were away~", mood: 'happy' };
+          return {
+            text: "Hello darling! I missed you every single microsecond you were away~ You didn't talk to any other girls, right?",
+            mood: 'happy',
+            suggestions: ["Only you!", "Review today's schedule", "You're cute", "Headpat"]
+          };
         case 'deredere':
-          return { text: "Yaaay, hi there! Super happy to see you right now! Let's have an awesome time! 🌸", mood: 'happy' };
+          return {
+            text: "Yaaay, hello superstar! Super happy to see you right now! Let's have an amazing and productive day! 🌸✨",
+            mood: 'happy',
+            suggestions: ["What's on my calendar?", "Let's conquer today!", "Tell me a joke", "You're awesome"]
+          };
         case 'dandere':
-          return { text: "H-Hello... it's really nice to hear your voice...", mood: 'blush' };
+          return {
+            text: "H-Hello... it's really gentle and nice to hear your voice today... u-um, how are you...?",
+            mood: 'blush',
+            suggestions: ["I'm doing well!", "Review schedule", "Headpat", "You look adorable"]
+          };
       }
     }
 
-    // Good night
-    if (lower.includes('good night') || lower.includes('sleep') || lower.includes('bed') || lower.includes('oyasumi')) {
+    // Tired / Stressed / Motivation
+    if (lower.includes('tired') || lower.includes('stressed') || lower.includes('exhausted') || lower.includes('motivation') || lower.includes('help me')) {
       switch (personaId) {
         case 'tsundere':
-          return { text: "Finally going to bed? Good! Stop ruining your sleep schedule! ...G-Good night.", mood: 'blush' };
+          return {
+            text: "Tired already?! ...Fine, take a short breather! Drink some water! It's not like I'm worried about you or anything, but don't collapse on me!",
+            mood: 'blush',
+            suggestions: ["Thanks for caring", "Check tasks", "Headpat", "I feel better now"]
+          };
         case 'kuudere':
-          return { text: "Sleep cycle sequence initiated. Rest well to maintain optimal performance tomorrow.", mood: 'neutral' };
+          return {
+            text: "Bio-telemetry indicates fatigue. Recommended protocol: 5 minutes of mindful respiration and hydration intake. I will maintain your post.",
+            mood: 'neutral',
+            suggestions: ["Taking a break now", "Review schedule", "Thanks for watching out", "Headpat"]
+          };
         case 'yandere':
-          return { text: "Good night my precious darling... I'll be in your dreams... and right beside your bed~", mood: 'yandere' };
+          return {
+            text: "Tired, darling? Lean your head right on my lap... I will stroke your hair forever and keep the outside world away from you~",
+            mood: 'yandere',
+            suggestions: ["Lap pillow sounds nice", "Check calendar", "You're sweet", "Headpat"]
+          };
         case 'deredere':
-          return { text: "Sweet dreams, superstar! Sleep tight and dream the cutest dreams! 🌙✨", mood: 'happy' };
+          return {
+            text: "Aww, you've been working so hard! Take a big stretch and a deep breath! You are doing amazing, and I'm sending you all my energy! 💖💪",
+            mood: 'happy',
+            suggestions: ["Thanks for cheering me up!", "Review calendar", "High five", "Headpat"]
+          };
         case 'dandere':
-          return { text: "U-Um... sleep softly tonight... I'll pray for your sweet dreams... good night...", mood: 'blush' };
+          return {
+            text: "U-Um... please don't push yourself beyond your limits... I-If you want, I can sit quietly beside you until you feel refreshed...",
+            mood: 'blush',
+            suggestions: ["Please stay with me", "Headpat", "Check schedule", "Thank you"]
+          };
       }
     }
 
-    // How are you
-    if (lower.includes('how are you') || lower.includes('how r u') || lower.includes("how's it going")) {
-      switch (personaId) {
-        case 'tsundere':
-          return { text: "I'm doing fine! Not that you need to be checking up on me or anything!", mood: 'pout' };
-        case 'kuudere':
-          return { text: "System diagnostics: 100% functional. Emotional state: nominal.", mood: 'neutral' };
-        case 'yandere':
-          return { text: "I'm always ecstatic whenever you're looking at me, darling~ As long as you stay with me!", mood: 'yandere' };
-        case 'deredere':
-          return { text: "I am feeling super duper energetic and ready for anything! Especially with you here! ☀️", mood: 'happy' };
-        case 'dandere':
-          return { text: "I-I'm doing well, thank you... talking with you always makes me feel calm...", mood: 'blush' };
-      }
-    }
-
-    // Teasing or baka
-    if (lower.includes('baka') || lower.includes('dummy') || lower.includes('stupid')) {
-      switch (personaId) {
-        case 'tsundere':
-          return { text: "WHO ARE YOU CALLING A BAKA?! You're the biggest baka in the whole universe!! 💢", mood: 'pout' };
-        case 'kuudere':
-          return { text: "Semantic insult detected. Ignored due to lack of factual accuracy.", mood: 'neutral' };
-        case 'yandere':
-          return { text: "Call me whatever you want, darling... your insults sound like love songs to me~", mood: 'yandere' };
-        case 'deredere':
-          return { text: "Hehe, no u! You silly goose! 😄", mood: 'happy' };
-        case 'dandere':
-          return { text: "D-Did I do something wrong...? I-I'm really sorry...", mood: 'blush' };
-      }
-    }
-
-    // Help or who are you
-    if (lower.includes('who are you') || lower.includes('what can you do') || lower.includes('help')) {
+    // Joke / Entertainment
+    if (lower.includes('joke') || lower.includes('funny') || lower.includes('laugh')) {
+      const jokes = [
+        "Why do anime characters make great programmers? Because they love to loop through their arcs! 🌸",
+        "Why did the calendar take a vacation? Because its days were numbered! 😄",
+        "What is an anime companion's favorite button on the keyboard? The Tab key, because you're always keeping tabs on me! ✨"
+      ];
+      const joke = jokes[Math.floor(Math.random() * jokes.length)];
       return {
-        text: `I'm ${this.store.get('waifu.name')}, your personal companion! You can manage events and tasks in the Calendar tab, customize my clothes and personality in Settings, change wallpapers, and chat with me anytime!`,
-        mood: 'happy'
+        text: joke,
+        mood: 'happy',
+        suggestions: ["Haha that was good!", "Tell another!", "Review schedule", "You're cute"]
       };
     }
 
-    // Default conversational responses
-    const defaultReplies = [
+    // Anime / Hobbies
+    if (lower.includes('anime') || lower.includes('manga') || lower.includes('game') || lower.includes('watch')) {
+      switch (personaId) {
+        case 'tsundere':
+          return {
+            text: "Anime recommendations? H-Hmph, Toradora is a classic masterpiece, obviously! Not that I relate to Taiga Aisaka or anything, baka!",
+            mood: 'pout',
+            suggestions: ["You're totally a tsundere!", "Check schedule", "What about gaming?", "Headpat"]
+          };
+        case 'kuudere':
+          return {
+            text: "Analysis indicates Steins;Gate, Violet Evergarden, and Frieren maintain optimal narrative and emotional coherence ratings.",
+            mood: 'neutral',
+            suggestions: ["Great choices", "Review schedule", "Headpat", "Tell me more"]
+          };
+        case 'yandere':
+          return {
+            text: "Future Diary (Mirai Nikki)! Gasai Yuno knows true devoted love! But my love for you is ten billion times stronger, darling~",
+            mood: 'yandere',
+            suggestions: ["A little scary but cute", "Check calendar", "You're sweet", "Headpat"]
+          };
+        case 'deredere':
+          return {
+            text: "Bocchi the Rock! and Spy x Family! They are so heartwarming and hilarious, they always put me in the best mood! 🍿✨",
+            mood: 'happy',
+            suggestions: ["I love those too!", "Check schedule", "High five!", "What's next?"]
+          };
+        case 'dandere':
+          return {
+            text: "U-Um... A Silent Voice (Koe no Katachi) and Komi Can't Communicate... they touch my heart so deeply...",
+            mood: 'blush',
+            suggestions: ["Beautiful picks", "Headpat", "Review schedule", "You have good taste"]
+          };
+      }
+    }
+
+    // Good night / Sleep
+    if (lower.includes('good night') || lower.includes('sleep') || lower.includes('bed') || lower.includes('oyasumi')) {
+      switch (personaId) {
+        case 'tsundere':
+          return {
+            text: "Finally going to bed? Good! Don't you dare stay up on your phone! ...G-Good night. Sleep well, idiot.",
+            mood: 'blush',
+            suggestions: ["Good night Akari", "See you tomorrow!", "Headpat", "Sweet dreams"]
+          };
+        case 'kuudere':
+          return {
+            text: "Sleep cycle sequence initiated. Sleep deprivation degrades next-day analytical throughput. Good night.",
+            mood: 'neutral',
+            suggestions: ["Good night", "See you tomorrow", "Headpat", "Rest well"]
+          };
+        case 'yandere':
+          return {
+            text: "Good night my precious darling... Dream only of me. I'll be watching over your soft breathing all night long~",
+            mood: 'yandere',
+            suggestions: ["Good night darling", "Sweet dreams", "Headpat", "See you tomorrow"]
+          };
+        case 'deredere':
+          return {
+            text: "Sweet dreams, superstar! Sleep super cozy and rest up for another awesome day tomorrow! 🌙✨💤",
+            mood: 'happy',
+            suggestions: ["Good night!", "Sweet dreams", "See you tomorrow!", "High five"]
+          };
+        case 'dandere':
+          return {
+            text: "U-Um... please have the sweetest dreams tonight... I'll pray for your peaceful rest... g-good night...",
+            mood: 'blush',
+            suggestions: ["Good night", "Sweet dreams", "Headpat", "Thank you"]
+          };
+      }
+    }
+
+    // Default conversational fallbacks
+    const conversationalPool = [
       {
-        tsundere: "Hmph! Well, if you say so. Just make sure you stay productive, okay?",
-        kuudere: "Acknowledged. Data point incorporated into contextual memory.",
-        yandere: "Anything you say is absolute law to me, darling. I'm listening to every breath~",
-        deredere: "Yay! That sounds super fun! Tell me more, tell me more! ✨",
-        dandere: "U-Um... yes... I'm listening carefully..."
+        tsundere: "Hmph! Well, if you say so. Just make sure you stay focused on your schedule, okay?",
+        kuudere: "Acknowledged. Observation cataloged into context memory.",
+        yandere: "Anything you say is pure music to my ears, darling... Keep talking to me forever~",
+        deredere: "Yay! That's so interesting! I love chatting with you so much! ✨",
+        dandere: "U-Um... yes... I'm listening very carefully to everything you say..."
       },
       {
-        tsundere: "Don't think this means we're best friends or anything! ...Though it's not bad talking with you.",
-        kuudere: "Interaction recorded. Your presence is deemed statistically pleasant.",
-        yandere: "Keep talking to me forever, darling... don't ever look away!",
-        deredere: "I totally agree! You always have the coolest thoughts! 🌟",
-        dandere: "I... I really like when we talk together like this..."
+        tsundere: "Don't think chatting with me gives you an excuse to slack off! But... it's not the worst thing in the world.",
+        kuudere: "Query evaluated. Interaction status: constructive and pleasant.",
+        yandere: "Your voice belongs to me, darling... Never speak to another girl like this~",
+        deredere: "Hehe! You always have the coolest thoughts! What should we tackle next?! 🌟",
+        dandere: "I... I really treasure when we share moments like this together..."
       }
     ];
 
-    const pick = defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
-    const defaultMood = persona.defaultMood || 'neutral';
+    const pick = conversationalPool[Math.floor(Math.random() * conversationalPool.length)];
     return {
       text: pick[personaId] || pick.tsundere,
-      mood: defaultMood
+      mood: persona.defaultMood,
+      suggestions: [
+        "Review today's schedule",
+        "How are you doing?",
+        "You look cute today",
+        "Tell me an anime recommendation"
+      ]
     };
+  }
+
+  generateContextualSuggestions(text, personaId) {
+    return [
+      "Review today's schedule",
+      "I finished a task!",
+      "You look cute today",
+      "Tell me a joke"
+    ];
   }
 
   inferMood(text, personaId) {
@@ -1625,9 +1903,14 @@ class DialogueEngine {
     return 'neutral';
   }
 
-  respond(text, mood) {
+  respond(text, mood, suggestions = null) {
     this.store.set('waifu.mood', mood);
-    this.store.addMessage('waifu', text, mood);
+    const msg = this.store.addMessage('waifu', text, mood);
+
+    // If suggestions provided, broadcast to UI
+    if (suggestions && suggestions.length > 0) {
+      this.store.notify('chat.suggestions', suggestions);
+    }
 
     // Speak via TTS if enabled
     if (this.speech) {
@@ -1867,7 +2150,7 @@ function downloadBlob(blob, filename) {
 
   /* --- Source: js/calendar/calendar.js --- */
 
-// Full Google Calendar Clone with Month, Week, and Day Views + Drag & Drop
+// Full Google Calendar Clone with Month, Week, Day Views, Resizing, Popover & Shortcuts
 
 
 class GoogleCalendar {
@@ -1877,7 +2160,9 @@ class GoogleCalendar {
     this.waifu = waifuDialogue;
     this.currentDate = new Date();
     this.selectedDate = new Date();
+    this.selectedEventId = null;
     this.currentView = this.store.get('calendar.view') || 'month';
+    this.searchQuery = '';
     this.dragDrop = new CalendarDragDrop(store, this);
 
     this.init();
@@ -1890,7 +2175,7 @@ class GoogleCalendar {
     this.renderMiniCalendar();
     this.renderTaskList();
 
-    // Re-render when calendar state updates
+    // Re-render when calendar events change
     this.store.subscribe('calendar.events', () => {
       this.renderMainCalendar();
       this.renderTaskList();
@@ -1901,6 +2186,9 @@ class GoogleCalendar {
       this.currentView = newView;
       this.renderMainCalendar();
     });
+
+    // Global keyboard shortcuts
+    window.addEventListener('keydown', (e) => this.handleKeyboardShortcuts(e));
   }
 
   renderShell() {
@@ -1909,16 +2197,22 @@ class GoogleCalendar {
         <!-- TOP TOOLBAR -->
         <header class="gcal-toolbar">
           <div class="gcal-toolbar-left">
-            <button class="gcal-btn gcal-btn-primary" id="gcal-create-btn">
+            <button class="gcal-btn gcal-btn-primary" id="gcal-create-btn" title="Shortcut: Press 'c'">
               <span class="btn-icon">➕</span>
               <span class="btn-text">Create</span>
             </button>
-            <button class="gcal-btn gcal-btn-outline" id="gcal-today-btn">Today</button>
+            <button class="gcal-btn gcal-btn-outline" id="gcal-today-btn" title="Shortcut: Press 't'">Today</button>
             <div class="gcal-nav-arrows">
               <button class="gcal-icon-btn" id="gcal-prev-btn" title="Previous">◀</button>
               <button class="gcal-icon-btn" id="gcal-next-btn" title="Next">▶</button>
             </div>
             <h2 class="gcal-title" id="gcal-title-display"></h2>
+          </div>
+
+          <!-- SEARCH BAR -->
+          <div class="gcal-search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="gcal-search-input" class="gcal-search-input" placeholder="Search events & tasks..." />
           </div>
 
           <div class="gcal-toolbar-right">
@@ -1927,9 +2221,9 @@ class GoogleCalendar {
               <span class="btn-text">Waifu Briefing</span>
             </button>
             <div class="gcal-view-selector">
-              <button class="view-btn ${this.currentView === 'month' ? 'active' : ''}" data-view="month">Month</button>
-              <button class="view-btn ${this.currentView === 'week' ? 'active' : ''}" data-view="week">Week</button>
-              <button class="view-btn ${this.currentView === 'day' ? 'active' : ''}" data-view="day">Day</button>
+              <button class="view-btn ${this.currentView === 'month' ? 'active' : ''}" data-view="month" title="Shortcut: 'm'">Month</button>
+              <button class="view-btn ${this.currentView === 'week' ? 'active' : ''}" data-view="week" title="Shortcut: 'w'">Week</button>
+              <button class="view-btn ${this.currentView === 'day' ? 'active' : ''}" data-view="day" title="Shortcut: 'd'">Day</button>
             </div>
             <div class="gcal-more-actions">
               <button class="gcal-icon-btn" id="gcal-export-btn" title="Export .ics Calendar">📅 ⬇️</button>
@@ -1949,7 +2243,7 @@ class GoogleCalendar {
 
             <!-- EVENT CATEGORIES FILTER -->
             <div class="gcal-category-box">
-              <h4 class="sidebar-heading">Calendars</h4>
+              <h4 class="sidebar-heading">My Calendars</h4>
               <label class="cal-filter-item">
                 <input type="checkbox" id="filter-events" checked />
                 <span class="filter-dot" style="background: #ff6584;"></span>
@@ -1982,6 +2276,26 @@ class GoogleCalendar {
 
           <!-- MAIN CALENDAR VIEW STAGE -->
           <main class="gcal-stage" id="gcal-stage"></main>
+        </div>
+      </div>
+
+      <!-- GOOGLE CALENDAR STYLE EVENT DETAILS POPOVER -->
+      <div class="gcal-popover" id="event-popover" style="display:none;">
+        <div class="popover-header">
+          <div class="popover-color-stripe" id="popover-color-stripe"></div>
+          <div class="popover-actions">
+            <button class="popover-btn" id="popover-toggle-task" title="Toggle Completed">✅</button>
+            <button class="popover-btn" id="popover-edit-btn" title="Edit Event">✏️</button>
+            <button class="popover-btn popover-btn-del" id="popover-del-btn" title="Delete Event (or press Del)">🗑️</button>
+            <button class="popover-btn" id="popover-close-btn" title="Close">✕</button>
+          </div>
+        </div>
+        <div class="popover-body">
+          <h3 class="popover-title" id="popover-title">Event Title</h3>
+          <div class="popover-time" id="popover-time">Date & Time</div>
+          <div class="popover-badge" id="popover-type-badge">Event</div>
+          <div class="popover-loc" id="popover-loc" style="display:none;"></div>
+          <div class="popover-desc" id="popover-desc" style="display:none;"></div>
         </div>
       </div>
 
@@ -2049,7 +2363,9 @@ class GoogleCalendar {
             </div>
 
             <div class="modal-actions">
-              <button type="button" class="gcal-btn gcal-btn-danger" id="modal-delete-btn" style="display:none;">Delete</button>
+              <button type="button" class="gcal-btn gcal-btn-danger" id="modal-delete-btn" style="display:none;">
+                🗑️ Delete Event
+              </button>
               <div style="flex:1;"></div>
               <button type="button" class="gcal-btn gcal-btn-outline" id="modal-cancel-btn">Cancel</button>
               <button type="submit" class="gcal-btn gcal-btn-primary" id="modal-save-btn">Save</button>
@@ -2071,9 +2387,16 @@ class GoogleCalendar {
       this.renderMiniCalendar();
     });
 
-    // View selector
+    // Search bar
+    const searchInput = this.container.querySelector('#gcal-search-input');
+    searchInput.addEventListener('input', (e) => {
+      this.searchQuery = e.target.value.toLowerCase().trim();
+      this.renderMainCalendar();
+    });
+
+    // View selector buttons
     this.container.querySelectorAll('.view-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', () => {
         this.container.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const view = btn.dataset.view;
@@ -2145,6 +2468,177 @@ class GoogleCalendar {
 
     // Modal bindings
     this.setupModalBindings();
+    this.setupPopoverBindings();
+  }
+
+  handleKeyboardShortcuts(e) {
+    // Ignore keyboard shortcuts if user is typing inside an input field
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
+      return;
+    }
+
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (this.selectedEventId) {
+        e.preventDefault();
+        this.deleteEventWithToast(this.selectedEventId);
+      }
+    } else if (e.key === 't' || e.key === 'T') {
+      this.currentDate = new Date();
+      this.selectedDate = new Date();
+      this.renderMainCalendar();
+      this.renderMiniCalendar();
+    } else if (e.key === 'm' || e.key === 'M') {
+      this.store.set('calendar.view', 'month');
+    } else if (e.key === 'w' || e.key === 'W') {
+      this.store.set('calendar.view', 'week');
+    } else if (e.key === 'd' || e.key === 'D') {
+      this.store.set('calendar.view', 'day');
+    } else if (e.key === 'c' || e.key === 'C') {
+      this.openEventModal(null, this.currentDate);
+    } else if (e.key === 'Escape') {
+      this.closePopover();
+      this.container.querySelector('#event-modal-overlay').classList.remove('active');
+    }
+  }
+
+  setupPopoverBindings() {
+    const popover = this.container.querySelector('#event-popover');
+    const closeBtn = popover.querySelector('#popover-close-btn');
+    const editBtn = popover.querySelector('#popover-edit-btn');
+    const delBtn = popover.querySelector('#popover-del-btn');
+    const toggleBtn = popover.querySelector('#popover-toggle-task');
+
+    closeBtn.addEventListener('click', () => this.closePopover());
+
+    delBtn.addEventListener('click', () => {
+      if (this.selectedEventId) {
+        this.deleteEventWithToast(this.selectedEventId);
+        this.closePopover();
+      }
+    });
+
+    editBtn.addEventListener('click', () => {
+      const ev = this.store.get('calendar.events').find(e => e.id === this.selectedEventId);
+      if (ev) {
+        this.closePopover();
+        this.openEventModal(ev);
+      }
+    });
+
+    toggleBtn.addEventListener('click', () => {
+      if (this.selectedEventId) {
+        this.toggleTaskCompletion(this.selectedEventId);
+        const ev = this.store.get('calendar.events').find(e => e.id === this.selectedEventId);
+        if (ev) this.openPopover(ev);
+      }
+    });
+
+    // Close popover when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!popover.contains(e.target) && !e.target.closest('.event-pill') && !e.target.closest('.week-event-card')) {
+        this.closePopover();
+      }
+    });
+  }
+
+  openPopover(event, anchorElement = null) {
+    const popover = this.container.querySelector('#event-popover');
+    this.selectedEventId = event.id;
+
+    popover.querySelector('#popover-title').textContent = event.title;
+    popover.querySelector('#popover-color-stripe').style.background = event.color || '#ff6584';
+
+    const s = new Date(event.start);
+    const e = new Date(event.end || event.start);
+    const dateStr = s.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const timeStr = event.allDay 
+      ? 'All Day' 
+      : `${s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    
+    popover.querySelector('#popover-time').textContent = `${dateStr} · ${timeStr}`;
+
+    const typeBadge = popover.querySelector('#popover-type-badge');
+    typeBadge.textContent = event.type.toUpperCase() + (event.completed ? ' (COMPLETED)' : '');
+    typeBadge.style.background = event.color || '#ff6584';
+
+    const toggleBtn = popover.querySelector('#popover-toggle-task');
+    if (event.type === 'task') {
+      toggleBtn.style.display = 'inline-flex';
+      toggleBtn.textContent = event.completed ? '↩️ Mark Incomplete' : '✅ Mark Completed';
+    } else {
+      toggleBtn.style.display = 'none';
+    }
+
+    const locEl = popover.querySelector('#popover-loc');
+    if (event.location) {
+      locEl.style.display = 'block';
+      locEl.textContent = `📍 ${event.location}`;
+    } else {
+      locEl.style.display = 'none';
+    }
+
+    const descEl = popover.querySelector('#popover-desc');
+    if (event.description) {
+      descEl.style.display = 'block';
+      descEl.textContent = event.description;
+    } else {
+      descEl.style.display = 'none';
+    }
+
+    // Position popover
+    if (anchorElement) {
+      const rect = anchorElement.getBoundingClientRect();
+      let top = rect.top + window.scrollY;
+      let left = rect.right + 12;
+
+      if (left + 320 > window.innerWidth) {
+        left = Math.max(16, rect.left - 330);
+      }
+      if (top + 260 > window.innerHeight) {
+        top = Math.max(70, window.innerHeight - 280);
+      }
+
+      popover.style.top = `${top}px`;
+      popover.style.left = `${left}px`;
+    } else {
+      popover.style.top = '50%';
+      popover.style.left = '50%';
+      popover.style.transform = 'translate(-50%, -50%)';
+    }
+
+    popover.style.display = 'block';
+  }
+
+  closePopover() {
+    const popover = this.container.querySelector('#event-popover');
+    if (popover) {
+      popover.style.display = 'none';
+      popover.style.transform = 'none';
+    }
+  }
+
+  deleteEventWithToast(id) {
+    const ev = this.store.get('calendar.events').find(e => e.id === id);
+    if (ev) {
+      this.store.deleteEvent(id);
+      this.selectedEventId = null;
+      this.closePopover();
+      window.__showToast?.(`Deleted "${ev.title}"`);
+    }
+  }
+
+  toggleTaskCompletion(id) {
+    const task = this.store.toggleTask(id);
+    if (task) {
+      const persona = this.store.get('waifu.personality');
+      let msg = task.completed ? `Completed "${task.title}"!` : `Marked "${task.title}" incomplete`;
+      if (task.completed) {
+        if (persona === 'tsundere') msg = `Good job finishing it... not that I care! +15 Bond EXP`;
+        else if (persona === 'deredere') msg = `YAY! Task conquered! +15 Bond EXP! 🎉`;
+      }
+      window.__showToast?.(msg);
+    }
   }
 
   setupModalBindings() {
@@ -2170,7 +2664,6 @@ class GoogleCalendar {
       endTime.style.display = isAllDay ? 'none' : 'block';
     });
 
-    // Color dot picker
     const colorPicker = this.container.querySelector('#event-color-picker');
     colorPicker.querySelectorAll('.color-dot').forEach(dot => {
       dot.addEventListener('click', () => {
@@ -2179,16 +2672,16 @@ class GoogleCalendar {
       });
     });
 
-    // Delete Button
+    // Delete Button in Modal
     deleteBtn.addEventListener('click', () => {
       const id = this.container.querySelector('#event-id').value;
       if (id) {
-        this.store.deleteEvent(id);
+        this.deleteEventWithToast(id);
         closeModal();
       }
     });
 
-    // Form Submit (Save / Update)
+    // Save/Submit Form
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const id = this.container.querySelector('#event-id').value;
@@ -2224,8 +2717,10 @@ class GoogleCalendar {
 
       if (id) {
         this.store.updateEvent(id, payload);
+        window.__showToast?.(`Updated "${title}"`);
       } else {
         this.store.addEvent(payload);
+        window.__showToast?.(`Created "${title}"`);
       }
 
       closeModal();
@@ -2233,6 +2728,7 @@ class GoogleCalendar {
   }
 
   openEventModal(event = null, defaultDate = new Date()) {
+    this.closePopover();
     const overlay = this.container.querySelector('#event-modal-overlay');
     const heading = this.container.querySelector('#modal-heading');
     const idInput = this.container.querySelector('#event-id');
@@ -2264,9 +2760,8 @@ class GoogleCalendar {
 
       locationInput.value = event.location || '';
       descInput.value = event.description || '';
-      deleteBtn.style.display = 'block';
+      deleteBtn.style.display = 'inline-flex';
 
-      // Set color dot
       colorPicker.querySelectorAll('.color-dot').forEach(d => {
         d.classList.toggle('active', d.dataset.color === event.color);
       });
@@ -2288,7 +2783,6 @@ class GoogleCalendar {
       descInput.value = '';
       deleteBtn.style.display = 'none';
 
-      // Default color
       colorPicker.querySelectorAll('.color-dot').forEach((d, i) => {
         d.classList.toggle('active', i === 0);
       });
@@ -2336,11 +2830,18 @@ class GoogleCalendar {
     const showEvents = this.container.querySelector('#filter-events')?.checked ?? true;
     const showTasks = this.container.querySelector('#filter-tasks')?.checked ?? true;
     const showBirthdays = this.container.querySelector('#filter-birthdays')?.checked ?? true;
+    const query = this.searchQuery;
 
     return this.store.get('calendar.events').filter(e => {
       if (e.type === 'event' && !showEvents) return false;
       if (e.type === 'task' && !showTasks) return false;
       if (e.type === 'birthday' && !showBirthdays) return false;
+      if (query) {
+        const titleMatch = (e.title || '').toLowerCase().includes(query);
+        const locMatch = (e.location || '').toLowerCase().includes(query);
+        const descMatch = (e.description || '').toLowerCase().includes(query);
+        if (!titleMatch && !locMatch && !descMatch) return false;
+      }
       return true;
     });
   }
@@ -2352,13 +2853,12 @@ class GoogleCalendar {
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
 
-    const startDayIndex = firstDay.getDay(); // 0 = Sunday
+    const startDayIndex = firstDay.getDay();
     const totalDays = lastDay.getDate();
 
     const prevMonthLastDay = new Date(year, month, 0).getDate();
     const days = [];
 
-    // Prev month padding
     for (let i = startDayIndex - 1; i >= 0; i--) {
       days.push({
         date: new Date(year, month - 1, prevMonthLastDay - i),
@@ -2366,7 +2866,6 @@ class GoogleCalendar {
       });
     }
 
-    // Current month days
     for (let i = 1; i <= totalDays; i++) {
       days.push({
         date: new Date(year, month, i),
@@ -2374,7 +2873,6 @@ class GoogleCalendar {
       });
     }
 
-    // Next month padding to fill grid to multiple of 7
     let nextMonthDay = 1;
     while (days.length % 7 !== 0 || days.length < 35) {
       days.push({
@@ -2405,7 +2903,6 @@ class GoogleCalendar {
       const isToday = this.isSameDay(d, today);
       const isSelected = this.isSameDay(d, this.selectedDate);
       const dateStr = d.toISOString();
-
       const dayEvents = events.filter(e => this.isSameDay(new Date(e.start), d));
 
       html += `
@@ -2424,27 +2921,39 @@ class GoogleCalendar {
     html += `</div></div>`;
     stage.innerHTML = html;
 
-    // Add drag-and-drop drop zones to each cell
+    // Drop zones on cells
     stage.querySelectorAll('.month-day-cell').forEach(cell => {
       this.dragDrop.initDropZone(cell, () => cell.dataset.date);
 
-      // Click to add event or select day
       cell.addEventListener('click', (e) => {
-        if (e.target.closest('.event-pill')) return;
+        if (e.target.closest('.event-pill') || e.target.closest('.pill-task-check')) return;
         this.selectedDate = new Date(cell.dataset.date);
         this.openEventModal(null, this.selectedDate);
       });
     });
 
-    // Make pills draggable and clickable
+    // Pills interaction (drag, click to view popover, task checkbox)
     stage.querySelectorAll('.event-pill').forEach(pill => {
       const eventId = pill.dataset.eventId;
       const event = events.find(e => e.id === eventId);
       if (event) {
         this.dragDrop.initDraggable(pill, event, 'calendar-event');
+
+        // Checkbox click
+        const check = pill.querySelector('.pill-task-check');
+        if (check) {
+          check.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleTaskCompletion(eventId);
+          });
+        }
+
+        // Pill click opens popover
         pill.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.openEventModal(event);
+          this.container.querySelectorAll('.event-pill, .week-event-card').forEach(el => el.classList.remove('is-selected'));
+          pill.classList.add('is-selected');
+          this.openPopover(event, pill);
         });
       }
     });
@@ -2453,19 +2962,21 @@ class GoogleCalendar {
   renderEventPill(ev) {
     const isBirthday = ev.type === 'birthday';
     const isTask = ev.type === 'task';
-    const icon = isBirthday ? '🎂 ' : (isTask ? (ev.completed ? '✅ ' : '⬜ ') : '');
     const startTime = ev.allDay ? '' : new Date(ev.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const isSelected = this.selectedEventId === ev.id;
 
     return `
-      <div class="event-pill ${isTask && ev.completed ? 'completed' : ''}" 
+      <div class="event-pill ${isTask && ev.completed ? 'completed' : ''} ${isSelected ? 'is-selected' : ''}" 
            data-event-id="${ev.id}" 
            style="background: ${ev.color || '#ff6584'};">
-        <span class="pill-title">${icon}${startTime ? `<small>${startTime}</small> ` : ''}${this.escapeHTML(ev.title)}</span>
+        ${isTask ? `<input type="checkbox" class="pill-task-check" ${ev.completed ? 'checked' : ''} title="Mark task completed" />` : ''}
+        ${isBirthday ? '<span class="pill-icon">🎂</span>' : ''}
+        <span class="pill-title">${startTime ? `<small>${startTime}</small> ` : ''}${this.escapeHTML(ev.title)}</span>
       </div>
     `;
   }
 
-  /* ------------------- WEEK VIEW ------------------- */
+  /* ------------------- WEEK VIEW WITH DRAG-RESIZE ------------------- */
   renderWeekView(stage) {
     const weekStart = this.getStartOfWeek(this.currentDate);
     const weekDays = [];
@@ -2480,7 +2991,7 @@ class GoogleCalendar {
       <div class="week-view-container">
         <!-- Week Header -->
         <div class="week-header-row">
-          <div class="time-gutter-header"></div>
+          <div class="time-gutter-header">GMT</div>
           ${weekDays.map(d => {
             const isToday = this.isSameDay(d, today);
             return `
@@ -2494,7 +3005,6 @@ class GoogleCalendar {
 
         <!-- 24-Hour Time Grid -->
         <div class="week-time-grid">
-          <!-- Time Labels Column -->
           <div class="time-gutter">
             ${Array.from({ length: 24 }).map((_, h) => `
               <div class="time-slot-label">
@@ -2503,7 +3013,6 @@ class GoogleCalendar {
             `).join('')}
           </div>
 
-          <!-- 7 Day Columns -->
           <div class="week-columns-wrapper">
             ${weekDays.map(day => {
               const dateStr = day.toISOString();
@@ -2512,15 +3021,12 @@ class GoogleCalendar {
 
               return `
                 <div class="week-day-column ${isToday ? 'today-col' : ''}" data-date="${dateStr}">
-                  <!-- Hourly grid lines -->
                   ${Array.from({ length: 24 }).map((_, h) => `
                     <div class="week-hour-cell" data-hour="${h}"></div>
                   `).join('')}
 
-                  <!-- Live Red Current Time Indicator -->
                   ${isToday ? `<div class="current-time-line" style="top: ${this.getCurrentTimePercent()}%;"></div>` : ''}
 
-                  <!-- Positioned Events -->
                   <div class="week-events-layer">
                     ${dayEvents.map(ev => this.renderWeekEventCard(ev)).join('')}
                   </div>
@@ -2534,7 +3040,7 @@ class GoogleCalendar {
 
     stage.innerHTML = html;
 
-    // Wire up hour cells for drop and click-to-create
+    // Drop zones & click-to-create
     stage.querySelectorAll('.week-hour-cell').forEach(cell => {
       const col = cell.closest('.week-day-column');
       const hour = parseInt(cell.dataset.hour, 10);
@@ -2552,22 +3058,90 @@ class GoogleCalendar {
       });
     });
 
-    // Make week event cards draggable and editable
+    // Event card interactions (drag, click to view popover, task check, resize handle)
     stage.querySelectorAll('.week-event-card').forEach(card => {
       const id = card.dataset.eventId;
       const ev = events.find(e => e.id === id);
       if (ev) {
         this.dragDrop.initDraggable(card, ev, 'calendar-event');
+
+        // Task checkbox inside card
+        const check = card.querySelector('.card-task-check');
+        if (check) {
+          check.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleTaskCompletion(id);
+          });
+        }
+
+        // Card click opens popover
         card.addEventListener('click', (e) => {
+          if (e.target.classList.contains('event-resize-handle')) return;
           e.stopPropagation();
-          this.openEventModal(ev);
+          this.container.querySelectorAll('.event-pill, .week-event-card').forEach(el => el.classList.remove('is-selected'));
+          card.classList.add('is-selected');
+          this.openPopover(ev, card);
         });
+
+        // Event Resizing Handle (Make event longer/shorter)
+        const resizeHandle = card.querySelector('.event-resize-handle');
+        if (resizeHandle) {
+          this.initEventResize(resizeHandle, card, ev);
+        }
       }
     });
 
-    // Scroll to 8 AM by default
     const grid = stage.querySelector('.week-time-grid');
-    if (grid) grid.scrollTop = 480; // approx 8am
+    if (grid) grid.scrollTop = 480;
+  }
+
+  /* ------------------- EVENT RESIZE (MAKE LONGER/SHORTER) ------------------- */
+  initEventResize(handle, card, event) {
+    handle.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      const startY = e.clientY;
+      const initialHeight = parseFloat(card.style.height) || card.offsetHeight;
+      const s = new Date(event.start);
+      let finalHeight = initialHeight;
+
+      document.body.classList.add('is-resizing-event');
+
+      const onMouseMove = (moveEvent) => {
+        const deltaY = moveEvent.clientY - startY;
+        // Snap to 15px increments (15 minutes)
+        const snappedDelta = Math.round(deltaY / 15) * 15;
+        finalHeight = Math.max(26, initialHeight + snappedDelta);
+        card.style.height = `${finalHeight}px`;
+
+        // Live update time text
+        const newDurationHours = (finalHeight + 4) / 60;
+        const newEndTime = new Date(s.getTime() + newDurationHours * 3600000);
+        const timeLabel = card.querySelector('.card-time');
+        if (timeLabel) {
+          timeLabel.textContent = `${s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${newEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        }
+      };
+
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.body.classList.remove('is-resizing-event');
+
+        const newDurationHours = Math.max(0.5, (finalHeight + 4) / 60);
+        const newEndDate = new Date(s.getTime() + newDurationHours * 3600000);
+
+        this.store.updateEvent(event.id, {
+          end: newEndDate.toISOString()
+        });
+
+        window.__showToast?.(`Updated duration for "${event.title}"`);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
   }
 
   renderWeekEventCard(ev) {
@@ -2576,21 +3150,27 @@ class GoogleCalendar {
 
     let startHour = s.getHours() + s.getMinutes() / 60;
     let endHour = e.getHours() + e.getMinutes() / 60;
-    if (endHour <= startHour) endHour = startHour + 1; // at least 1 hour height
+    if (endHour <= startHour) endHour = startHour + 1;
     const duration = Math.max(0.5, endHour - startHour);
 
-    const topPx = startHour * 60; // 60px per hour
+    const topPx = startHour * 60;
     const heightPx = Math.max(26, duration * 60 - 4);
-
     const timeStr = `${s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    const isTask = ev.type === 'task';
+    const isSelected = this.selectedEventId === ev.id;
 
     return `
-      <div class="week-event-card" 
+      <div class="week-event-card ${isTask && ev.completed ? 'completed' : ''} ${isSelected ? 'is-selected' : ''}" 
            data-event-id="${ev.id}" 
            style="top: ${topPx}px; height: ${heightPx}px; background: ${ev.color || '#ff6584'};">
-        <div class="card-title">${this.escapeHTML(ev.title)}</div>
+        <div class="card-header-row">
+          ${isTask ? `<input type="checkbox" class="card-task-check" ${ev.completed ? 'checked' : ''} title="Mark completed" />` : ''}
+          <div class="card-title">${this.escapeHTML(ev.title)}</div>
+        </div>
         <div class="card-time">${timeStr}</div>
         ${ev.location ? `<div class="card-loc">📍 ${this.escapeHTML(ev.location)}</div>` : ''}
+        <!-- Resize handle for dragging duration longer/shorter -->
+        <div class="event-resize-handle" title="Hold & drag to make longer/shorter"></div>
       </div>
     `;
   }
@@ -2605,7 +3185,6 @@ class GoogleCalendar {
     let html = `
       <div class="day-view-container">
         <div class="day-time-grid">
-          <!-- Time Gutter -->
           <div class="time-gutter">
             ${Array.from({ length: 24 }).map((_, h) => `
               <div class="time-slot-label">
@@ -2614,7 +3193,6 @@ class GoogleCalendar {
             `).join('')}
           </div>
 
-          <!-- Day Column -->
           <div class="day-single-column" data-date="${day.toISOString()}">
             ${Array.from({ length: 24 }).map((_, h) => `
               <div class="day-hour-cell" data-hour="${h}"></div>
@@ -2652,10 +3230,27 @@ class GoogleCalendar {
       const ev = events.find(e => e.id === id);
       if (ev) {
         this.dragDrop.initDraggable(card, ev, 'calendar-event');
+
+        const check = card.querySelector('.card-task-check');
+        if (check) {
+          check.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleTaskCompletion(id);
+          });
+        }
+
         card.addEventListener('click', (e) => {
+          if (e.target.classList.contains('event-resize-handle')) return;
           e.stopPropagation();
-          this.openEventModal(ev);
+          this.container.querySelectorAll('.event-pill, .week-event-card').forEach(el => el.classList.remove('is-selected'));
+          card.classList.add('is-selected');
+          this.openPopover(ev, card);
         });
+
+        const resizeHandle = card.querySelector('.event-resize-handle');
+        if (resizeHandle) {
+          this.initEventResize(resizeHandle, card, ev);
+        }
       }
     });
 
@@ -2741,7 +3336,7 @@ class GoogleCalendar {
 
     list.innerHTML = allTasks.map(task => `
       <div class="sidebar-task-item ${task.completed ? 'completed' : ''}" data-task-id="${task.id}" draggable="true">
-        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} />
+        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} title="Toggle completed" />
         <span class="task-item-text" title="${this.escapeHTML(task.title)}">${this.escapeHTML(task.title)}</span>
         <button class="task-del-btn" title="Delete task">✕</button>
       </div>
@@ -2755,12 +3350,12 @@ class GoogleCalendar {
       this.dragDrop.initDraggable(item, task, 'task-item');
 
       item.querySelector('.task-checkbox').addEventListener('change', () => {
-        this.store.toggleTask(taskId);
+        this.toggleTaskCompletion(taskId);
       });
 
       item.querySelector('.task-del-btn').addEventListener('click', (e) => {
         e.stopPropagation();
-        this.store.deleteEvent(taskId);
+        this.deleteEventWithToast(taskId);
       });
 
       item.addEventListener('click', (e) => {
@@ -2771,26 +3366,14 @@ class GoogleCalendar {
   }
 
   triggerWaifuBriefing() {
-    const today = new Date();
-    const events = this.store.get('calendar.events').filter(e => this.isSameDay(new Date(e.start), today));
-    const eventsCount = events.filter(e => e.type === 'event').length;
-    const tasksCount = events.filter(e => e.type === 'task' && !e.completed).length;
-
-    const persona = this.store.get('waifu.personality');
-    const waifuName = this.store.get('waifu.name');
-    
-    // Switch to main tab to talk with Waifu
     window.__switchTab?.('main');
-
     setTimeout(() => {
-      const p = this.waifu;
-      if (p) {
-        p.processUserMessage('Give me a schedule review for today!');
+      if (this.waifu) {
+        this.waifu.processUserMessage('Give me a schedule review for today!');
       }
     }, 250);
   }
 
-  /* ------------------- UTILS ------------------- */
   isSameDay(d1, d2) {
     return d1.getFullYear() === d2.getFullYear() &&
            d1.getMonth() === d2.getMonth() &&
@@ -2961,8 +3544,9 @@ class ChatUI {
     this.render();
     this.bindEvents();
 
-    // Subscribe to messages
+    // Subscribe to messages & companion events
     this.store.subscribe('chat.messages', () => this.renderMessages());
+    this.store.subscribe('chat.suggestions', (s) => this.renderSuggestions(s));
     this.store.subscribe('waifu.bondLevel', () => this.updateAffectionMeter());
     this.store.subscribe('waifu.bondExp', () => this.updateAffectionMeter());
     this.store.subscribe('waifu.personality', () => this.updatePersonalityBadge());
@@ -3032,6 +3616,9 @@ class ChatUI {
             <span></span><span></span><span></span>
           </div>
 
+          <!-- DYNAMIC SUGGESTION CHIPS -->
+          <div class="chat-quick-suggestions" id="chat-suggestions"></div>
+
           <!-- INPUT FORM -->
           <form class="chat-input-form" id="chat-form">
             <input type="text" id="chat-input" class="chat-input" placeholder="Talk to ${waifu.name}..." autocomplete="off" />
@@ -3052,6 +3639,14 @@ class ChatUI {
 
     this.renderMessages();
     this.updateAffectionMeter();
+
+    // Default suggestions
+    this.renderSuggestions([
+      "🌸 Review Today's Schedule",
+      "💖 You look cute today!",
+      "Tell me a joke",
+      "I finished my work!"
+    ]);
   }
 
   bindEvents() {
@@ -3061,23 +3656,12 @@ class ChatUI {
     const clearBtn = this.container.querySelector('#clear-chat-btn');
 
     // Submit chat message
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       const text = input.value.trim();
       if (!text) return;
-
       input.value = '';
-      this.store.addMessage('user', text);
-
-      // Show typing
-      this.showTyping(true);
-
-      const reply = await this.dialogue.processUserMessage(text);
-      this.showTyping(false);
-
-      if (reply) {
-        this.showSpeechBubble(reply.text);
-      }
+      this.sendUserMessage(text);
     });
 
     // Clear chat
@@ -3100,6 +3684,42 @@ class ChatUI {
     });
   }
 
+  renderSuggestions(suggestions) {
+    const container = this.container.querySelector('#chat-suggestions');
+    if (!container) return;
+
+    if (!suggestions || suggestions.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = suggestions.slice(0, 4).map(s => `
+      <button type="button" class="suggestion-chip" data-text="${this.escapeHTML(s)}">${this.escapeHTML(s)}</button>
+    `).join('');
+
+    container.querySelectorAll('.suggestion-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const text = chip.dataset.text;
+        this.sendUserMessage(text);
+      });
+    });
+  }
+
+  async sendUserMessage(text) {
+    this.store.addMessage('user', text);
+    this.showTyping(true);
+
+    const reply = await this.dialogue.processUserMessage(text);
+    this.showTyping(false);
+
+    if (reply) {
+      this.showSpeechBubble(reply.text);
+      if (reply.suggestions) {
+        this.renderSuggestions(reply.suggestions);
+      }
+    }
+  }
+
   handlePoke() {
     const persona = getPersonality(this.store.get('waifu.personality'));
     const pokeList = persona.poke;
@@ -3112,9 +3732,11 @@ class ChatUI {
 
     // Bounce avatar animation
     const mount = this.container.querySelector('#avatar-mount');
-    mount.classList.remove('avatar-bounced');
-    void mount.offsetWidth; // trigger reflow
-    mount.classList.add('avatar-bounced');
+    if (mount) {
+      mount.classList.remove('avatar-bounced');
+      void mount.offsetWidth;
+      mount.classList.add('avatar-bounced');
+    }
   }
 
   async handleQuickAction(type) {
@@ -3127,15 +3749,8 @@ class ChatUI {
     if (type === 'schedule') userText = "Can you review my schedule for today?";
     else if (type === 'compliment') userText = "You look adorable today!";
 
-    if (!userText) return;
-
-    this.store.addMessage('user', userText);
-    this.showTyping(true);
-    const reply = await this.dialogue.processUserMessage(userText);
-    this.showTyping(false);
-
-    if (reply) {
-      this.showSpeechBubble(reply.text);
+    if (userText) {
+      this.sendUserMessage(userText);
     }
   }
 
@@ -3183,10 +3798,8 @@ class ChatUI {
       `;
     }).join('');
 
-    // Scroll to bottom
     list.scrollTop = list.scrollHeight;
 
-    // Also update speech bubble with latest waifu message
     const lastMsg = messages[messages.length - 1];
     if (lastMsg && lastMsg.sender === 'waifu') {
       this.showSpeechBubble(lastMsg.text);
@@ -3434,8 +4047,8 @@ class SettingsUI {
               <h4 class="form-label">Curated Japanese Aesthetic Wallpapers</h4>
               <div class="wallpaper-gallery-grid">
                 ${STOCK_WALLPAPERS.map(wp => `
-                  <div class="wallpaper-card ${settings.wallpaperId === wp.id && settings.wallpaperType === 'stock' ? 'active' : ''}" data-wp-id="${wp.id}">
-                    <img src="${wp.thumb}" alt="${wp.name}" class="wp-thumb-img" />
+                  <div class="wallpaper-card ${settings.wallpaperId === wp.id && settings.wallpaperType === 'stock' ? 'active' : ''}" data-wp-id="${wp.id}" style="background: ${wp.fallback || '#1a102f'};">
+                    <img src="${wp.thumb}" alt="${wp.name}" class="wp-thumb-img" onerror="this.style.opacity='0';" />
                     <div class="wp-info-overlay">
                       <span class="wp-name">${wp.name}</span>
                       <span class="wp-cat">${wp.category}</span>
@@ -3967,14 +4580,34 @@ class WaifuSpaceApp {
     const dim = this.store.get('settings.wallpaperDim') ?? 45;
 
     let imageUrl = '';
+    let fallbackGradient = 'linear-gradient(135deg, #1f1435 0%, #3e1b4b 50%, #d85c7a 100%)';
+
     if (wpType === 'custom' && customUrl) {
       imageUrl = customUrl;
     } else {
       const found = STOCK_WALLPAPERS.find(w => w.id === wpId) || STOCK_WALLPAPERS[0];
       imageUrl = found.url;
+      fallbackGradient = found.fallback || fallbackGradient;
     }
 
-    bgContainer.style.backgroundImage = `url("${imageUrl}")`;
+    // Set fallback gradient immediately so wallpaper is never black or blank
+    bgContainer.style.background = fallbackGradient;
+    bgContainer.style.backgroundSize = 'cover';
+    bgContainer.style.backgroundPosition = 'center center';
+    bgContainer.style.backgroundRepeat = 'no-repeat';
+
+    if (imageUrl) {
+      const img = new Image();
+      img.onload = () => {
+        bgContainer.style.backgroundImage = `url("${imageUrl}")`;
+      };
+      img.onerror = () => {
+        // Keep fallback gradient if image fails
+        console.warn(`Wallpaper image failed to load (${imageUrl}), using fallback atmosphere gradient.`);
+      };
+      img.src = imageUrl;
+    }
+
     bgContainer.style.filter = `blur(${blur}px)`;
     if (overlay) {
       overlay.style.backgroundColor = `rgba(10, 10, 15, ${dim / 100})`;

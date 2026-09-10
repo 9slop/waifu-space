@@ -16,8 +16,9 @@ export class ChatUI {
     this.render();
     this.bindEvents();
 
-    // Subscribe to messages
+    // Subscribe to messages & companion events
     this.store.subscribe('chat.messages', () => this.renderMessages());
+    this.store.subscribe('chat.suggestions', (s) => this.renderSuggestions(s));
     this.store.subscribe('waifu.bondLevel', () => this.updateAffectionMeter());
     this.store.subscribe('waifu.bondExp', () => this.updateAffectionMeter());
     this.store.subscribe('waifu.personality', () => this.updatePersonalityBadge());
@@ -87,6 +88,9 @@ export class ChatUI {
             <span></span><span></span><span></span>
           </div>
 
+          <!-- DYNAMIC SUGGESTION CHIPS -->
+          <div class="chat-quick-suggestions" id="chat-suggestions"></div>
+
           <!-- INPUT FORM -->
           <form class="chat-input-form" id="chat-form">
             <input type="text" id="chat-input" class="chat-input" placeholder="Talk to ${waifu.name}..." autocomplete="off" />
@@ -107,6 +111,14 @@ export class ChatUI {
 
     this.renderMessages();
     this.updateAffectionMeter();
+
+    // Default suggestions
+    this.renderSuggestions([
+      "🌸 Review Today's Schedule",
+      "💖 You look cute today!",
+      "Tell me a joke",
+      "I finished my work!"
+    ]);
   }
 
   bindEvents() {
@@ -116,23 +128,12 @@ export class ChatUI {
     const clearBtn = this.container.querySelector('#clear-chat-btn');
 
     // Submit chat message
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
       const text = input.value.trim();
       if (!text) return;
-
       input.value = '';
-      this.store.addMessage('user', text);
-
-      // Show typing
-      this.showTyping(true);
-
-      const reply = await this.dialogue.processUserMessage(text);
-      this.showTyping(false);
-
-      if (reply) {
-        this.showSpeechBubble(reply.text);
-      }
+      this.sendUserMessage(text);
     });
 
     // Clear chat
@@ -155,6 +156,42 @@ export class ChatUI {
     });
   }
 
+  renderSuggestions(suggestions) {
+    const container = this.container.querySelector('#chat-suggestions');
+    if (!container) return;
+
+    if (!suggestions || suggestions.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+
+    container.innerHTML = suggestions.slice(0, 4).map(s => `
+      <button type="button" class="suggestion-chip" data-text="${this.escapeHTML(s)}">${this.escapeHTML(s)}</button>
+    `).join('');
+
+    container.querySelectorAll('.suggestion-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const text = chip.dataset.text;
+        this.sendUserMessage(text);
+      });
+    });
+  }
+
+  async sendUserMessage(text) {
+    this.store.addMessage('user', text);
+    this.showTyping(true);
+
+    const reply = await this.dialogue.processUserMessage(text);
+    this.showTyping(false);
+
+    if (reply) {
+      this.showSpeechBubble(reply.text);
+      if (reply.suggestions) {
+        this.renderSuggestions(reply.suggestions);
+      }
+    }
+  }
+
   handlePoke() {
     const persona = getPersonality(this.store.get('waifu.personality'));
     const pokeList = persona.poke;
@@ -167,9 +204,11 @@ export class ChatUI {
 
     // Bounce avatar animation
     const mount = this.container.querySelector('#avatar-mount');
-    mount.classList.remove('avatar-bounced');
-    void mount.offsetWidth; // trigger reflow
-    mount.classList.add('avatar-bounced');
+    if (mount) {
+      mount.classList.remove('avatar-bounced');
+      void mount.offsetWidth;
+      mount.classList.add('avatar-bounced');
+    }
   }
 
   async handleQuickAction(type) {
@@ -182,15 +221,8 @@ export class ChatUI {
     if (type === 'schedule') userText = "Can you review my schedule for today?";
     else if (type === 'compliment') userText = "You look adorable today!";
 
-    if (!userText) return;
-
-    this.store.addMessage('user', userText);
-    this.showTyping(true);
-    const reply = await this.dialogue.processUserMessage(userText);
-    this.showTyping(false);
-
-    if (reply) {
-      this.showSpeechBubble(reply.text);
+    if (userText) {
+      this.sendUserMessage(userText);
     }
   }
 
@@ -238,10 +270,8 @@ export class ChatUI {
       `;
     }).join('');
 
-    // Scroll to bottom
     list.scrollTop = list.scrollHeight;
 
-    // Also update speech bubble with latest waifu message
     const lastMsg = messages[messages.length - 1];
     if (lastMsg && lastMsg.sender === 'waifu') {
       this.showSpeechBubble(lastMsg.text);
