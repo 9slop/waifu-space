@@ -1,0 +1,477 @@
+import { createSignal, createMemo, onMount, onCleanup, For, Show } from 'solid-js';
+import {
+  state,
+  setState,
+  addCalendarEvent,
+  toggleTask,
+  deleteCalendarEvent,
+  showToast,
+  triggerWaifuResponse
+} from '../lib/store';
+import { CalendarEventItem, exportToICS, importFromICS } from '../lib/ical';
+import { getPersonality } from '../lib/personality';
+import { MiniCalendar } from './MiniCalendar';
+import { EventModal } from './EventModal';
+import { CalendarPopover } from './CalendarPopover';
+import { CalendarMonthView } from './CalendarMonthView';
+import { CalendarWeekView } from './CalendarWeekView';
+import { CalendarDayView } from './CalendarDayView';
+
+export function CalendarPlanner() {
+  const [currentDate, setCurrentDate] = createSignal(new Date());
+  const [selectedDate, setSelectedDate] = createSignal(new Date());
+  const [quickTaskInput, setQuickTaskInput] = createSignal('');
+
+  // Modals & Popovers
+  const [isModalOpen, setIsModalOpen] = createSignal(false);
+  const [modalEvent, setModalEvent] = createSignal<CalendarEventItem | null>(null);
+  const [modalDefaultDate, setModalDefaultDate] = createSignal<Date>(new Date());
+
+  const [popoverEvent, setPopoverEvent] = createSignal<CalendarEventItem | null>(null);
+  const [popoverPos, setPopoverPos] = createSignal<{ top: number; left: number } | null>(null);
+
+  // Filtered events
+  const filteredEvents = createMemo(() => {
+    const q = state.calendar.searchQuery.toLowerCase().trim();
+    return state.calendar.events.filter(e => {
+      if (e.type === 'event' && !state.calendar.filterEvents) return false;
+      if (e.type === 'task' && !state.calendar.filterTasks) return false;
+      if (e.type === 'birthday' && !state.calendar.filterBirthdays) return false;
+      if (q) {
+        const titleMatch = (e.title || '').toLowerCase().includes(q);
+        const locMatch = (e.location || '').toLowerCase().includes(q);
+        const descMatch = (e.description || '').toLowerCase().includes(q);
+        if (!titleMatch && !locMatch && !descMatch) return false;
+      }
+      return true;
+    });
+  });
+
+  const sidebarTasks = createMemo(() => {
+    return state.calendar.events.filter(e => e.type === 'task');
+  });
+
+  // Navigation
+  const navigateDate = (dir: number) => {
+    const d = new Date(currentDate());
+    const view = state.calendar.view;
+    if (view === 'month') {
+      d.setMonth(d.getMonth() + dir);
+    } else if (view === 'week') {
+      d.setDate(d.getDate() + dir * 7);
+    } else if (view === 'day') {
+      d.setDate(d.getDate() + dir);
+    }
+    setCurrentDate(d);
+    closePopover();
+  };
+
+  const jumpToToday = () => {
+    const now = new Date();
+    setCurrentDate(now);
+    setSelectedDate(now);
+    closePopover();
+  };
+
+  const getTitleDisplay = () => {
+    const d = currentDate();
+    const view = state.calendar.view;
+    if (view === 'month') {
+      return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    if (view === 'week') {
+      const start = new Date(d);
+      start.setDate(start.getDate() - start.getDay());
+      const end = new Date(start.getTime() + 6 * 86400000);
+      return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    }
+    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  const openCreateModal = (defaultD = new Date()) => {
+    closePopover();
+    setModalEvent(null);
+    setModalDefaultDate(defaultD);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (ev: CalendarEventItem) => {
+    closePopover();
+    setModalEvent(ev);
+    setIsModalOpen(true);
+  };
+
+  const openPopover = (ev: CalendarEventItem, anchorRect?: DOMRect) => {
+    setPopoverEvent(ev);
+    if (anchorRect) {
+      let top = anchorRect.top + window.scrollY;
+      let left = anchorRect.right + 12;
+      if (left + 320 > window.innerWidth) {
+        left = Math.max(16, anchorRect.left - 330);
+      }
+      if (top + 260 > window.innerHeight) {
+        top = Math.max(70, window.innerHeight - 280);
+      }
+      setPopoverPos({ top, left });
+    } else {
+      setPopoverPos(null);
+    }
+  };
+
+  const closePopover = () => {
+    setPopoverEvent(null);
+    setPopoverPos(null);
+  };
+
+  // Waifu Briefing
+  const triggerBriefing = () => {
+    const today = new Date();
+    const isSameDay = (d1: Date, d2: Date) =>
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate();
+
+    const todayEvents = state.calendar.events.filter(e => isSameDay(new Date(e.start), today));
+    const evCount = todayEvents.filter(e => e.type === 'event').length;
+    const tkCount = todayEvents.filter(e => e.type === 'task' && !e.completed).length;
+
+    const persona = getPersonality(state.waifu.personality);
+    const review = persona.scheduleReview(evCount, tkCount);
+    showToast(`🌸 Waifu Briefing: ${review.text}`);
+    triggerWaifuResponse(review.text, review.mood);
+  };
+
+  // Quick Task Submit
+  const handleQuickTask = (e: Event) => {
+    e.preventDefault();
+    const t = quickTaskInput().trim();
+    if (!t) return;
+    setQuickTaskInput('');
+    addCalendarEvent({
+      title: t,
+      type: 'task',
+      start: new Date().toISOString(),
+      end: new Date(Date.now() + 1800000).toISOString(),
+      color: '#00cec9',
+      allDay: false
+    });
+    showToast(`Added task "${t}"`);
+  };
+
+  // iCal Import
+  const handleFileImport = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const text = evt.target?.result as string;
+      if (text) {
+        const imported = importFromICS(text);
+        if (imported.length > 0) {
+          setState('calendar', 'events', evs => [...imported, ...evs]);
+          showToast(`Imported ${imported.length} events from ${file.name}!`);
+        } else {
+          showToast('No valid events found in .ics file');
+        }
+      }
+    };
+    reader.readAsText(file);
+    input.value = '';
+  };
+
+  // Keyboard shortcuts
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+    if (e.key === 't' || e.key === 'T') {
+      jumpToToday();
+    } else if (e.key === 'm' || e.key === 'M') {
+      setState('calendar', 'view', 'month');
+    } else if (e.key === 'w' || e.key === 'W') {
+      setState('calendar', 'view', 'week');
+    } else if (e.key === 'd' || e.key === 'D') {
+      setState('calendar', 'view', 'day');
+    } else if (e.key === 'c' || e.key === 'C') {
+      openCreateModal(currentDate());
+    } else if (e.key === 'Escape') {
+      closePopover();
+      setIsModalOpen(false);
+    }
+  };
+
+  onMount(() => {
+    window.addEventListener('keydown', handleKeyDown);
+  });
+
+  onCleanup(() => {
+    window.removeEventListener('keydown', handleKeyDown);
+  });
+
+  return (
+    <div class="gcal-wrapper">
+      {/* TOP TOOLBAR */}
+      <header class="gcal-toolbar">
+        <div class="gcal-toolbar-left">
+          <button
+            type="button"
+            class="gcal-btn gcal-btn-primary"
+            onClick={() => openCreateModal(currentDate())}
+            title="Shortcut: Press 'c'"
+          >
+            <span class="btn-icon">➕</span>
+            <span class="btn-text">Create</span>
+          </button>
+          <button
+            type="button"
+            class="gcal-btn gcal-btn-outline"
+            onClick={jumpToToday}
+            title="Shortcut: Press 't'"
+          >
+            Today
+          </button>
+          <div class="gcal-nav-arrows">
+            <button
+              type="button"
+              class="gcal-icon-btn"
+              onClick={() => navigateDate(-1)}
+              title="Previous"
+            >
+              ◀
+            </button>
+            <button
+              type="button"
+              class="gcal-icon-btn"
+              onClick={() => navigateDate(1)}
+              title="Next"
+            >
+              ▶
+            </button>
+          </div>
+          <h2 class="gcal-title">{getTitleDisplay()}</h2>
+        </div>
+
+        {/* SEARCH BAR */}
+        <div class="gcal-search-wrap">
+          <span class="search-icon">🔍</span>
+          <input
+            type="text"
+            class="gcal-search-input"
+            placeholder="Search events & tasks..."
+            value={state.calendar.searchQuery}
+            onInput={e => setState('calendar', 'searchQuery', e.currentTarget.value)}
+          />
+        </div>
+
+        <div class="gcal-toolbar-right">
+          <button
+            type="button"
+            class="gcal-btn gcal-btn-waifu"
+            onClick={triggerBriefing}
+            title="Ask Waifu to review today's agenda"
+          >
+            <span class="btn-icon">🌸</span>
+            <span class="btn-text">Waifu Briefing</span>
+          </button>
+
+          <div class="gcal-view-selector">
+            <button
+              type="button"
+              class={`view-btn ${state.calendar.view === 'month' ? 'active' : ''}`}
+              onClick={() => setState('calendar', 'view', 'month')}
+              title="Shortcut: 'm'"
+            >
+              Month
+            </button>
+            <button
+              type="button"
+              class={`view-btn ${state.calendar.view === 'week' ? 'active' : ''}`}
+              onClick={() => setState('calendar', 'view', 'week')}
+              title="Shortcut: 'w'"
+            >
+              Week
+            </button>
+            <button
+              type="button"
+              class={`view-btn ${state.calendar.view === 'day' ? 'active' : ''}`}
+              onClick={() => setState('calendar', 'view', 'day')}
+              title="Shortcut: 'd'"
+            >
+              Day
+            </button>
+          </div>
+
+          <div class="gcal-more-actions">
+            <button
+              type="button"
+              class="gcal-icon-btn"
+              onClick={() => exportToICS(state.calendar.events)}
+              title="Export .ics Calendar"
+            >
+              📅 ⬇️
+            </button>
+            <label
+              class="gcal-icon-btn"
+              title="Import .ics Calendar"
+              style={{ cursor: 'pointer' }}
+            >
+              📅 ⬆️
+              <input
+                type="file"
+                accept=".ics"
+                style={{ display: 'none' }}
+                onChange={handleFileImport}
+              />
+            </label>
+          </div>
+        </div>
+      </header>
+
+      {/* CALENDAR MAIN BODY: SIDEBAR + STAGE */}
+      <div class="gcal-body">
+        {/* LEFT SIDEBAR */}
+        <aside class="gcal-sidebar">
+          <MiniCalendar
+            selectedDate={selectedDate()}
+            onSelectDate={d => {
+              setSelectedDate(d);
+              setCurrentDate(d);
+            }}
+          />
+
+          {/* MY CALENDARS FILTER */}
+          <div class="gcal-category-box">
+            <h4 class="sidebar-heading">My Calendars</h4>
+            <label class="cal-filter-item">
+              <input
+                type="checkbox"
+                checked={state.calendar.filterEvents}
+                onChange={e => setState('calendar', 'filterEvents', e.currentTarget.checked)}
+              />
+              <span class="filter-dot" style={{ background: '#ff6584' }} />
+              Events
+            </label>
+            <label class="cal-filter-item">
+              <input
+                type="checkbox"
+                checked={state.calendar.filterTasks}
+                onChange={e => setState('calendar', 'filterTasks', e.currentTarget.checked)}
+              />
+              <span class="filter-dot" style={{ background: '#00cec9' }} />
+              Tasks
+            </label>
+            <label class="cal-filter-item">
+              <input
+                type="checkbox"
+                checked={state.calendar.filterBirthdays}
+                onChange={e => setState('calendar', 'filterBirthdays', e.currentTarget.checked)}
+              />
+              <span class="filter-dot" style={{ background: '#e84393' }} />
+              Birthdays 🎂
+            </label>
+          </div>
+
+          {/* TASKS TO-DO SECTION */}
+          <div class="gcal-tasks-box">
+            <div class="tasks-box-header">
+              <h4 class="sidebar-heading">Tasks</h4>
+              <span class="tasks-badge">{sidebarTasks().length}</span>
+            </div>
+            <form class="quick-task-form" onSubmit={handleQuickTask}>
+              <input
+                type="text"
+                placeholder="+ Add a task & press Enter"
+                value={quickTaskInput()}
+                onInput={e => setQuickTaskInput(e.currentTarget.value)}
+                required
+              />
+            </form>
+            <div class="tasks-list-container">
+              <For each={sidebarTasks()}>
+                {tk => (
+                  <div
+                    class={`sidebar-task-item ${tk.completed ? 'completed' : ''}`}
+                    draggable={true}
+                    onDragStart={e => {
+                      if (!e.dataTransfer) return;
+                      e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'sidebar-task', id: tk.id }));
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={tk.completed}
+                      onClick={e => {
+                        e.stopPropagation();
+                        toggleTask(tk.id);
+                      }}
+                    />
+                    <span
+                      class="task-item-text"
+                      title={tk.title}
+                      onClick={() => openEditModal(tk)}
+                    >
+                      {tk.title}
+                    </span>
+                    <button
+                      type="button"
+                      class="task-del-btn"
+                      onClick={() => deleteCalendarEvent(tk.id)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </For>
+            </div>
+          </div>
+        </aside>
+
+        {/* MAIN CALENDAR VIEW STAGE */}
+        <main class="gcal-stage">
+          <Show when={state.calendar.view === 'month'}>
+            <CalendarMonthView
+              currentDate={currentDate()}
+              events={filteredEvents()}
+              onSelectDay={d => openCreateModal(d)}
+              onOpenEvent={(ev, rect) => openPopover(ev, rect)}
+            />
+          </Show>
+
+          <Show when={state.calendar.view === 'week'}>
+            <CalendarWeekView
+              currentDate={currentDate()}
+              events={filteredEvents()}
+              onSelectSlot={d => openCreateModal(d)}
+              onOpenEvent={(ev, rect) => openPopover(ev, rect)}
+            />
+          </Show>
+
+          <Show when={state.calendar.view === 'day'}>
+            <CalendarDayView
+              currentDate={currentDate()}
+              events={filteredEvents()}
+              onSelectSlot={d => openCreateModal(d)}
+              onOpenEvent={(ev, rect) => openPopover(ev, rect)}
+            />
+          </Show>
+        </main>
+      </div>
+
+      {/* POPOVER */}
+      <CalendarPopover
+        event={popoverEvent()}
+        position={popoverPos()}
+        onEdit={ev => openEditModal(ev)}
+        onClose={closePopover}
+      />
+
+      {/* MODAL */}
+      <EventModal
+        isOpen={isModalOpen()}
+        event={modalEvent()}
+        defaultDate={modalDefaultDate()}
+        onClose={() => setIsModalOpen(false)}
+      />
+    </div>
+  );
+}

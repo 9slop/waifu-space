@@ -1,6 +1,13 @@
-// Curated Japanese Aesthetic Wallpapers with Fallback Gradients
+export interface Wallpaper {
+  id: string;
+  name: string;
+  category: string;
+  url: string;
+  thumb: string;
+  fallback: string;
+}
 
-export const STOCK_WALLPAPERS = [
+export const STOCK_WALLPAPERS: Wallpaper[] = [
   {
     id: 'sakura-shrine',
     name: 'Sakura Shrine',

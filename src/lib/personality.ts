@@ -1,6 +1,34 @@
 // Personality Archetypes & Context-Aware Dialogue Engine
 
-export const PERSONALITIES = {
+export interface GreetingMood {
+  text: string;
+  mood: string;
+}
+
+export interface ReactionItem {
+  text: string;
+  mood: string;
+}
+
+export interface PersonalityArchetype {
+  id: string;
+  name: string;
+  tagline: string;
+  defaultMood: string;
+  greetings: {
+    morning: string[];
+    afternoon: string[];
+    evening: string[];
+    night: string[];
+  };
+  poke: ReactionItem[];
+  taskComplete: ReactionItem[];
+  taskOverdue: ReactionItem[];
+  birthday: ReactionItem[];
+  scheduleReview: (eventsCount: number, tasksCount: number) => ReactionItem;
+}
+
+export const PERSONALITIES: Record<string, PersonalityArchetype> = {
   tsundere: {
     id: 'tsundere',
     name: 'Tsundere',
@@ -46,7 +74,7 @@ export const PERSONALITIES = {
     birthday: [
       { text: "I-It's your special day today?! Hmph, I didn't get you a present or anything! ...Okay fine, happy birthday!", mood: 'blush' }
     ],
-    scheduleReview: (eventsCount, tasksCount) => {
+    scheduleReview: (eventsCount: number, tasksCount: number) => {
       if (eventsCount === 0 && tasksCount === 0) {
         return { text: "Your calendar is completely empty today. Don't just sit around all day being lazy, baka! Plan something productive!", mood: 'pout' };
       }
@@ -102,7 +130,7 @@ export const PERSONALITIES = {
     birthday: [
       { text: "Annual celebration detected. Probability of happiness should be maximized today. Happy birthday.", mood: 'happy' }
     ],
-    scheduleReview: (eventsCount, tasksCount) => {
+    scheduleReview: (eventsCount: number, tasksCount: number) => {
       return {
         text: `Agenda parsed: ${eventsCount} scheduled appointment${eventsCount === 1 ? '' : 's'} and ${tasksCount} pending task${tasksCount === 1 ? '' : 's'}. Execution begins upon your command.`,
         mood: 'neutral'
@@ -155,7 +183,7 @@ export const PERSONALITIES = {
     birthday: [
       { text: "It's your birthday! The sacred day my universe was created! Let's lock the doors and celebrate together forever!", mood: 'yandere' }
     ],
-    scheduleReview: (eventsCount, tasksCount) => {
+    scheduleReview: (eventsCount: number, tasksCount: number) => {
       return {
         text: `You have ${eventsCount} events and ${tasksCount} tasks today... Who are these people on your calendar, darling? Do they know you belong to me?! Clear them all quickly so we can be together!`,
         mood: 'yandere'
@@ -208,7 +236,7 @@ export const PERSONALITIES = {
     birthday: [
       { text: "HAPPY HAPPY BIRTHDAY!! 🎂🎉 Today is all about YOU! Wishing you the most magical and joyful day ever!!", mood: 'happy' }
     ],
-    scheduleReview: (eventsCount, tasksCount) => {
+    scheduleReview: (eventsCount: number, tasksCount: number) => {
       return {
         text: `Woohoo! Today's game plan: we have ${eventsCount} event${eventsCount === 1 ? '' : 's'} and ${tasksCount} task${tasksCount === 1 ? '' : 's'}! Let's crush them one by one like champions! 🌟`,
         mood: 'happy'
@@ -261,7 +289,7 @@ export const PERSONALITIES = {
     birthday: [
       { text: "U-Um... h-happy birthday...! I... I prayed for all your wishes to come true today...", mood: 'blush' }
     ],
-    scheduleReview: (eventsCount, tasksCount) => {
+    scheduleReview: (eventsCount: number, tasksCount: number) => {
       return {
         text: `U-Um, looking at your calendar... there are ${eventsCount} event${eventsCount === 1 ? '' : 's'} and ${tasksCount} task${tasksCount === 1 ? '' : 's'} today... I-I'll be cheering for you quietly!`,
         mood: 'blush'
@@ -270,14 +298,14 @@ export const PERSONALITIES = {
   }
 };
 
-export function getPersonality(id) {
+export function getPersonality(id: string): PersonalityArchetype {
   return PERSONALITIES[id] || PERSONALITIES.tsundere;
 }
 
-export function getRandomGreeting(personalityId) {
+export function getRandomGreeting(personalityId: string): GreetingMood {
   const persona = getPersonality(personalityId);
   const hour = new Date().getHours();
-  let timeOfDay = 'morning';
+  let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night' = 'morning';
   if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
   else if (hour >= 17 && hour < 22) timeOfDay = 'evening';
   else if (hour >= 22 || hour < 5) timeOfDay = 'night';

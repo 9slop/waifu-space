@@ -1,6 +1,20 @@
 // iCalendar (.ics) and JSON Import/Export Utilities
 
-export function exportToICS(events) {
+export interface CalendarEventItem {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  type: 'event' | 'task' | 'birthday';
+  completed: boolean;
+  color: string;
+  description?: string;
+  location?: string;
+  _notified?: boolean;
+}
+
+export function exportToICS(events: CalendarEventItem[]) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -34,11 +48,11 @@ export function exportToICS(events) {
   downloadBlob(blob, 'waifu-space-calendar.ics');
 }
 
-export function importFromICS(icsText) {
-  const events = [];
+export function importFromICS(icsText: string): CalendarEventItem[] {
+  const events: CalendarEventItem[] = [];
   const lines = icsText.split(/\r\n|\n|\r/);
   let inEvent = false;
-  let curr = null;
+  let curr: CalendarEventItem | null = null;
 
   lines.forEach(line => {
     line = line.trim();
@@ -83,19 +97,19 @@ export function importFromICS(icsText) {
   return events;
 }
 
-function escapeICS(str) {
+function escapeICS(str: string) {
   return (str || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 }
 
-function unescapeICS(str) {
+function unescapeICS(str: string) {
   return (str || '').replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
 }
 
-function formatICSDate(d) {
+function formatICSDate(d: Date) {
   return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 }
 
-function parseICSDate(str, isDateOnly) {
+function parseICSDate(str: string, isDateOnly?: boolean) {
   if (!str) return new Date();
   if (isDateOnly || str.length === 8) {
     const y = parseInt(str.substring(0, 4), 10);
@@ -106,17 +120,18 @@ function parseICSDate(str, isDateOnly) {
   const y = parseInt(str.substring(0, 4), 10);
   const m = parseInt(str.substring(4, 6), 10) - 1;
   const d = parseInt(str.substring(6, 8), 10);
-  const h = parseInt(str.substring(9, 11) || 0, 10);
-  const min = parseInt(str.substring(11, 13) || 0, 10);
-  const s = parseInt(str.substring(13, 15) || 0, 10);
+  const h = parseInt(str.substring(9, 11) || '0', 10);
+  const min = parseInt(str.substring(11, 13) || '0', 10);
+  const s = parseInt(str.substring(13, 15) || '0', 10);
   return new Date(Date.UTC(y, m, d, h, min, s));
 }
 
-function pad(n) {
+function pad(n: number) {
   return n < 10 ? '0' + n : n;
 }
 
-function downloadBlob(blob, filename) {
+function downloadBlob(blob: Blob, filename: string) {
+  if (typeof window === 'undefined') return;
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

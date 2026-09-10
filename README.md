@@ -1,40 +1,40 @@
-# 🌸 WaifuSpace
+# 🌸 WaifuSpace (SolidStart + Bun)
 
-> **Your personal anime companion & Google Calendar planner dashboard.**
-> **Zero dependencies. No Node.js. No npm. Just open `index.html` in your browser!**
+> **Your personal anime companion & Google Calendar planner dashboard.**  
+> **Re-engineered with [SolidStart](https://start.solidjs.com/) & [Bun](https://bun.sh/) for ultra-fast reactive performance, SSR/client hydration, and modular component architecture.**
 
 ---
 
-## ⚡ How to Run (Instant & Zero Setup)
+## ⚡ Quick Start with Bun
 
-You **do not** need Node.js, npm, or any terminal commands. 
+### Prerequisites
+- [Bun](https://bun.sh/) (v1.1+) installed on your system.
 
-### Method 1: Just Double-Click (Recommended)
-1. Open this folder in your File Explorer.
-2. Double-click **`index.html`** (or right-click -> Open with Chrome / Edge / Firefox / Brave).
-3. That's it! The application automatically loads all CSS styles, animations, Japanese wallpapers, audio synthesis, personality engine, and the Google Calendar planner.
-
-### Method 2: GitHub Pages (Online)
-1. In your GitHub repository settings, go to **Settings > Pages**.
-2. Under **Build and deployment > Branch**, select `main` and `/ (root)`, then click **Save**.
-3. Your companion dashboard will be live on the web at `https://<username>.github.io/waifu-space/`.
-
-### Method 3: Optional Local HTTP Server (If desired)
-If you prefer running through a local web server:
+### 1. Install Dependencies
 ```bash
-# Python (built into Windows, macOS, Linux):
-python -m http.server 8080
+bun install
 ```
-Then visit `http://localhost:8080`.
+
+### 2. Start Development Server
+```bash
+bun run dev
+```
+Open your browser and navigate to `http://localhost:3000`.
+
+### 3. Production Build & Start
+```bash
+bun run build
+bun run start
+```
 
 ---
 
-## ✨ Features Breakdown
+## ✨ Features
 
-### 1. 🌸 Interactive Companion Stage (Main Page)
-- **Layered Anime Vector Avatar**:
-  - Modular SVG avatar with switchable hairstyles (*Twintails*, *Long Straight*, *Short Bob*, *Ponytail*, *Wavy Hair*).
-  - Customizable hair and eye color palettes.
+### 1. 🌸 Interactive Companion Stage (`/`)
+- **Layered Anime Vector Avatar (`WaifuAvatar.tsx`)**:
+  - Pure SVG vector avatar with switchable hairstyles (*Twintails*, *Long Straight*, *Short Bob*, *Ponytail*, *Wavy Hair*).
+  - Customizable hair and eye color palettes with custom color picker.
   - Outfits: *🏫 Sailor Seifuku*, *☕ Maid Uniform*, *🛋️ Cozy Hoodie*, *👘 Summer Kimono/Yukata*, *🥀 Gothic Lolita*.
   - Accessories: *🎀 Ribbon*, *🐱 Nekomimi Cat Ears*, *👓 Red-rim Glasses*, *🎧 Cyber Headphones*.
   - Reactive facial expressions: *Blush*, *Tsundere Pout*, *Yandere Eyes*, *Sparkling Happy*, *Surprised*, *Neutral*.
@@ -51,7 +51,7 @@ Then visit `http://localhost:8080`.
 
 ---
 
-### 2. 📅 Google Calendar Clone with Companion Integration (Calendar Page)
+### 2. 📅 Google Calendar Clone with Companion Integration (`/calendar`)
 - **Google Calendar Experience**:
   - **Month View**: Full monthly grid with multi-day layout, event pills, overflow badges, and date switching.
   - **Week View**: Full 7-day 24-hour time grid with current-time red indicator bar and hourly time slots.
@@ -74,7 +74,7 @@ Then visit `http://localhost:8080`.
 
 ---
 
-### 3. ⚙️ Settings Studio & Customization (Settings Page)
+### 3. ⚙️ Settings Studio & Customization (`/settings`)
 - **5 Personality Archetypes**:
   - **Tsundere**: Feisty, calls you "baka", secretly cares deeply about you and your productivity.
   - **Kuudere**: Cold, robotic, analytical, treats your schedule with mathematical precision.
@@ -103,27 +103,52 @@ Then visit `http://localhost:8080`.
 
 ---
 
-## 📁 File Structure
+## 📁 Architecture & File Structure
 
 ```
 waifu-space/
-├── index.html               # Main application entrypoint (double-click to run!)
-├── css/
-│   ├── themes.css           # Color themes, variables, glassmorphism
-│   ├── style.css            # Base layouts, navigation, forms, modals, toasts
-│   ├── waifu.css            # Waifu stage, avatar animations, chat bubbles
-│   ├── calendar.css         # Google calendar clone: month, week, day views, tasks
-│   └── settings.css         # Personality studio, wardrobe, wallpaper gallery
-├── js/
-│   ├── bundle.js            # Standalone browser bundle (no node/npm required)
-│   ├── app.js               # Application bootstrap
-│   ├── state.js             # Global state manager with LocalStorage & bond EXP
-│   ├── waifu/               # Avatar generator, personalities, dialogue, speech, LLM
-│   ├── calendar/            # Google calendar views, drag-and-drop, iCal import/export
-│   ├── ui/                  # Chat stage, settings controller, sakura particles
-│   └── assets/              # Curated Japanese aesthetic wallpapers
-├── LICENSE                  # MIT License
-└── README.md                # Project documentation
+├── app.config.ts            # SolidStart configuration
+├── package.json             # Bun dependencies & scripts
+├── tsconfig.json            # TypeScript configuration
+├── src/
+│   ├── app.tsx              # Root shell layout with navigation, live clock & wallpaper
+│   ├── entry-client.tsx     # Client hydration entry
+│   ├── entry-server.tsx     # SSR server entry
+│   ├── routes/
+│   │   ├── index.tsx        # Companion stage route (/)
+│   │   ├── calendar.tsx     # Google Calendar planner route (/calendar)
+│   │   └── settings.tsx     # Settings studio route (/settings)
+│   ├── components/
+│   │   ├── WaifuAvatar.tsx         # Reactive layered SVG avatar
+│   │   ├── ChatStage.tsx           # Interactive chat & suggestion chips
+│   │   ├── CompanionStage.tsx      # Avatar stage layout + affection meter
+│   │   ├── CalendarPlanner.tsx     # Calendar shell + sidebar + toolbar
+│   │   ├── CalendarMonthView.tsx   # Month grid with drag & drop
+│   │   ├── CalendarWeekView.tsx    # Week 24h grid
+│   │   ├── CalendarDayView.tsx     # Day 24h agenda
+│   │   ├── MiniCalendar.tsx        # Mini calendar sidebar widget
+│   │   ├── EventModal.tsx          # Create/edit event modal
+│   │   ├── CalendarPopover.tsx     # Quick event popover
+│   │   ├── SettingsStudio.tsx      # Settings tabs & appearance customizer
+│   │   ├── WallpaperBackground.tsx # Dynamic wallpaper & blur/dim layer
+│   │   ├── SakuraCanvas.tsx        # Cherry blossom particle canvas
+│   │   └── ToastNotification.tsx   # Floating toast notification
+│   ├── lib/
+│   │   ├── store.ts         # Solid reactive state store + LocalStorage sync
+│   │   ├── personality.ts   # Archetypes & dialogue datasets
+│   │   ├── dialogue.ts      # Contextual dialogue engine & schedule checks
+│   │   ├── speech.ts        # Web Speech API engine
+│   │   ├── wallpapers.ts    # Curated aesthetic wallpapers
+│   │   ├── ical.ts          # RFC 5545 iCalendar import/export
+│   │   └── llm.ts           # Optional Gemini / OpenAI / OpenRouter API
+│   └── styles/
+│       ├── themes.css       # Themes, color variables, glassmorphism
+│       ├── style.css        # Base layout, nav, toast, scrollbars
+│       ├── waifu.css        # Avatar stage, animations, chat bubbles
+│       ├── calendar.css     # Google Calendar layout & grid
+│       └── settings.css     # Settings studio styles
+├── LICENSE
+└── README.md
 ```
 
 ---
