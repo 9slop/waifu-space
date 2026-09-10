@@ -705,7 +705,7 @@ export function WaifuDefenseGame() {
         </div>
 
         <div class="hud-stat">
-          <span class="hud-label">{state.waifu.name} Sanctuary HP</span>
+          <span class="hud-label">{state.waifu?.name || 'Waifu'} Sanctuary HP</span>
           <div class="hud-hp-bar">
             <div class="hp-fill" style={{ width: `${waifuHp()}%` }}></div>
             <span class="hp-text">{waifuHp()} / 100</span>
@@ -771,7 +771,7 @@ export function WaifuDefenseGame() {
         <Show when={gameStatus() === 'gameover'}>
           <div class="game-overlay-banner defeat-banner">
             <h3>💔 The Shrine Fell!</h3>
-            <p>{state.waifu.name} needs your protection! Upgrade towers and use Sakura Nova!</p>
+            <p>{state.waifu?.name || 'Your waifu'} needs your protection! Upgrade towers and use Sakura Nova!</p>
             <button class="btn-primary" onClick={resetGame}>
               Restart Defense 🔄
             </button>

@@ -332,12 +332,18 @@ export function loadState() {
             ...parsed,
             waifu: { ...DEFAULT_STATE.waifu, ...(parsed.waifu || {}), appearance: { ...DEFAULT_STATE.waifu.appearance, ...(parsed.waifu?.appearance || {}) } },
             rpg: {
-              ...DEFAULT_STATE.rpg,
+              ...DEFAULT_RPG,
               ...(parsed.rpg || {}),
-              unlockedOutfits: Array.from(new Set([...DEFAULT_STATE.rpg.unlockedOutfits, ...(parsed.rpg?.unlockedOutfits || [])])),
-              unlockedAccessories: Array.from(new Set([...DEFAULT_STATE.rpg.unlockedAccessories, ...(parsed.rpg?.unlockedAccessories || [])])),
-              unlockedHairstyles: Array.from(new Set([...DEFAULT_STATE.rpg.unlockedHairstyles, ...(parsed.rpg?.unlockedHairstyles || [])])),
-              claimedAffectionMilestones: parsed.rpg?.claimedAffectionMilestones || []
+              coins: typeof parsed.rpg?.coins === 'number' ? parsed.rpg.coins : DEFAULT_RPG.coins,
+              unlockedOutfits: Array.from(new Set([...DEFAULT_RPG.unlockedOutfits, ...(parsed.rpg?.unlockedOutfits || [])])),
+              unlockedAccessories: Array.from(new Set([...DEFAULT_RPG.unlockedAccessories, ...(parsed.rpg?.unlockedAccessories || [])])),
+              unlockedHairstyles: Array.from(new Set([...DEFAULT_RPG.unlockedHairstyles, ...(parsed.rpg?.unlockedHairstyles || [])])),
+              claimedAffectionMilestones: Array.isArray(parsed.rpg?.claimedAffectionMilestones) ? parsed.rpg.claimedAffectionMilestones : [],
+              defenseHighWave: typeof parsed.rpg?.defenseHighWave === 'number' ? parsed.rpg.defenseHighWave : 0,
+              defenseStats: {
+                totalVictories: parsed.rpg?.defenseStats?.totalVictories || 0,
+                goblinsDefeated: parsed.rpg?.defenseStats?.goblinsDefeated || 0
+              }
             },
             calendar: { ...DEFAULT_STATE.calendar, ...(parsed.calendar || {}), events: Array.isArray(parsed.calendar?.events) ? parsed.calendar.events : DEFAULT_STATE.calendar.events },
             settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
@@ -480,19 +486,44 @@ export function unlockCosmetic(category: 'outfits' | 'accessories' | 'hairstyles
   }
 }
 
-export function isCosmeticUnlocked(category: 'outfits' | 'accessories' | 'hairstyles', id: string): boolean {
+export function getUnlockedCosmeticsCount(): number {
+  const outfits = state.rpg?.unlockedOutfits?.length || 0;
+  const accessories = state.rpg?.unlockedAccessories?.length || 0;
+  const hairstyles = state.rpg?.unlockedHairstyles?.length || 0;
+  return outfits + accessories + hairstyles;
+}
+
+export function isCosmeticUnlocked(categoryOrId: string, id?: string): boolean {
+  if (!id) {
+    const targetId = categoryOrId;
+    if (targetId === 'none') return true;
+    const cat = COSMETIC_CATALOG.find(c => c.id === targetId)?.category;
+    if (cat === 'outfit') return (state.rpg?.unlockedOutfits || []).includes(targetId);
+    if (cat === 'accessory') return (state.rpg?.unlockedAccessories || []).includes(targetId);
+    if (cat === 'hairstyle') return (state.rpg?.unlockedHairstyles || []).includes(targetId);
+    return (
+      (state.rpg?.unlockedOutfits || []).includes(targetId) ||
+      (state.rpg?.unlockedAccessories || []).includes(targetId) ||
+      (state.rpg?.unlockedHairstyles || []).includes(targetId)
+    );
+  }
+
   if (id === 'none') return true;
-  const key = category === 'outfits' ? 'unlockedOutfits' : category === 'accessories' ? 'unlockedAccessories' : 'unlockedHairstyles';
-  return state.rpg[key].includes(id);
+  const key = categoryOrId === 'outfits' || categoryOrId === 'outfit'
+    ? 'unlockedOutfits'
+    : categoryOrId === 'accessories' || categoryOrId === 'accessory'
+    ? 'unlockedAccessories'
+    : 'unlockedHairstyles';
+  return (state.rpg?.[key] || []).includes(id);
 }
 
 export function claimAffectionReward(level: number): boolean {
   const milestone = AFFECTION_MILESTONES.find(m => m.level === level);
   if (!milestone) return false;
   if (state.waifu.bondLevel < level) return false;
-  if (state.rpg.claimedAffectionMilestones.includes(level)) return false;
+  if ((state.rpg?.claimedAffectionMilestones || []).includes(level)) return false;
 
-  setState('rpg', 'claimedAffectionMilestones', list => [...list, level]);
+  setState('rpg', 'claimedAffectionMilestones', list => [...(list || []), level]);
 
   if (milestone.rewardType === 'coins' && typeof milestone.rewardValue === 'number') {
     addCoins(milestone.rewardValue);
@@ -545,7 +576,7 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
   const picked = candidates[Math.floor(Math.random() * candidates.length)];
 
   const categoryKey = picked.category === 'outfit' ? 'unlockedOutfits' : picked.category === 'accessory' ? 'unlockedAccessories' : 'unlockedHairstyles';
-  const isDuplicate = state.rpg[categoryKey].includes(picked.id);
+  const isDuplicate = (state.rpg?.[categoryKey] || []).includes(picked.id);
 
   let duplicateCoins = 0;
   let duplicateExp = 0;
@@ -571,17 +602,21 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
   };
 }
 
-export function recordDefenseWaveVictory(wave: number, goblinsKilled: number) {
-  const coinsReward = wave * 75 + 50;
-  const expReward = wave * 50 + 40;
+export function recordDefenseWaveVictory(wave: number, coinsWon?: number, expWon?: number, goblinsKilled = 10) {
+  const coinsReward = coinsWon ?? (wave * 75 + 50);
+  const expReward = expWon ?? (wave * 50 + 40);
 
   addCoins(coinsReward);
   gainBondExp(expReward);
 
   setState('rpg', produce(r => {
-    if (wave > r.defenseHighWave) r.defenseHighWave = wave;
-    r.defenseStats.totalVictories += 1;
-    r.defenseStats.goblinsDefeated += goblinsKilled;
+    if (!r) return;
+    if (wave > (r.defenseHighWave || 0)) r.defenseHighWave = wave;
+    if (!r.defenseStats) {
+      r.defenseStats = { totalVictories: 0, goblinsDefeated: 0 };
+    }
+    r.defenseStats.totalVictories = (r.defenseStats.totalVictories || 0) + 1;
+    r.defenseStats.goblinsDefeated = (r.defenseStats.goblinsDefeated || 0) + goblinsKilled;
   }));
 
   saveState();

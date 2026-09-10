@@ -6,6 +6,7 @@ import {
   AFFECTION_MILESTONES,
   claimAffectionReward,
   isCosmeticUnlocked,
+  getUnlockedCosmeticsCount,
   showToast,
   RpgCosmeticItem
 } from '../lib/store';
@@ -46,6 +47,10 @@ export function RpgHub() {
     return COSMETIC_CATALOG.filter(item => item.category === filterCategory());
   };
 
+  const currentCoins = () => state.rpg?.coins ?? 0;
+  const currentHighWave = () => state.rpg?.defenseHighWave ?? 0;
+  const unlockedCount = () => getUnlockedCosmeticsCount();
+
   return (
     <div class="rpg-hub-container">
       {/* RPG TOP STATS DASHBOARD */}
@@ -55,30 +60,30 @@ export function RpgHub() {
             <span class="avatar-ring-icon">🌸</span>
           </div>
           <div class="rpg-profile-info">
-            <h3>{state.waifu.name}</h3>
+            <h3>{state.waifu?.name || 'Companion'}</h3>
             <div class="rpg-bars-group">
               <div class="rpg-bar-item">
                 <div class="bar-header">
-                  <span>🌟 Waifu Level {state.waifu.bondLevel}</span>
-                  <small>{state.waifu.bondExp} / {state.waifu.bondLevel * 100} XP</small>
+                  <span>🌟 Waifu Bond Lv {state.waifu?.bondLevel || 1}</span>
+                  <small>{state.waifu?.bondExp || 0} / {(state.waifu?.bondLevel || 1) * 50} XP</small>
                 </div>
                 <div class="stat-progress-bar">
                   <div
                     class="progress-fill exp-fill"
-                    style={{ width: `${Math.min(100, (state.waifu.bondExp / (state.waifu.bondLevel * 100)) * 100)}%` }}
+                    style={{ width: `${Math.min(100, ((state.waifu?.bondExp || 0) / ((state.waifu?.bondLevel || 1) * 50)) * 100)}%` }}
                   ></div>
                 </div>
               </div>
 
               <div class="rpg-bar-item">
                 <div class="bar-header">
-                  <span>💖 Affection Level {state.waifu.affectionLevel}</span>
-                  <small>{state.waifu.affection} / {state.waifu.affectionLevel * 100} Pts</small>
+                  <span>💖 Affection Milestone Lv {state.waifu?.bondLevel || 1}</span>
+                  <small>Unlocked Tier: {state.rpg?.claimedAffectionMilestones?.length || 0} / {AFFECTION_MILESTONES.length}</small>
                 </div>
                 <div class="stat-progress-bar">
                   <div
                     class="progress-fill affection-fill"
-                    style={{ width: `${Math.min(100, (state.waifu.affection / (state.waifu.affectionLevel * 100)) * 100)}%` }}
+                    style={{ width: `${Math.min(100, ((state.rpg?.claimedAffectionMilestones?.length || 0) / AFFECTION_MILESTONES.length) * 100)}%` }}
                   ></div>
                 </div>
               </div>
@@ -91,7 +96,7 @@ export function RpgHub() {
             <span class="chip-icon">🪙</span>
             <div class="chip-content">
               <span class="chip-label">Gold Coins</span>
-              <strong class="chip-val">{state.rpg.coins}</strong>
+              <strong class="chip-val">{currentCoins()}</strong>
             </div>
           </div>
 
@@ -99,15 +104,15 @@ export function RpgHub() {
             <span class="chip-icon">🛡️</span>
             <div class="chip-content">
               <span class="chip-label">Defense High Score</span>
-              <strong class="chip-val">Wave {state.rpg.defenseHighScore}</strong>
+              <strong class="chip-val">Wave {currentHighWave()}</strong>
             </div>
           </div>
 
           <div class="rpg-stat-chip">
             <span class="chip-icon">👗</span>
             <div class="chip-content">
-              <span class="chip-label">Cosmetics Collected</span>
-              <strong class="chip-val">{state.rpg.unlockedCosmetics.length} / {COSMETIC_CATALOG.length}</strong>
+              <span class="chip-label">Cosmetics Unlocked</span>
+              <strong class="chip-val">{unlockedCount()} / {COSMETIC_CATALOG.length}</strong>
             </div>
           </div>
         </div>
@@ -171,21 +176,21 @@ export function RpgHub() {
               <div class="road-header">
                 <h2>💖 Affection Road Milestones</h2>
                 <p>
-                  Deepen your bond with {state.waifu.name} by chatting, poking, completing tasks, and defending her shrine!
+                  Deepen your bond with {state.waifu?.name || 'your companion'} by chatting, poking, completing tasks, and defending her shrine!
                 </p>
               </div>
 
               <div class="milestones-track">
                 <For each={AFFECTION_MILESTONES}>
                   {milestone => {
-                    const isClaimed = () => state.rpg.claimedMilestones.includes(milestone.level);
-                    const canClaim = () => !isClaimed() && state.waifu.affectionLevel >= milestone.level;
-                    const isLocked = () => state.waifu.affectionLevel < milestone.level;
+                    const isClaimed = () => (state.rpg?.claimedAffectionMilestones || []).includes(milestone.level);
+                    const canClaim = () => !isClaimed() && (state.waifu?.bondLevel || 1) >= milestone.level;
+                    const isLocked = () => (state.waifu?.bondLevel || 1) < milestone.level;
 
                     return (
                       <div class={`milestone-card ${isClaimed() ? 'claimed' : canClaim() ? 'can-claim' : 'locked'}`}>
                         <div class="milestone-badge">
-                          <span class="badge-icon">💖</span>
+                          <span class="badge-icon">{milestone.icon}</span>
                           <span class="badge-lvl">Lv {milestone.level}</span>
                         </div>
 
@@ -193,10 +198,12 @@ export function RpgHub() {
                           <h4 class="milestone-title">{milestone.title}</h4>
                           <p class="milestone-desc">{milestone.description}</p>
                           <div class="milestone-reward-tags">
-                            <span class="tag-coin">🪙 +{milestone.coinReward} Coins</span>
-                            <Show when={milestone.cosmeticReward}>
+                            <Show when={milestone.rewardType === 'coins'}>
+                              <span class="tag-coin">🪙 +{milestone.rewardValue} Coins</span>
+                            </Show>
+                            <Show when={milestone.rewardType === 'cosmetic'}>
                               <span class="tag-cosmetic">
-                                ✨ {COSMETIC_CATALOG.find(c => c.id === milestone.cosmeticReward)?.name || milestone.cosmeticReward}
+                                ✨ {milestone.rewardLabel}
                               </span>
                             </Show>
                           </div>
@@ -259,8 +266,8 @@ export function RpgHub() {
                     {item => {
                       const unlocked = () => isCosmeticUnlocked(item.id);
                       const isEquipped = () =>
-                        (item.category === 'outfit' && state.waifu.appearance.outfit === item.id) ||
-                        (item.category === 'accessory' && state.waifu.appearance.accessory === item.id);
+                        (item.category === 'outfit' && state.waifu?.appearance?.outfit === item.id) ||
+                        (item.category === 'accessory' && state.waifu?.appearance?.accessory === item.id);
 
                       return (
                         <div class={`cosmetic-card ${getRarityClass(item.rarity)} ${unlocked() ? 'unlocked' : 'locked'}`}>
@@ -274,7 +281,7 @@ export function RpgHub() {
                           <div class="cosmetic-details">
                             <h4 class="cosmetic-name">{item.name}</h4>
                             <p class="cosmetic-desc">{item.description}</p>
-                            <small class="cosmetic-source">Source: {item.source}</small>
+                            <small class="cosmetic-source">Unlock: {item.description}</small>
                           </div>
 
                           <div class="cosmetic-btn-wrap">
@@ -305,8 +312,8 @@ export function RpgHub() {
                   <WaifuAvatar />
                 </div>
                 <div class="preview-active-specs">
-                  <div><strong>Outfit:</strong> {state.waifu.appearance.outfit}</div>
-                  <div><strong>Accessory:</strong> {state.waifu.appearance.accessory}</div>
+                  <div><strong>Outfit:</strong> {state.waifu?.appearance?.outfit || 'seifuku'}</div>
+                  <div><strong>Accessory:</strong> {state.waifu?.appearance?.accessory || 'none'}</div>
                 </div>
               </div>
             </div>

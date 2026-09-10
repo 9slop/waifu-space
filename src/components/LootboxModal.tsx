@@ -8,10 +8,12 @@ export function LootboxModal() {
   const [duplicateCompensation, setDuplicateCompensation] = createSignal<number | null>(null);
   const [history, setHistory] = createSignal<Array<{ item: RpgCosmeticItem; wasDup: boolean; date: string }>>([]);
 
+  const userCoins = () => state.rpg?.coins ?? 0;
+
   const handleOpenChest = () => {
     const cost = selectedChest() === 'standard' ? 100 : 250;
-    if (state.rpg.coins < cost) {
-      showToast(`Not enough coins! You need ${cost} 🪙 (Have: ${state.rpg.coins} 🪙)`);
+    if (userCoins() < cost) {
+      showToast(`Not enough coins! You need ${cost} 🪙 (Have: ${userCoins()} 🪙)`);
       return;
     }
 
@@ -24,11 +26,11 @@ export function LootboxModal() {
       const result = openLootbox(selectedChest());
       if (result) {
         setRevealedItem(result.item);
-        if (result.duplicate) {
-          setDuplicateCompensation(result.compensation);
+        if (result.isDuplicate) {
+          setDuplicateCompensation(result.duplicateCoins);
         }
         setHistory(prev => [
-          { item: result.item, wasDup: result.duplicate, date: new Date().toLocaleTimeString() },
+          { item: result.item, wasDup: result.isDuplicate, date: new Date().toLocaleTimeString() },
           ...prev.slice(0, 7)
         ]);
       }
@@ -66,7 +68,7 @@ export function LootboxModal() {
         </div>
         <div class="lootbox-coin-display">
           <span>Your Balance:</span>
-          <strong class="coin-val">🪙 {state.rpg.coins}</strong>
+          <strong class="coin-val">🪙 {userCoins()}</strong>
         </div>
       </div>
 
@@ -103,7 +105,7 @@ export function LootboxModal() {
       <div class="chest-action-center">
         <button
           class="btn-open-chest"
-          disabled={isOpening() || state.rpg.coins < (selectedChest() === 'standard' ? 100 : 250)}
+          disabled={isOpening() || userCoins() < (selectedChest() === 'standard' ? 100 : 250)}
           onClick={handleOpenChest}
         >
           {isOpening() ? (
