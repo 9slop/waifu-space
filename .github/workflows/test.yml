@@ -22,7 +22,7 @@ jobs:
         run: bun install
 
       - name: Run Test Suite
-        run: bun test
+        run: bun run test
 
       - name: Verify Build
         run: bun run build

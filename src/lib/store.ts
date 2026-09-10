@@ -18,7 +18,7 @@ export interface RpgCosmeticItem {
   id: string;
   name: string;
   category: 'outfit' | 'accessory' | 'hairstyle';
-  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  rarity: 'common' | 'rare' | 'epic' | 'legendary' | 'mystical';
   description: string;
   icon: string;
 }
@@ -38,12 +38,17 @@ export const COSMETIC_CATALOG: RpgCosmeticItem[] = [
   { id: 'none', name: 'None', category: 'accessory', rarity: 'common', description: 'No accessory equipped.', icon: '✖️' },
   { id: 'ribbon', name: 'Red Ribbon', category: 'accessory', rarity: 'common', description: 'Cute silk bow tied gracefully into her hair.', icon: '🎀' },
   { id: 'glasses', name: 'Stylish Glasses', category: 'accessory', rarity: 'common', description: 'Chic frames that give an intellectual charm.', icon: '👓' },
+  { id: 'maid_headband', name: 'Maid Headband', category: 'accessory', rarity: 'rare', description: 'Crisp white lace maid headdress.', icon: '🤍' },
   { id: 'flower_pin', name: 'Sakura Hairpin', category: 'accessory', rarity: 'rare', description: 'Delicate cherry blossom petal pin with soft morning dew.', icon: '🌸' },
   { id: 'headphones', name: 'Cyber Headphones', category: 'accessory', rarity: 'rare', description: 'Glowing cyan headphones tuned to lo-fi beats.', icon: '🎧' },
   { id: 'cat_ears', name: 'Fluffy Cat Ears', category: 'accessory', rarity: 'epic', description: 'Twitching soft feline ears with tiny golden bells.', icon: '🐱' },
   { id: 'bunny_ears', name: 'Bunny Ears', category: 'accessory', rarity: 'epic', description: 'Playful velvet rabbit ears that bounce when she moves.', icon: '🐰' },
+  { id: 'succubus_horns', name: 'Shadow Horns', category: 'accessory', rarity: 'epic', description: 'Curved obsidian horns radiating soft ethereal twilight.', icon: '😈' },
   { id: 'kitsune_mask', name: 'Kitsune Mask', category: 'accessory', rarity: 'legendary', description: 'Mystical fox spirit festival mask worn on the side of her hair.', icon: '🦊' },
   { id: 'halo', name: 'Angel Halo', category: 'accessory', rarity: 'legendary', description: 'Gleaming celestial halo floating serenely above her crown.', icon: '😇' },
+  { id: 'phoenix_pin', name: 'Phoenix Plume', category: 'accessory', rarity: 'legendary', description: 'Blazing golden feather hairpin with warm immortal embers.', icon: '🪶' },
+  { id: 'kitsune_aurora', name: 'Aurora Spirit Mask', category: 'accessory', rarity: 'mystical', description: 'Sacred celestial kitsune mask infused with shifting aurora borealis light.', icon: '🦊✨' },
+  { id: 'starlight_crown', name: 'Crown of Cosmos', category: 'accessory', rarity: 'mystical', description: 'Transcendent diadem forged from pure crystallized cosmic nebula.', icon: '👑✨' },
 
   // Hairstyles
   { id: 'twintails', name: 'Classic Twintails', category: 'hairstyle', rarity: 'common', description: 'Bouncy twin ponytails tied high on both sides.', icon: '👧' },
@@ -80,6 +85,7 @@ export interface RpgState {
   unlockedOutfits: string[];
   unlockedAccessories: string[];
   unlockedHairstyles: string[];
+  showcaseItems: string[]; // up to 6 featured item IDs
   claimedAffectionMilestones: number[];
   defenseHighWave: number;
   defenseStats: {
@@ -88,8 +94,18 @@ export interface RpgState {
   };
 }
 
+export interface UserAccount {
+  id: string;
+  username: string;
+  email?: string;
+  avatarUrl?: string;
+  bio?: string;
+  token?: string;
+}
+
 export interface AppState {
   activeTab: 'main' | 'calendar' | 'rpg' | 'settings';
+  user: UserAccount | null;
   waifu: {
     name: string;
     personality: string;
@@ -211,6 +227,7 @@ export const DEFAULT_RPG: RpgState = {
   unlockedOutfits: ['seifuku', 'casual'],
   unlockedAccessories: ['none', 'ribbon', 'glasses'],
   unlockedHairstyles: ['twintails', 'long', 'short_bob'],
+  showcaseItems: ['ribbon', 'glasses'],
   claimedAffectionMilestones: [],
   defenseHighWave: 0,
   defenseStats: {
@@ -221,6 +238,7 @@ export const DEFAULT_RPG: RpgState = {
 
 export const DEFAULT_STATE: AppState = {
   activeTab: 'main',
+  user: null,
   waifu: {
     name: 'Akari',
     personality: 'tsundere',
@@ -319,6 +337,146 @@ export function saveState() {
   } catch (e) {
     console.error('Failed to save state to localStorage', e);
   }
+  scheduleCloudSync();
+}
+
+// ---------------------------------------------------------------------------
+// Cloud sync (Supabase via /api/sync/progress)
+// ---------------------------------------------------------------------------
+
+let cloudSyncTimer: any = null;
+
+export function scheduleCloudSync() {
+  if (typeof window === 'undefined') return;
+  if (!state.user?.token) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(() => {
+    void pushProgressToCloud();
+  }, 2500);
+}
+
+async function pushProgressToCloud() {
+  const token = state.user?.token;
+  if (!token) return;
+  try {
+    await fetch('/api/sync/progress', {
+      method: 'POST',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        waifu: {
+          name: state.waifu.name,
+          personality: state.waifu.personality,
+          bondLevel: state.waifu.bondLevel,
+          bondExp: state.waifu.bondExp,
+          appearance: state.waifu.appearance
+        },
+        rpg: {
+          coins: state.rpg.coins,
+          unlockedOutfits: state.rpg.unlockedOutfits,
+          unlockedAccessories: state.rpg.unlockedAccessories,
+          unlockedHairstyles: state.rpg.unlockedHairstyles,
+          claimedAffectionMilestones: state.rpg.claimedAffectionMilestones,
+          defenseHighWave: state.rpg.defenseHighWave,
+          defenseStats: state.rpg.defenseStats,
+          showcaseItems: state.rpg.showcaseItems
+        },
+        settings: state.settings
+      })
+    });
+  } catch {
+    // Cloud sync is best-effort; the local state already persists.
+  }
+}
+
+// Flush any pending debounced sync when the page is being unloaded, so a
+// reload right after earning coins doesn't leave the last save behind.
+if (typeof window !== 'undefined') {
+  const flushPendingSync = () => {
+    if (!state.user?.token) return;
+    clearTimeout(cloudSyncTimer);
+    void pushProgressToCloud();
+  };
+  window.addEventListener('pagehide', flushPendingSync);
+  window.addEventListener('beforeunload', flushPendingSync);
+}
+
+/**
+ * Pulls the logged-in user's saved progress from Supabase and merges it into
+ * local state. Cloud data wins for RPG/waifu save fields, except that a richer
+ * local save is never clobbered by the default 200-coin registration snapshot.
+ */
+export async function loadCloudProgress(token?: string): Promise<void> {
+  const authToken = token || state.user?.token;
+  if (!authToken) return;
+
+  try {
+    const res = await fetch('/api/sync/progress', {
+      headers: { Authorization: `Bearer ${authToken}` }
+    });
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (!data.success) return;
+
+    const p = data.progress;
+    if (!p) {
+      // Nothing saved in the cloud yet -> upload the current local state.
+      scheduleCloudSync();
+      return;
+    }
+
+    const inventory: Array<{ item_id: string; category: string }> = Array.isArray(data.inventory) ? data.inventory : [];
+    const showcaseItems: string[] = Array.isArray(data.showcaseItems) ? data.showcaseItems : [];
+
+    // Never lose currency: the cloud can hold a stale snapshot (e.g. an older
+    // session), so the merge always keeps the larger balance on both sides.
+    const coins = Math.max(state.rpg.coins, typeof p.coins === 'number' ? p.coins : 0);
+
+    setState(
+      produce(s => {
+        s.rpg.coins = coins;
+        if (typeof p.bond_level === 'number' && p.bond_level > s.waifu.bondLevel) s.waifu.bondLevel = p.bond_level;
+        if (typeof p.bond_exp === 'number') s.waifu.bondExp = Math.max(p.bond_exp, s.waifu.bondExp);
+        if (p.waifu_name) s.waifu.name = p.waifu_name;
+        if (p.waifu_personality) s.waifu.personality = p.waifu_personality;
+        if (p.worn_outfit) s.waifu.appearance.outfit = p.worn_outfit;
+        if (p.worn_accessory) s.waifu.appearance.accessory = p.worn_accessory;
+        if (p.worn_hairstyle) s.waifu.appearance.hairstyle = p.worn_hairstyle;
+        if (p.appearance_data && typeof p.appearance_data === 'object') {
+          Object.assign(s.waifu.appearance, p.appearance_data);
+        }
+        if (p.settings_data && typeof p.settings_data === 'object') {
+          Object.assign(s.settings, p.settings_data);
+          s.settings.language = p.settings_data.language === 'ja' ? 'ja' : s.settings.language;
+        }
+        if (Array.isArray(p.claimed_milestones) && p.claimed_milestones.length > 0) {
+          s.rpg.claimedAffectionMilestones = Array.from(new Set([...(s.rpg.claimedAffectionMilestones || []), ...p.claimed_milestones]));
+        }
+        if (typeof p.defense_high_wave === 'number') {
+          s.rpg.defenseHighWave = Math.max(s.rpg.defenseHighWave || 0, p.defense_high_wave);
+        }
+        s.rpg.defenseStats.totalVictories = Math.max(s.rpg.defenseStats.totalVictories || 0, p.defense_victories || 0);
+        s.rpg.defenseStats.goblinsDefeated = Math.max(s.rpg.defenseStats.goblinsDefeated || 0, p.goblins_defeated || 0);
+
+        const unlockedOutfits = new Set(s.rpg.unlockedOutfits);
+        const unlockedAccessories = new Set(s.rpg.unlockedAccessories);
+        const unlockedHairstyles = new Set(s.rpg.unlockedHairstyles);
+        for (const item of inventory) {
+          if (item.category === 'outfit') unlockedOutfits.add(item.item_id);
+          else if (item.category === 'accessory') unlockedAccessories.add(item.item_id);
+          else if (item.category === 'hairstyle') unlockedHairstyles.add(item.item_id);
+        }
+        s.rpg.unlockedOutfits = [...unlockedOutfits];
+        s.rpg.unlockedAccessories = [...unlockedAccessories];
+        s.rpg.unlockedHairstyles = [...unlockedHairstyles];
+        if (showcaseItems.length > 0) s.rpg.showcaseItems = showcaseItems;
+      })
+    );
+    saveState();
+  } catch {
+    // Best-effort cloud load; the local state remains authoritative.
+  }
 }
 
 export function loadState() {
@@ -332,6 +490,7 @@ export function loadState() {
           Object.assign(s, {
             ...DEFAULT_STATE,
             ...parsed,
+            user: parsed.user || null,
             waifu: { ...DEFAULT_STATE.waifu, ...(parsed.waifu || {}), appearance: { ...DEFAULT_STATE.waifu.appearance, ...(parsed.waifu?.appearance || {}) } },
             rpg: {
               ...DEFAULT_RPG,
@@ -340,6 +499,7 @@ export function loadState() {
               unlockedOutfits: Array.from(new Set([...DEFAULT_RPG.unlockedOutfits, ...(parsed.rpg?.unlockedOutfits || [])])),
               unlockedAccessories: Array.from(new Set([...DEFAULT_RPG.unlockedAccessories, ...(parsed.rpg?.unlockedAccessories || [])])),
               unlockedHairstyles: Array.from(new Set([...DEFAULT_RPG.unlockedHairstyles, ...(parsed.rpg?.unlockedHairstyles || [])])),
+              showcaseItems: Array.isArray(parsed.rpg?.showcaseItems) ? parsed.rpg.showcaseItems : DEFAULT_RPG.showcaseItems,
               claimedAffectionMilestones: Array.isArray(parsed.rpg?.claimedAffectionMilestones) ? parsed.rpg.claimedAffectionMilestones : [],
               defenseHighWave: typeof parsed.rpg?.defenseHighWave === 'number' ? parsed.rpg.defenseHighWave : 0,
               defenseStats: {
@@ -551,6 +711,30 @@ export interface LootboxResult {
   duplicateExp: number;
 }
 
+export function toggleShowcaseItem(itemId: string): boolean {
+  if (!isCosmeticUnlocked(itemId)) return false;
+  const current = state.rpg?.showcaseItems || [];
+  if (current.includes(itemId)) {
+    setState('rpg', 'showcaseItems', list => (list || []).filter(id => id !== itemId));
+    saveState();
+    return true;
+  }
+
+  if (current.length >= 6) {
+    showToast('Showcase case is full (max 6 items)!');
+    return false;
+  }
+
+  setState('rpg', 'showcaseItems', list => [...(list || []), itemId]);
+  saveState();
+  return true;
+}
+
+export function setUserAccount(user: UserAccount | null) {
+  setState('user', user);
+  saveState();
+}
+
 export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null {
   const cost = boxType === 'standard' ? 100 : 250;
   if (!spendCoins(cost)) {
@@ -559,17 +743,19 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
   }
 
   const rand = Math.random() * 100;
-  let targetRarity: 'common' | 'rare' | 'epic' | 'legendary';
+  let targetRarity: 'common' | 'rare' | 'epic' | 'legendary' | 'mystical';
 
   if (boxType === 'standard') {
-    if (rand < 60) targetRarity = 'common';
-    else if (rand < 90) targetRarity = 'rare';
-    else if (rand < 99) targetRarity = 'epic';
-    else targetRarity = 'legendary';
+    if (rand < 50) targetRarity = 'common';
+    else if (rand < 83) targetRarity = 'rare';
+    else if (rand < 96) targetRarity = 'epic';
+    else if (rand < 99.5) targetRarity = 'legendary';
+    else targetRarity = 'mystical';
   } else {
-    if (rand < 30) targetRarity = 'rare';
+    if (rand < 40) targetRarity = 'rare';
     else if (rand < 80) targetRarity = 'epic';
-    else targetRarity = 'legendary';
+    else if (rand < 97) targetRarity = 'legendary';
+    else targetRarity = 'mystical';
   }
 
   let candidates = COSMETIC_CATALOG.filter(c => c.id !== 'none' && c.rarity === targetRarity);
@@ -587,7 +773,8 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
     if (picked.rarity === 'common') { duplicateCoins = 40; duplicateExp = 25; }
     else if (picked.rarity === 'rare') { duplicateCoins = 80; duplicateExp = 50; }
     else if (picked.rarity === 'epic') { duplicateCoins = 160; duplicateExp = 100; }
-    else { duplicateCoins = 300; duplicateExp = 200; }
+    else if (picked.rarity === 'legendary') { duplicateCoins = 300; duplicateExp = 200; }
+    else { duplicateCoins = 600; duplicateExp = 400; }
 
     addCoins(duplicateCoins);
     gainBondExp(duplicateExp);

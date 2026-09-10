@@ -570,6 +570,41 @@ export function WaifuAvatar() {
                   <ellipse cx="152" cy="135" rx="5" ry="5" fill="#ff99bb" />
                 </>
               )}
+              {accessory() === 'maid_headband' && (
+                <>
+                  <path d="M 140,118 C 160,105 240,105 260,118 C 255,110 245,100 200,100 C 155,100 145,110 140,118 Z" fill="#ffffff" stroke="#e0e0e0" stroke-width="1.5" />
+                  <ellipse cx="200" cy="104" rx="35" ry="5" fill="#ffffff" />
+                </>
+              )}
+              {accessory() === 'succubus_horns' && (
+                <>
+                  <path d="M 140,130 Q 115,100 110,65 Q 125,75 145,110 Z" fill="#2d132c" stroke="#801336" stroke-width="1.5" />
+                  <path d="M 260,130 Q 285,100 290,65 Q 275,75 255,110 Z" fill="#2d132c" stroke="#801336" stroke-width="1.5" />
+                </>
+              )}
+              {accessory() === 'phoenix_pin' && (
+                <>
+                  <path d="M 145,130 Q 120,110 122,80 Q 135,100 152,125 Z" fill="#ff793f" />
+                  <path d="M 148,128 Q 128,105 130,88 Q 138,105 150,123 Z" fill="#ffb142" />
+                  <circle cx="152" cy="128" r="4.5" fill="#ff5252" />
+                </>
+              )}
+              {accessory() === 'kitsune_aurora' && (
+                <>
+                  <path d="M 250,110 C 285,90 310,130 295,165 C 280,195 240,185 245,150 Z" fill="#ffffff" stroke="#00dfd8" stroke-width="2.5" />
+                  <polygon points="265,95 285,75 285,105" fill="#7928ca" />
+                  <circle cx="256" cy="165" r="4" fill="#ff007f" />
+                  <circle cx="280" cy="130" r="14" fill="rgba(0,223,216,0.3)" filter="blur(4px)" />
+                </>
+              )}
+              {accessory() === 'starlight_crown' && (
+                <>
+                  <path d="M 155,115 L 165,80 L 180,105 L 200,68 L 220,105 L 235,80 L 245,115 Z" fill="url(#sakura_yandereGrad)" stroke="#ffd700" stroke-width="2" />
+                  <circle cx="200" cy="68" r="4" fill="#00dfd8" />
+                  <circle cx="165" cy="80" r="3" fill="#ff007f" />
+                  <circle cx="235" cy="80" r="3" fill="#ff007f" />
+                </>
+              )}
             </g>
 
             {/* 9. YANDERE VIGNETTE SHADOW */}

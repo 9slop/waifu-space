@@ -119,6 +119,7 @@ export function WaifuDefenseGame() {
   let lastEnergyTick = Date.now();
   let nextProjId = 1;
   let nextEnemyId = 1;
+  let waveStartTime = 0;
 
   // Sound effects generator via Web Audio API
   const playSfx = (type: 'shoot' | 'hit' | 'nova' | 'victory' | 'lose') => {
@@ -192,6 +193,7 @@ export function WaifuDefenseGame() {
     setWaveInProgress(true);
     setGameStatus('playing');
     setLastWaveReward(null);
+    waveStartTime = Date.now();
 
     // Build spawn queue based on wave level
     spawnQueue = [];
@@ -518,12 +520,38 @@ export function WaifuDefenseGame() {
         playSfx('victory');
 
         const curWave = wave();
-        const coinsWon = 30 + curWave * 15;
-        const expWon = 45 + curWave * 20;
+        const durationMs = Math.max(1000, Date.now() - waveStartTime);
 
-        recordDefenseWaveVictory(curWave, coinsWon, expWon);
-        setLastWaveReward({ coins: coinsWon, exp: expWon });
-        showToast(t('defense.waveClearedToast', { wave: curWave, coins: coinsWon, exp: expWon }));
+        (async () => {
+          let coinsWon = 30 + curWave * 15;
+          let expWon = 45 + curWave * 20;
+
+          try {
+            const token = localStorage.getItem('ws_auth_token');
+            const res = await fetch('/api/defense/verify-wave', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({ wave: curWave, durationMs })
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              if (data.verified) {
+                coinsWon = data.coinsReward ?? coinsWon;
+                expWon = data.expReward ?? expWon;
+              }
+            }
+          } catch {
+            // Local fallback if offline or API unavailable
+          }
+
+          recordDefenseWaveVictory(curWave, coinsWon, expWon);
+          setLastWaveReward({ coins: coinsWon, exp: expWon });
+          showToast(t('defense.waveClearedToast', { wave: curWave, coins: coinsWon, exp: expWon }));
+        })();
       }
 
       // 6. Update Particles

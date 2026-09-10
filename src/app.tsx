@@ -1,11 +1,13 @@
 import { createSignal, onMount, onCleanup, createEffect, Suspense } from 'solid-js';
 import { Router, A, useLocation } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { state, loadState, showToast, triggerWaifuResponse } from './lib/store';
+import { state, loadState, loadCloudProgress, showToast, triggerWaifuResponse, setUserAccount } from './lib/store';
 import { t } from './lib/i18n';
 import { WallpaperBackground } from './components/WallpaperBackground';
 import { SakuraCanvas } from './components/SakuraCanvas';
 import { ToastNotification } from './components/ToastNotification';
+import { AuthModal } from './components/AuthModal';
+import { LeaderboardModal } from './components/LeaderboardModal';
 
 // Global Styles
 import './styles/themes.css';
@@ -17,11 +19,18 @@ import './styles/rpg.css';
 
 function AppLayout(props: { children: any }) {
   const [clockTime, setClockTime] = createSignal('');
+  const [showAuthModal, setShowAuthModal] = createSignal(false);
+  const [showLeaderboardModal, setShowLeaderboardModal] = createSignal(false);
   let clockInterval: any = null;
   let deadlineInterval: any = null;
 
   onMount(() => {
     loadState();
+
+    // Restore cloud progress for a returning user with a saved session
+    if (state.user?.token) {
+      loadCloudProgress(state.user.token);
+    }
 
     // Clock
     const updateClock = () => {
@@ -107,14 +116,57 @@ function AppLayout(props: { children: any }) {
             <span>⚙️</span>
             <span>{t('nav.settings')}</span>
           </A>
+          <A href="/profile" class="nav-tab-btn" activeClass="active">
+            <span>👤</span>
+            <span>{t('nav.profile')}</span>
+          </A>
         </nav>
 
         {/* RIGHT HEADER META */}
         <div class="header-right">
+          <button
+            class="header-action-pill btn-leaderboard"
+            data-testid="header-btn-leaderboard"
+            title={t('nav.leaderboard')}
+            onClick={() => setShowLeaderboardModal(true)}
+          >
+            <span>🏆</span>
+            <span class="pill-text">{t('nav.leaderboard')}</span>
+          </button>
+
           <A href="/rpg" class="header-coin-pill" title={t('nav.coinTooltip')}>
             <span>🪙</span>
             <span>{state.rpg ? state.rpg.coins : 0}</span>
           </A>
+
+          <Show when={state.user} fallback={
+            <button
+              class="header-action-pill btn-login-pill"
+              data-testid="header-btn-login"
+              onClick={() => setShowAuthModal(true)}
+            >
+              <span>✨</span>
+              <span>{t('nav.login')}</span>
+            </button>
+          }>
+            <div class="user-profile-badge">
+              <A href="/profile" class="user-badge-link" title={state.user?.username}>
+                <span class="user-avatar-tiny">🌸</span>
+                <span class="user-badge-name">{state.user?.username}</span>
+              </A>
+              <button
+                class="btn-header-logout"
+                title={t('nav.logout')}
+                onClick={() => {
+                  setUserAccount(null);
+                  showToast(t('auth.logoutSuccess'));
+                }}
+              >
+                🚪
+              </button>
+            </div>
+          </Show>
+
           <div class="header-clock">{clockTime() || '12:00 PM'}</div>
         </div>
       </header>
@@ -123,6 +175,17 @@ function AppLayout(props: { children: any }) {
       <main class="app-content">
         <Suspense>{props.children}</Suspense>
       </main>
+
+      {/* MODALS */}
+      <AuthModal
+        isOpen={showAuthModal()}
+        onClose={() => setShowAuthModal(false)}
+      />
+
+      <LeaderboardModal
+        isOpen={showLeaderboardModal()}
+        onClose={() => setShowLeaderboardModal(false)}
+      />
 
       {/* GLOBAL TOAST NOTIFICATION */}
       <ToastNotification />

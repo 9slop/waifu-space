@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   state,
   setState,
@@ -17,6 +17,7 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
   toggleTask,
+  loadCloudProgress,
   DEFAULT_STATE,
   DEFAULT_RPG,
   STORAGE_KEY,
@@ -201,6 +202,110 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg).toBeDefined();
       expect(Array.isArray(state.rpg.unlockedOutfits)).toBe(true);
       expect(state.rpg.coins).toBe(DEFAULT_RPG.coins);
+    });
+  });
+
+  describe('Cloud Sync (Supabase progress load)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      setState('user', null);
+    });
+
+    it('merges cloud progress, inventory, and showcase into local state', async () => {
+      setState('user', { id: 'u1', username: 'Cloudy', token: 'ws_cloud' });
+      setState('waifu', 'bondLevel', 1);
+      setState('rpg', 'coins', 200);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          progress: {
+            coins: 5000,
+            bond_level: 6,
+            bond_exp: 40,
+            waifu_name: 'Rin',
+            waifu_personality: 'kuudere',
+            worn_outfit: 'kimono',
+            worn_accessory: 'flower_pin',
+            worn_hairstyle: 'wavy',
+            appearance_data: { hairColor: '#1a1a2e' },
+            settings_data: { theme: 'tokyo' },
+            claimed_milestones: [2],
+            defense_high_wave: 12,
+            defense_victories: 3,
+            goblins_defeated: 55
+          },
+          showcaseItems: ['kimono'],
+          inventory: [
+            { item_id: 'kimono', category: 'outfit' },
+            { item_id: 'cat_ears', category: 'accessory' },
+            { item_id: 'wavy', category: 'hairstyle' }
+          ]
+        })
+      }));
+
+      await loadCloudProgress('ws_cloud');
+
+      expect(state.rpg.coins).toBe(5000);
+      expect(state.waifu.bondLevel).toBe(6);
+      expect(state.waifu.name).toBe('Rin');
+      expect(state.waifu.appearance.outfit).toBe('kimono');
+      expect(state.rpg.defenseHighWave).toBe(12);
+      expect(state.rpg.unlockedOutfits).toContain('kimono');
+      expect(state.rpg.unlockedAccessories).toContain('cat_ears');
+      expect(state.rpg.unlockedHairstyles).toContain('wavy');
+      expect(state.rpg.showcaseItems).toEqual(['kimono']);
+    });
+
+    it('does not clobber a richer local balance with the default 200 snapshot', async () => {
+      setState('user', { id: 'u1', username: 'Rich', token: 'ws_cloud' });
+      setState('rpg', 'coins', 1500);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, progress: { coins: 200 }, inventory: [], showcaseItems: [] })
+      }));
+
+      await loadCloudProgress('ws_cloud');
+      expect(state.rpg.coins).toBe(1500);
+    });
+
+    it('keeps the larger balance when the cloud holds a stellar higher-than-default snapshot', async () => {
+      setState('user', { id: 'u1', username: 'Earner', token: 'ws_cloud' });
+      setState('rpg', 'coins', 1000);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, progress: { coins: 350 }, inventory: [], showcaseItems: [] })
+      }));
+
+      await loadCloudProgress('ws_cloud');
+      expect(state.rpg.coins).toBe(1000);
+    });
+
+    it('adopts the cloud balance when the cloud is ahead of the local save', async () => {
+      setState('user', { id: 'u1', username: 'CloudAhead', token: 'ws_cloud' });
+      setState('rpg', 'coins', 400);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, progress: { coins: 900 }, inventory: [], showcaseItems: [] })
+      }));
+
+      await loadCloudProgress('ws_cloud');
+      expect(state.rpg.coins).toBe(900);
+    });
+
+    it('does nothing when there is no valid session token', async () => {
+      vi.stubGlobal('fetch', vi.fn());
+      setState('rpg', 'coins', 777);
+
+      await loadCloudProgress(undefined);
+      await loadCloudProgress('');
+
+      expect(state.rpg.coins).toBe(777);
+      expect((fetch as unknown as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
     });
   });
 });
