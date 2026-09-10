@@ -1,4 +1,4 @@
-﻿-- ==========================================================
+-- ==========================================================
 -- WaifuSpace: Database Schema & Row-Level Security (RLS)
 -- Target: Supabase (PostgreSQL 15+)
 -- ==========================================================
@@ -66,11 +66,11 @@ CREATE TABLE IF NOT EXISTS public.user_showcase (
 
 CREATE INDEX IF NOT EXISTS idx_showcase_user_id ON public.user_showcase(user_id);
 
--- 5. Audit & Rate-Limit / Action Log (tracks server rolls & anti-cheat records)
+-- 5. Audit & Action Logs (tracks server rolls & anti-cheat records)
 CREATE TABLE IF NOT EXISTS public.action_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  action_type TEXT NOT NULL, -- e.g. 'lootbox_roll', 'defense_verify', 'milestone_claim'
+  action_type TEXT NOT NULL,
   details JSONB DEFAULT '{}'::jsonb NOT NULL,
   ip_address TEXT,
   created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
@@ -88,42 +88,75 @@ ALTER TABLE public.user_inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_showcase ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.action_logs ENABLE ROW LEVEL SECURITY;
 
--- Profiles: Anyone can view usernames and avatars (for showcase & leaderboard)
-CREATE POLICY Profiles are publicly readable
+-- Profiles: Anyone can view usernames and avatars
+DROP POLICY IF EXISTS "Profiles are publicly readable" ON public.profiles;
+CREATE POLICY "Profiles are publicly readable"
   ON public.profiles FOR SELECT
   USING (true);
 
-CREATE POLICY Users can update own profile
-  ON public.profiles FOR UPDATE
-  USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
+CREATE POLICY "Users can insert own profile"
+  ON public.profiles FOR INSERT
+  WITH CHECK (true);
 
--- User Progress: Public can read for leaderboard stats; user updates via server API or authenticated role
-CREATE POLICY Public can read leaderboard progress
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+CREATE POLICY "Users can update own profile"
+  ON public.profiles FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+-- User Progress: Public can read for leaderboard stats
+DROP POLICY IF EXISTS "Public can read leaderboard progress" ON public.user_progress;
+CREATE POLICY "Public can read leaderboard progress"
   ON public.user_progress FOR SELECT
   USING (true);
 
-CREATE POLICY Users can update own progress
-  ON public.user_progress FOR UPDATE
-  USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own progress" ON public.user_progress;
+CREATE POLICY "Users can insert own progress"
+  ON public.user_progress FOR INSERT
+  WITH CHECK (true);
 
--- User Inventory: Public can view items; inserts only permitted by service role / server APIs
-CREATE POLICY Users can view inventory
+DROP POLICY IF EXISTS "Users can update own progress" ON public.user_progress;
+CREATE POLICY "Users can update own progress"
+  ON public.user_progress FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- User Inventory: Public can view items
+DROP POLICY IF EXISTS "Users can view inventory" ON public.user_inventory;
+CREATE POLICY "Users can view inventory"
   ON public.user_inventory FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Service role manages inventory" ON public.user_inventory;
+CREATE POLICY "Service role manages inventory"
+  ON public.user_inventory FOR ALL
+  USING (true)
+  WITH CHECK (true);
+
 -- User Showcase: Publicly visible display case
-CREATE POLICY Public can view showcase
+DROP POLICY IF EXISTS "Public can view showcase" ON public.user_showcase;
+CREATE POLICY "Public can view showcase"
   ON public.user_showcase FOR SELECT
   USING (true);
 
-CREATE POLICY Users manage own showcase
+DROP POLICY IF EXISTS "Users manage own showcase" ON public.user_showcase;
+CREATE POLICY "Users manage own showcase"
   ON public.user_showcase FOR ALL
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Action Logs: Audit table
+DROP POLICY IF EXISTS "Service role manages action logs" ON public.action_logs;
+CREATE POLICY "Service role manages action logs"
+  ON public.action_logs FOR ALL
+  USING (true)
+  WITH CHECK (true);
 
 -- ==========================================================
--- Leaderboard View
+-- Leaderboard View (security_invoker = true)
 -- ==========================================================
-CREATE OR REPLACE VIEW public.leaderboard_view AS
+CREATE OR REPLACE VIEW public.leaderboard_view WITH (security_invoker = true) AS
 SELECT
   p.id as user_id,
   p.username,
