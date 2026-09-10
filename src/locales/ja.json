@@ -239,6 +239,10 @@
     "upgrade": "強化 Lv{level} ({cost} ⚡)",
     "sell": "売却 ({cost} ⚡)",
     "waveClearedToast": "ウェーブ {wave} クリア！ (+{coins} 🪙, +{exp} EXP)",
+    "tags": {
+      "attack": "攻撃",
+      "support": "支援"
+    },
     "towers": {
       "archer": "桜の弓手",
       "archerDesc": "単体への素早い矢撃ち",

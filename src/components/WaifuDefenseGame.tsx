@@ -70,11 +70,20 @@ export function WaifuDefenseGame() {
   const [lastWaveReward, setLastWaveReward] = createSignal<{ coins: number; exp: number } | null>(null);
 
   // Tower configs
-  const TOWER_SPECS = {
-    archer: { name: 'Sakura Archer', cost: 45, icon: '🏹', range: 130, damage: 20, cd: 650, desc: 'Rapid single target arrows' },
-    frost: { name: 'Frost Shrine', cost: 65, icon: '❄️', range: 110, damage: 10, cd: 1100, desc: 'AOE slow + frost spikes' },
-    thunder: { name: 'Thunder Ward', cost: 95, icon: '⚡', range: 145, damage: 50, cd: 1400, desc: 'High-voltage lightning strike' },
-    sanctuary: { name: 'Spirit Beacon', cost: 75, icon: '🌸', range: 100, damage: 5, cd: 2000, desc: 'Empowers towers & heals Waifu' }
+  const TOWER_SPECS: Record<'archer' | 'frost' | 'thunder' | 'sanctuary', {
+    name: string;
+    cost: number;
+    icon: string;
+    range: number;
+    damage: number;
+    cd: number;
+    desc: string;
+    role: 'attack' | 'support';
+  }> = {
+    archer: { name: 'Sakura Archer', cost: 45, icon: '🏹', range: 130, damage: 20, cd: 650, desc: 'Rapid single target arrows', role: 'attack' },
+    frost: { name: 'Frost Shrine', cost: 65, icon: '❄️', range: 110, damage: 10, cd: 1100, desc: 'AOE slow + frost spikes', role: 'attack' },
+    thunder: { name: 'Thunder Ward', cost: 95, icon: '⚡', range: 145, damage: 50, cd: 1400, desc: 'High-voltage lightning strike', role: 'attack' },
+    sanctuary: { name: 'Spirit Beacon', cost: 75, icon: '🌸', range: 100, damage: 5, cd: 2000, desc: 'Empowers towers & heals Waifu', role: 'support' }
   };
 
   // Fixed path coordinates (Canvas 800 x 480)
@@ -333,7 +342,8 @@ export function WaifuDefenseGame() {
   onMount(() => {
     const canvas = canvasRef;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d')!;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     // Ultimate cooldown countdown
     const ultInterval = setInterval(() => {
@@ -797,11 +807,17 @@ export function WaifuDefenseGame() {
                       {([typeKey, spec]) => (
                         <button
                           class={`btn-build-tower ${selectedBuildType() === typeKey ? 'active' : ''}`}
+                          data-testid={`btn-build-${typeKey}`}
                           onClick={() => buildTowerOnPlot(plot(), typeKey as any)}
                         >
                           <span class="tower-icon">{spec.icon}</span>
                           <div class="tower-meta">
-                            <strong>{t(`defense.towers.${typeKey}`)}</strong>
+                            <div class="tower-header-row">
+                              <strong>{t(`defense.towers.${typeKey}`)}</strong>
+                              <span class={`tower-role-tag role-${spec.role}`}>
+                                {t(`defense.tags.${spec.role}`)}
+                              </span>
+                            </div>
                             <small>⚡ {spec.cost} {t('defense.energy')}</small>
                           </div>
                         </button>
@@ -813,11 +829,16 @@ export function WaifuDefenseGame() {
 
               <Show when={plot().tower}>
                 {tower => (
-                  <div class="tower-upgrade-panel">
+                  <div class="tower-upgrade-panel" data-testid="tower-upgrade-panel">
                     <div class="tower-current-info">
                       <span class="panel-icon">{TOWER_SPECS[tower().type].icon}</span>
                       <div class="panel-details">
-                        <h4>{t(`defense.towers.${tower().type}`)} (Level {tower().level})</h4>
+                        <h4>
+                          {t(`defense.towers.${tower().type}`)} (Level {tower().level})
+                          <span class={`tower-role-tag role-${TOWER_SPECS[tower().type].role}`}>
+                            {t(`defense.tags.${TOWER_SPECS[tower().type].role}`)}
+                          </span>
+                        </h4>
                         <p>Damage: {tower().damage} | Range: {tower().range}px</p>
                       </div>
                     </div>

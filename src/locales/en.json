@@ -239,6 +239,10 @@
     "upgrade": "Upgrade Lv{level} ({cost} ⚡)",
     "sell": "Sell ({cost} ⚡)",
     "waveClearedToast": "Wave {wave} Cleared! (+{coins} 🪙, +{exp} EXP)",
+    "tags": {
+      "attack": "Attack",
+      "support": "Support"
+    },
     "towers": {
       "archer": "Sakura Archer",
       "archerDesc": "Rapid single target arrows",
