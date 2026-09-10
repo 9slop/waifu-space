@@ -1,11 +1,13 @@
 import { createSignal, createEffect, For } from 'solid-js';
-import { CalendarEventItem } from '../lib/ical';
+import { CalendarEventItem, RecurrenceRule } from '../lib/ical';
 import { addCalendarEvent, updateCalendarEvent, deleteCalendarEvent, showToast } from '../lib/store';
 
 export function EventModal(props: {
   isOpen: boolean;
   event: CalendarEventItem | null;
   defaultDate?: Date;
+  initialType?: 'event' | 'task' | 'birthday';
+  prefilledRange?: { start: Date; end: Date };
   onClose: () => void;
 }) {
   const [title, setTitle] = createSignal('');
@@ -15,6 +17,7 @@ export function EventModal(props: {
   const [startTime, setStartTime] = createSignal('09:00');
   const [endDate, setEndDate] = createSignal('');
   const [endTime, setEndTime] = createSignal('10:00');
+  const [recurrence, setRecurrence] = createSignal<RecurrenceRule>('none');
   const [color, setColor] = createSignal('#ff6584');
   const [location, setLocation] = createSignal('');
   const [description, setDescription] = createSignal('');
@@ -36,6 +39,7 @@ export function EventModal(props: {
       setTitle(ev.title);
       setType(ev.type);
       setAllDay(ev.allDay);
+      setRecurrence(ev.recurrence || 'none');
       setColor(ev.color || '#ff6584');
       setLocation(ev.location || '');
       setDescription(ev.description || '');
@@ -47,17 +51,30 @@ export function EventModal(props: {
       setStartTime(s.toTimeString().slice(0, 5));
       setEndTime(e.toTimeString().slice(0, 5));
     } else {
-      const d = props.defaultDate || new Date();
+      const isTask = props.initialType === 'task';
       setTitle('');
-      setType('event');
+      setType(props.initialType || 'event');
       setAllDay(false);
-      setColor('#ff6584');
+      setRecurrence('none');
+      setColor(isTask ? '#00cec9' : '#ff6584');
       setLocation('');
       setDescription('');
-      setStartDate(formatDateForInput(d));
-      setEndDate(formatDateForInput(d));
-      setStartTime('09:00');
-      setEndTime('10:00');
+
+      if (props.prefilledRange) {
+        const s = props.prefilledRange.start;
+        const e = props.prefilledRange.end;
+        setStartDate(formatDateForInput(s));
+        setEndDate(formatDateForInput(e));
+        setStartTime(s.toTimeString().slice(0, 5));
+        setEndTime(e.toTimeString().slice(0, 5));
+      } else {
+        const d = props.defaultDate || new Date();
+        const endD = new Date(d.getTime() + 3600000);
+        setStartDate(formatDateForInput(d));
+        setEndDate(formatDateForInput(endD));
+        setStartTime(d.toTimeString().slice(0, 5));
+        setEndTime(endD.toTimeString().slice(0, 5));
+      }
     }
   });
 
@@ -78,6 +95,7 @@ export function EventModal(props: {
       title: t,
       type: type(),
       allDay: allDay(),
+      recurrence: recurrence(),
       start: startIso,
       end: endIso,
       color: color(),
@@ -113,7 +131,15 @@ export function EventModal(props: {
     >
       <div class="gcal-modal">
         <div class="modal-header">
-          <h3>{props.event ? 'Edit Event' : 'Add Event'}</h3>
+          <h3>
+            {props.event
+              ? type() === 'task'
+                ? 'Edit Task'
+                : 'Edit Event'
+              : type() === 'task'
+              ? 'Add Task'
+              : 'Add Event'}
+          </h3>
           <button class="modal-close-btn" type="button" onClick={props.onClose}>
             ✕
           </button>
@@ -141,6 +167,21 @@ export function EventModal(props: {
               <option value="event">Event</option>
               <option value="task">Task</option>
               <option value="birthday">Birthday 🎂</option>
+            </select>
+          </div>
+
+          <div class="form-group-row">
+            <label class="form-label">Repeat</label>
+            <select
+              class="modal-select"
+              value={recurrence()}
+              onChange={e => setRecurrence(e.currentTarget.value as any)}
+            >
+              <option value="none">Does not repeat</option>
+              <option value="daily">Every day (Daily)</option>
+              <option value="weekly">Every week (Weekly)</option>
+              <option value="weekdays">Every weekday (Mon - Fri)</option>
+              <option value="monthly">Every month (Monthly)</option>
             </select>
           </div>
 

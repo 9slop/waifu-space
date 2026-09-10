@@ -6,7 +6,9 @@ import {
   toggleTask,
   deleteCalendarEvent,
   showToast,
-  triggerWaifuResponse
+  triggerWaifuResponse,
+  isSameDay,
+  getEventsForDate
 } from '../lib/store';
 import { CalendarEventItem, exportToICS, importFromICS } from '../lib/ical';
 import { getPersonality } from '../lib/personality';
@@ -22,10 +24,15 @@ export function CalendarPlanner() {
   const [selectedDate, setSelectedDate] = createSignal(new Date());
   const [quickTaskInput, setQuickTaskInput] = createSignal('');
 
-  // Modals & Popovers
+  // Modals & Popovers & Dropdowns
+  const [createMenuOpen, setCreateMenuOpen] = createSignal(false);
+  let createMenuRef: HTMLDivElement | undefined;
+
   const [isModalOpen, setIsModalOpen] = createSignal(false);
   const [modalEvent, setModalEvent] = createSignal<CalendarEventItem | null>(null);
   const [modalDefaultDate, setModalDefaultDate] = createSignal<Date>(new Date());
+  const [modalInitialType, setModalInitialType] = createSignal<'event' | 'task'>('event');
+  const [modalPrefilledRange, setModalPrefilledRange] = createSignal<{ start: Date; end: Date } | undefined>(undefined);
 
   const [popoverEvent, setPopoverEvent] = createSignal<CalendarEventItem | null>(null);
   const [popoverPos, setPopoverPos] = createSignal<{ top: number; left: number } | null>(null);
@@ -88,10 +95,16 @@ export function CalendarPlanner() {
     return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   };
 
-  const openCreateModal = (defaultD = new Date()) => {
+  const openCreateModal = (
+    defaultD = new Date(),
+    initialType: 'event' | 'task' = 'event',
+    prefilledRange?: { start: Date; end: Date }
+  ) => {
     closePopover();
     setModalEvent(null);
     setModalDefaultDate(defaultD);
+    setModalInitialType(initialType);
+    setModalPrefilledRange(prefilledRange);
     setIsModalOpen(true);
   };
 
@@ -126,12 +139,7 @@ export function CalendarPlanner() {
   // Waifu Briefing
   const triggerBriefing = () => {
     const today = new Date();
-    const isSameDay = (d1: Date, d2: Date) =>
-      d1.getFullYear() === d2.getFullYear() &&
-      d1.getMonth() === d2.getMonth() &&
-      d1.getDate() === d2.getDate();
-
-    const todayEvents = state.calendar.events.filter(e => isSameDay(new Date(e.start), today));
+    const todayEvents = getEventsForDate(state.calendar.events, today);
     const evCount = todayEvents.filter(e => e.type === 'event').length;
     const tkCount = todayEvents.filter(e => e.type === 'task' && !e.completed).length;
 
@@ -196,16 +204,25 @@ export function CalendarPlanner() {
       openCreateModal(currentDate());
     } else if (e.key === 'Escape') {
       closePopover();
+      setCreateMenuOpen(false);
       setIsModalOpen(false);
+    }
+  };
+
+  const handleDocClick = (e: MouseEvent) => {
+    if (createMenuRef && !createMenuRef.contains(e.target as Node)) {
+      setCreateMenuOpen(false);
     }
   };
 
   onMount(() => {
     window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('click', handleDocClick);
   });
 
   onCleanup(() => {
     window.removeEventListener('keydown', handleKeyDown);
+    window.removeEventListener('click', handleDocClick);
   });
 
   return (
@@ -213,15 +230,50 @@ export function CalendarPlanner() {
       {/* TOP TOOLBAR */}
       <header class="gcal-toolbar">
         <div class="gcal-toolbar-left">
-          <button
-            type="button"
-            class="gcal-btn gcal-btn-primary"
-            onClick={() => openCreateModal(currentDate())}
-            title="Shortcut: Press 'c'"
-          >
-            <span class="btn-icon">➕</span>
-            <span class="btn-text">Create</span>
-          </button>
+          <div class="create-menu-container" ref={createMenuRef}>
+            <button
+              type="button"
+              class="gcal-btn gcal-btn-primary create-menu-btn"
+              onClick={() => setCreateMenuOpen(!createMenuOpen())}
+              title="Create event or task (Shortcut: Press 'c')"
+            >
+              <span class="btn-icon">➕</span>
+              <span class="btn-text">Create</span>
+              <span class="create-caret">▾</span>
+            </button>
+            <Show when={createMenuOpen()}>
+              <div class="create-dropdown-menu">
+                <button
+                  type="button"
+                  class="create-dropdown-item"
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    openCreateModal(currentDate(), 'event');
+                  }}
+                >
+                  <span class="dropdown-item-icon">📅</span>
+                  <div class="dropdown-item-text">
+                    <span class="dropdown-item-title">Event</span>
+                    <span class="dropdown-item-desc">Schedule activity or meeting</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  class="create-dropdown-item"
+                  onClick={() => {
+                    setCreateMenuOpen(false);
+                    openCreateModal(currentDate(), 'task');
+                  }}
+                >
+                  <span class="dropdown-item-icon">☑️</span>
+                  <div class="dropdown-item-text">
+                    <span class="dropdown-item-title">Task</span>
+                    <span class="dropdown-item-desc">To-do item with completion</span>
+                  </div>
+                </button>
+              </div>
+            </Show>
+          </div>
           <button
             type="button"
             class="gcal-btn gcal-btn-outline"
@@ -411,6 +463,9 @@ export function CalendarPlanner() {
                       onClick={() => openEditModal(tk)}
                     >
                       {tk.title}
+                      {tk.recurrence && tk.recurrence !== 'none' && (
+                        <span class="task-repeat-badge" title={`Repeats: ${tk.recurrence}`}> 🔁</span>
+                      )}
                     </span>
                     <button
                       type="button"
@@ -432,7 +487,7 @@ export function CalendarPlanner() {
             <CalendarMonthView
               currentDate={currentDate()}
               events={filteredEvents()}
-              onSelectDay={d => openCreateModal(d)}
+              onSelectDay={d => openCreateModal(d, 'event')}
               onOpenEvent={(ev, rect) => openPopover(ev, rect)}
             />
           </Show>
@@ -441,7 +496,8 @@ export function CalendarPlanner() {
             <CalendarWeekView
               currentDate={currentDate()}
               events={filteredEvents()}
-              onSelectSlot={d => openCreateModal(d)}
+              onSelectSlot={d => openCreateModal(d, 'event')}
+              onSelectRange={range => openCreateModal(range.start, 'event', range)}
               onOpenEvent={(ev, rect) => openPopover(ev, rect)}
             />
           </Show>
@@ -450,7 +506,8 @@ export function CalendarPlanner() {
             <CalendarDayView
               currentDate={currentDate()}
               events={filteredEvents()}
-              onSelectSlot={d => openCreateModal(d)}
+              onSelectSlot={d => openCreateModal(d, 'event')}
+              onSelectRange={range => openCreateModal(range.start, 'event', range)}
               onOpenEvent={(ev, rect) => openPopover(ev, rect)}
             />
           </Show>
@@ -470,6 +527,8 @@ export function CalendarPlanner() {
         isOpen={isModalOpen()}
         event={modalEvent()}
         defaultDate={modalDefaultDate()}
+        initialType={modalInitialType()}
+        prefilledRange={modalPrefilledRange()}
         onClose={() => setIsModalOpen(false)}
       />
     </div>

@@ -899,3 +899,123 @@ body.is-resizing-event {
   text-decoration: line-through;
 }
 
+/* CREATE BUTTON DROPDOWN MENU */
+.create-menu-container {
+  position: relative;
+  display: inline-flex;
+}
+
+.create-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.create-caret {
+  font-size: 11px;
+  margin-left: 2px;
+  transition: transform 0.2s ease;
+}
+
+.create-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  background: var(--surface-2, #1e1e24);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 16px rgba(255, 101, 132, 0.15);
+  padding: 6px;
+  min-width: 230px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.create-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  width: 100%;
+}
+
+.create-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateX(2px);
+}
+
+.dropdown-item-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.dropdown-item-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-item-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+}
+
+.dropdown-item-desc {
+  font-size: 11px;
+  color: var(--text-muted, #a0a0b0);
+  margin-top: 2px;
+}
+
+/* CLICK-AND-DRAG EVENT CREATION GHOST PREVIEW */
+.drag-create-preview {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  background: rgba(255, 101, 132, 0.35);
+  border: 2px dashed var(--primary-accent, #ff6584);
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: #fff;
+  z-index: 40;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(255, 101, 132, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.drag-create-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.drag-create-time {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+/* RECURRENCE BADGES */
+.card-repeat-icon, .pill-repeat-icon, .task-repeat-badge {
+  font-size: 11px;
+  margin-left: 4px;
+  opacity: 0.85;
+  display: inline-block;
+}
+

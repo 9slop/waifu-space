@@ -1,5 +1,7 @@
 // iCalendar (.ics) and JSON Import/Export Utilities
 
+export type RecurrenceRule = 'none' | 'daily' | 'weekly' | 'monthly' | 'weekdays';
+
 export interface CalendarEventItem {
   id: string;
   title: string;
@@ -11,6 +13,7 @@ export interface CalendarEventItem {
   color: string;
   description?: string;
   location?: string;
+  recurrence?: RecurrenceRule;
   _notified?: boolean;
 }
 
@@ -37,6 +40,13 @@ export function exportToICS(events: CalendarEventItem[]) {
     } else {
       lines.push(`DTSTART:${formatICSDate(new Date(ev.start))}`);
       lines.push(`DTEND:${formatICSDate(new Date(ev.end || ev.start))}`);
+    }
+
+    if (ev.recurrence && ev.recurrence !== 'none') {
+      if (ev.recurrence === 'daily') lines.push('RRULE:FREQ=DAILY');
+      else if (ev.recurrence === 'weekly') lines.push('RRULE:FREQ=WEEKLY');
+      else if (ev.recurrence === 'monthly') lines.push('RRULE:FREQ=MONTHLY');
+      else if (ev.recurrence === 'weekdays') lines.push('RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
     }
 
     lines.push(`STATUS:${ev.completed ? 'COMPLETED' : 'CONFIRMED'}`);
@@ -90,6 +100,17 @@ export function importFromICS(icsText: string): CalendarEventItem[] {
       } else if (line.startsWith('DTEND')) {
         const val = line.split(':')[1];
         curr.end = parseICSDate(val, false).toISOString();
+      } else if (line.startsWith('RRULE:')) {
+        const rrule = line.substring(6);
+        if (rrule.includes('FREQ=DAILY')) {
+          curr.recurrence = 'daily';
+        } else if (rrule.includes('FREQ=MONTHLY')) {
+          curr.recurrence = 'monthly';
+        } else if (rrule.includes('BYDAY=MO,TU,WE,TH,FR') || rrule.includes('BYDAY=MO,TU,WE,TH,FR;')) {
+          curr.recurrence = 'weekdays';
+        } else if (rrule.includes('FREQ=WEEKLY')) {
+          curr.recurrence = 'weekly';
+        }
       }
     }
   });
