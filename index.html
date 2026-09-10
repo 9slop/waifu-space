@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sakura">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WaifuSpace — Your Personal Companion & Calendar</title>
+  <meta name="description" content="A customizable anime companion dashboard featuring distinct personality archetypes, full Google Calendar-style schedule integration, Japanese aesthetic wallpapers, and custom themes." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="css/themes.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/waifu.css" />
+  <link rel="stylesheet" href="css/calendar.css" />
+  <link rel="stylesheet" href="css/settings.css" />
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌸</text></svg>" />
+</head>
+<body>
+
+  <!-- BACKGROUND WALLPAPER & AMBIENT LAYERS -->
+  <div class="app-wallpaper" id="app-wallpaper"></div>
+  <div class="wallpaper-overlay" id="wallpaper-overlay"></div>
+  <canvas class="particles-canvas" id="particles-canvas"></canvas>
+
+  <!-- APPLICATION SHELL -->
+  <div class="app-shell">
+    <!-- TOP NAVIGATION BAR -->
+    <header class="app-header">
+      <div class="app-brand" onclick="window.__switchTab('main')">
+        <span class="brand-icon">🌸</span>
+        <span class="brand-name">WaifuSpace</span>
+        <span class="brand-tag">Companion</span>
+      </div>
+
+      <!-- 3 PRIMARY TABS -->
+      <nav class="nav-tabs">
+        <button class="nav-tab-btn active" data-tab="main" id="nav-btn-main">
+          <span>🌸</span>
+          <span>Companion</span>
+        </button>
+        <button class="nav-tab-btn" data-tab="calendar" id="nav-btn-calendar">
+          <span>📅</span>
+          <span>Calendar</span>
+        </button>
+        <button class="nav-tab-btn" data-tab="settings" id="nav-btn-settings">
+          <span>⚙️</span>
+          <span>Settings</span>
+        </button>
+      </nav>
+
+      <!-- RIGHT HEADER META -->
+      <div class="header-right">
+        <div class="header-clock" id="live-header-clock">12:00 PM</div>
+      </div>
+    </header>
+
+    <!-- 3 MAIN PAGES CONTENT CONTAINER -->
+    <main class="app-content">
+      <!-- 1. COMPANION & CHAT PAGE -->
+      <section class="app-page-view active" id="page-main" aria-label="Companion Main Stage"></section>
+
+      <!-- 2. GOOGLE CALENDAR PAGE -->
+      <section class="app-page-view" id="page-calendar" aria-label="Google Calendar Planner"></section>
+
+      <!-- 3. SETTINGS & CUSTOMIZATION PAGE -->
+      <section class="app-page-view" id="page-settings" aria-label="Settings Studio"></section>
+    </main>
+  </div>
+
+  <!-- FLOATING TOAST NOTIFICATION -->
+  <div class="app-toast" id="app-toast">Notification message</div>
+
+  <!-- CLOCK SCRIPT & BOOTSTRAP -->
+  <script>
+    function updateClock() {
+      const el = document.getElementById('live-header-clock');
+      if (el) {
+        const now = new Date();
+        el.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      }
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+  </script>
+
+  <!-- APP ENTRY MODULE -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
