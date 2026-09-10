@@ -168,6 +168,21 @@ class StateManager {
     if (this.listeners.has(key)) {
       this.listeners.get(key).forEach(cb => cb(data, this.state));
     }
+    // Also notify parent/ancestor paths (e.g. 'waifu.appearance.hairstyle' notifies 'waifu.appearance' and 'waifu')
+    const parts = key.split('.');
+    let prefix = '';
+    for (let i = 0; i < parts.length - 1; i++) {
+      prefix = prefix ? `${prefix}.${parts[i]}` : parts[i];
+      if (this.listeners.has(prefix)) {
+        this.listeners.get(prefix).forEach(cb => cb(this.get(prefix), this.state));
+      }
+    }
+    // Also notify child paths
+    this.listeners.forEach((callbacks, lKey) => {
+      if (lKey.startsWith(key + '.')) {
+        callbacks.forEach(cb => cb(this.get(lKey), this.state));
+      }
+    });
     // Also trigger wildcard subscribers
     if (this.listeners.has('*')) {
       this.listeners.get('*').forEach(cb => cb(key, data, this.state));
