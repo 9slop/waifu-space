@@ -153,8 +153,10 @@ export function CalendarWeekView(props: {
     };
 
     const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      }
 
       const state = dragCreate();
       if (!state) return;
@@ -178,8 +180,10 @@ export function CalendarWeekView(props: {
       }
     };
 
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    }
   };
 
   const formatDragTime = (min: number) => {

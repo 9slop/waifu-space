@@ -697,7 +697,7 @@ export function getEventsForDate(events: CalendarEventItem[], targetDate: Date):
 // Calendar event operations
 export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEventItem {
   const newEvent: CalendarEventItem = {
-    id: 'evt-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+    id: event.id || ('evt-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5)),
     title: event.title || 'New Event',
     start: event.start || new Date().toISOString(),
     end: event.end || new Date(Date.now() + 3600000).toISOString(),
