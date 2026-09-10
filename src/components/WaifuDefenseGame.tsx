@@ -1,5 +1,6 @@
 import { createSignal, onMount, onCleanup, Show, For } from 'solid-js';
 import { state, recordDefenseWaveVictory, showToast } from '../lib/store';
+import { t } from '../lib/i18n';
 
 interface TowerPlot {
   id: number;
@@ -512,7 +513,7 @@ export function WaifuDefenseGame() {
 
         recordDefenseWaveVictory(curWave, coinsWon, expWon);
         setLastWaveReward({ coins: coinsWon, exp: expWon });
-        showToast(`🎉 Wave ${curWave} Cleared! Earned +${coinsWon} 🪙 Coins & +${expWon} XP!`);
+        showToast(t('defense.waveClearedToast', { wave: curWave, coins: coinsWon, exp: expWon }));
       }
 
       // 6. Update Particles
@@ -695,17 +696,17 @@ export function WaifuDefenseGame() {
       {/* TOP STATUS BAR */}
       <div class="defense-hud">
         <div class="hud-stat">
-          <span class="hud-label">Wave</span>
+          <span class="hud-label">{t('defense.wave')}</span>
           <span class="hud-value wave-val">{wave()}</span>
         </div>
 
         <div class="hud-stat">
-          <span class="hud-label">Energy</span>
+          <span class="hud-label">{t('defense.energy')}</span>
           <span class="hud-value energy-val">⚡ {energy()}</span>
         </div>
 
         <div class="hud-stat">
-          <span class="hud-label">{state.waifu?.name || 'Waifu'} Sanctuary HP</span>
+          <span class="hud-label">{t('defense.sanctuaryHp', { name: state.waifu?.name || 'Waifu' })}</span>
           <div class="hud-hp-bar">
             <div class="hp-fill" style={{ width: `${waifuHp()}%` }}></div>
             <span class="hp-text">{waifuHp()} / 100</span>
@@ -717,21 +718,21 @@ export function WaifuDefenseGame() {
             class="btn-sakura-nova"
             disabled={ultimateCooldown() > 0}
             onClick={triggerSakuraNova}
-            title="Devastate all goblins on screen!"
+            title={t('defense.novaTooltip')}
           >
-            🌸 Sakura Nova {ultimateCooldown() > 0 ? `(${ultimateCooldown()}s)` : 'READY!'}
+            🌸 {t('defense.sakuraNova')} {ultimateCooldown() > 0 ? `(${ultimateCooldown()}s)` : t('defense.ready')}
           </button>
         </div>
 
         <div class="hud-stat">
           <Show when={!waveInProgress() && gameStatus() !== 'gameover'}>
             <button class="btn-start-wave" onClick={startWave}>
-              ⚔️ {gameStatus() === 'victory' ? `Start Wave ${wave() + 1}` : `Start Wave ${wave()}`}
+              ⚔️ {t('defense.startWave', { wave: gameStatus() === 'victory' ? wave() + 1 : wave() })}
             </button>
           </Show>
           <Show when={gameStatus() === 'gameover'}>
             <button class="btn-retry" onClick={resetGame}>
-              🔄 Try Again
+              🔄 {t('defense.tryAgain')}
             </button>
           </Show>
         </div>
@@ -750,8 +751,8 @@ export function WaifuDefenseGame() {
         {/* OVERLAYS */}
         <Show when={gameStatus() === 'victory' && lastWaveReward()}>
           <div class="game-overlay-banner victory-banner">
-            <h3>🎉 Wave {wave()} Defended!</h3>
-            <p>The goblin horde was successfully repelled!</p>
+            <h3>🎉 {t('defense.waveDefended', { wave: wave() })}</h3>
+            <p>{t('defense.victoryDesc')}</p>
             <div class="rewards-row">
               <span>+🪙 {lastWaveReward()!.coins} Coins</span>
               <span>+🌟 {lastWaveReward()!.exp} Waifu XP</span>
@@ -763,17 +764,17 @@ export function WaifuDefenseGame() {
                 startWave();
               }}
             >
-              Start Wave {wave() + 1} ➡️
+              {t('defense.startWave', { wave: wave() + 1 })} ➡️
             </button>
           </div>
         </Show>
 
         <Show when={gameStatus() === 'gameover'}>
           <div class="game-overlay-banner defeat-banner">
-            <h3>💔 The Shrine Fell!</h3>
-            <p>{state.waifu?.name || 'Your waifu'} needs your protection! Upgrade towers and use Sakura Nova!</p>
+            <h3>💔 {t('defense.shrineFell')}</h3>
+            <p>{t('defense.defeatDesc', { name: state.waifu?.name || 'Your waifu' })}</p>
             <button class="btn-primary" onClick={resetGame}>
-              Restart Defense 🔄
+              {t('defense.restartDefense')}
             </button>
           </div>
         </Show>
@@ -783,14 +784,14 @@ export function WaifuDefenseGame() {
       <div class="tower-controls-deck">
         <Show when={selectedPlot()} fallback={
           <div class="tower-picker-hint">
-            <span>💡 Click on any circle plot (+) on the battlefield to place or upgrade a guardian tower!</span>
+            <span>💡 {t('defense.plotHint')}</span>
           </div>
         }>
           {plot => (
             <div class="plot-inspector">
               <Show when={!plot().tower}>
                 <div class="build-selection">
-                  <span class="inspector-title">Construct Tower on Plot #{plot().id}:</span>
+                  <span class="inspector-title">{t('defense.constructTower', { id: plot().id })}</span>
                   <div class="tower-types-grid">
                     <For each={Object.entries(TOWER_SPECS)}>
                       {([typeKey, spec]) => (
@@ -800,8 +801,8 @@ export function WaifuDefenseGame() {
                         >
                           <span class="tower-icon">{spec.icon}</span>
                           <div class="tower-meta">
-                            <strong>{spec.name}</strong>
-                            <small>⚡ {spec.cost} Energy</small>
+                            <strong>{t(`defense.towers.${typeKey}`)}</strong>
+                            <small>⚡ {spec.cost} {t('defense.energy')}</small>
                           </div>
                         </button>
                       )}
@@ -816,7 +817,7 @@ export function WaifuDefenseGame() {
                     <div class="tower-current-info">
                       <span class="panel-icon">{TOWER_SPECS[tower().type].icon}</span>
                       <div class="panel-details">
-                        <h4>{TOWER_SPECS[tower().type].name} (Level {tower().level})</h4>
+                        <h4>{t(`defense.towers.${tower().type}`)} (Level {tower().level})</h4>
                         <p>Damage: {tower().damage} | Range: {tower().range}px</p>
                       </div>
                     </div>
@@ -826,13 +827,13 @@ export function WaifuDefenseGame() {
                         class="btn-upgrade"
                         onClick={() => upgradeTower(plot())}
                       >
-                        ⚡ Upgrade Lv{tower().level + 1} ({Math.round(TOWER_SPECS[tower().type].cost * 0.8 * tower().level)} ⚡)
+                        ⚡ {t('defense.upgrade', { level: tower().level + 1, cost: Math.round(TOWER_SPECS[tower().type].cost * 0.8 * tower().level) })}
                       </button>
                       <button
                         class="btn-sell"
                         onClick={() => sellTower(plot())}
                       >
-                        🪙 Sell ({Math.round(TOWER_SPECS[tower().type].cost * 0.6 * tower().level)} ⚡)
+                        🪙 {t('defense.sell', { cost: Math.round(TOWER_SPECS[tower().type].cost * 0.6 * tower().level) })}
                       </button>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 import { createSignal, Show, For } from 'solid-js';
 import { state, setState, openLootbox, RpgCosmeticItem, showToast, isCosmeticUnlocked } from '../lib/store';
+import { t } from '../lib/i18n';
 
 export function LootboxModal() {
   const [selectedChest, setSelectedChest] = createSignal<'standard' | 'royal'>('standard');
@@ -13,7 +14,7 @@ export function LootboxModal() {
   const handleOpenChest = () => {
     const cost = selectedChest() === 'standard' ? 100 : 250;
     if (userCoins() < cost) {
-      showToast(`Not enough coins! You need ${cost} 🪙 (Have: ${userCoins()} 🪙)`);
+      showToast(t('gacha.notEnoughCoins', { cost, balance: userCoins() }));
       return;
     }
 
@@ -41,10 +42,10 @@ export function LootboxModal() {
   const equipItem = (item: RpgCosmeticItem) => {
     if (item.category === 'outfit') {
       setState('waifu', 'appearance', 'outfit', item.id);
-      showToast(`Equipped outfit: ${item.name}! ✨`);
+      showToast(t('rpg.toasts.equippedOutfit', { name: item.name }));
     } else if (item.category === 'accessory') {
       setState('waifu', 'appearance', 'accessory', item.id);
-      showToast(`Equipped accessory: ${item.name}! ✨`);
+      showToast(t('rpg.toasts.equippedAccessory', { name: item.name }));
     }
   };
 
@@ -61,13 +62,13 @@ export function LootboxModal() {
     <div class="lootbox-system-card">
       <div class="lootbox-header">
         <div class="lootbox-title-group">
-          <h2>🎁 Gacha & Mystery Chests</h2>
+          <h2>🎁 {t('gacha.title')}</h2>
           <p class="lootbox-subtitle">
-            Spend earned gold coins to unlock rare outfits, celestial accessories, and secret styles!
+            {t('gacha.subtitle')}
           </p>
         </div>
         <div class="lootbox-coin-display">
-          <span>Your Balance:</span>
+          <span>{t('gacha.yourBalance')}</span>
           <strong class="coin-val">🪙 {userCoins()}</strong>
         </div>
       </div>
@@ -78,12 +79,12 @@ export function LootboxModal() {
           class={`chest-card ${selectedChest() === 'standard' ? 'selected' : ''}`}
           onClick={() => setSelectedChest('standard')}
         >
-          <div class="chest-badge standard-badge">Regular</div>
+          <div class="chest-badge standard-badge">{t('gacha.regular')}</div>
           <div class="chest-icon">📦</div>
-          <div class="chest-name">Silver Blossom Chest</div>
-          <div class="chest-rates">Common: 50% | Rare: 35% | Epic: 12% | Legendary: 3%</div>
+          <div class="chest-name">{t('gacha.silverChest')}</div>
+          <div class="chest-rates">{t('gacha.silverRates')}</div>
           <div class="chest-cost">
-            <span>Price:</span> <strong>🪙 100</strong>
+            <span>{t('gacha.price')}</span> <strong>🪙 100</strong>
           </div>
         </div>
 
@@ -91,12 +92,12 @@ export function LootboxModal() {
           class={`chest-card royal-card ${selectedChest() === 'royal' ? 'selected' : ''}`}
           onClick={() => setSelectedChest('royal')}
         >
-          <div class="chest-badge royal-badge">High Rarity Guaranteed</div>
+          <div class="chest-badge royal-badge">{t('gacha.highRarityGuaranteed')}</div>
           <div class="chest-icon">✨👑✨</div>
-          <div class="chest-name">Celestial Royal Chest</div>
-          <div class="chest-rates">Rare: 45% | Epic: 38% | Legendary: 17%</div>
+          <div class="chest-name">{t('gacha.royalChest')}</div>
+          <div class="chest-rates">{t('gacha.royalRates')}</div>
           <div class="chest-cost">
-            <span>Price:</span> <strong>🪙 250</strong>
+            <span>{t('gacha.price')}</span> <strong>🪙 250</strong>
           </div>
         </div>
       </div>
@@ -109,10 +110,10 @@ export function LootboxModal() {
           onClick={handleOpenChest}
         >
           {isOpening() ? (
-            <span class="opening-spinner">🔮 Unlocking Mystery Wardrobe...</span>
+            <span class="opening-spinner">🔮 {t('gacha.unlocking')}</span>
           ) : (
             <span>
-              Open {selectedChest() === 'standard' ? 'Silver Chest (100🪙)' : 'Celestial Chest (250🪙)'}
+              {selectedChest() === 'standard' ? t('gacha.openSilver') : t('gacha.openRoyal')}
             </span>
           )}
         </button>
@@ -125,7 +126,7 @@ export function LootboxModal() {
           <div class="bouncing-chest">
             {selectedChest() === 'standard' ? '📦' : '👑'}
           </div>
-          <div class="opening-status-text">Gathering starlight & magical fibers...</div>
+          <div class="opening-status-text">{t('gacha.animationText')}</div>
         </div>
       </Show>
 
@@ -147,7 +148,7 @@ export function LootboxModal() {
 
             <Show when={duplicateCompensation() !== null}>
               <div class="duplicate-banner">
-                ♻️ Already owned! Converted to <strong>+{duplicateCompensation()} 🪙 Coins</strong>!
+                ♻️ {t('gacha.alreadyOwned', { coins: duplicateCompensation()! })}
               </div>
             </Show>
 
@@ -156,7 +157,7 @@ export function LootboxModal() {
                 class="btn-equip-revealed"
                 onClick={() => equipItem(item())}
               >
-                ✨ Equip Now
+                ✨ {t('gacha.equipNow')}
               </button>
               <button
                 class="btn-dismiss-revealed"
@@ -165,7 +166,7 @@ export function LootboxModal() {
                   setDuplicateCompensation(null);
                 }}
               >
-                Done
+                {t('common.close')}
               </button>
             </div>
           </div>
@@ -175,7 +176,7 @@ export function LootboxModal() {
       {/* RECENT PULLS HISTORY */}
       <Show when={history().length > 0}>
         <div class="lootbox-history-section">
-          <h4>Recent Pulls</h4>
+          <h4>{t('gacha.recentPulls')}</h4>
           <div class="history-pills">
             <For each={history()}>
               {entry => (
@@ -183,7 +184,7 @@ export function LootboxModal() {
                   <span>{entry.item.icon}</span>
                   <span class="pill-name">{entry.item.name}</span>
                   <Show when={entry.wasDup}>
-                    <span class="dup-indicator">(Dup 🪙)</span>
+                    <span class="dup-indicator">({t('gacha.dup')})</span>
                   </Show>
                 </div>
               )}

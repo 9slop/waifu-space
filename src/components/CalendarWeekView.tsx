@@ -1,6 +1,7 @@
 import { For, Show, onMount, createSignal } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
+import { t, getLocale } from '../lib/i18n';
 
 export function CalendarWeekView(props: {
   currentDate: Date;
@@ -98,7 +99,10 @@ export function CalendarWeekView(props: {
         end: newEnd.toISOString()
       });
       const minStr = minute < 10 ? '0' + minute : minute;
-      showToast(`Rescheduled "${ev.title}" to ${newStart.toLocaleDateString()} ${hour}:${minStr}`);
+      showToast(t('calendar.toasts.rescheduled', {
+        title: ev.title,
+        date: `${newStart.toLocaleDateString(getLocale())} ${hour}:${minStr}`
+      }));
     } catch (err) {
       console.error(err);
     }
@@ -205,7 +209,7 @@ export function CalendarWeekView(props: {
             return (
               <div class={`week-header-day ${isT ? 'today' : ''}`}>
                 <span class="week-day-name">
-                  {d.toLocaleDateString('en-US', { weekday: 'short' })}
+                  {d.toLocaleDateString(getLocale(), { weekday: 'short' })}
                 </span>
                 <span class={`week-day-num ${isT ? 'today-badge' : ''}`}>
                   {d.getDate()}

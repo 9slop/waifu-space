@@ -1,6 +1,7 @@
 import { Show } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { toggleTask, deleteCalendarEvent, showToast } from '../lib/store';
+import { t, getLocale } from '../lib/i18n';
 
 export function CalendarPopover(props: {
   event: CalendarEventItem | null;
@@ -15,16 +16,16 @@ export function CalendarPopover(props: {
         const e = () => new Date(ev().end || ev().start);
 
         const dateStr = () =>
-          s().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          s().toLocaleDateString(getLocale(), { weekday: 'short', month: 'short', day: 'numeric' });
 
         const timeStr = () =>
           ev().allDay
-            ? 'All Day'
+            ? t('calendar.popover.allDay')
             : `${s().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${e().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
         const handleDelete = () => {
           deleteCalendarEvent(ev().id);
-          showToast(`Deleted "${ev().title}"`);
+          showToast(t('calendar.toasts.eventDeleted', { title: ev().title }));
           props.onClose();
         };
 
@@ -53,7 +54,7 @@ export function CalendarPopover(props: {
                 {ev().type === 'task' && (
                   <button
                     class="popover-btn"
-                    title="Toggle Completed"
+                    title={t('calendar.popover.toggleCompleted')}
                     onClick={handleToggle}
                   >
                     {ev().completed ? '↩️' : '✅'}
@@ -61,21 +62,21 @@ export function CalendarPopover(props: {
                 )}
                 <button
                   class="popover-btn"
-                  title="Edit Event"
+                  title={t('calendar.popover.editEvent')}
                   onClick={() => props.onEdit(ev())}
                 >
                   ✏️
                 </button>
                 <button
                   class="popover-btn popover-btn-del"
-                  title="Delete Event"
+                  title={t('calendar.popover.deleteEvent')}
                   onClick={handleDelete}
                 >
                   🗑️
                 </button>
                 <button
                   class="popover-btn"
-                  title="Close"
+                  title={t('calendar.popover.close')}
                   onClick={props.onClose}
                 >
                   ✕
@@ -93,7 +94,7 @@ export function CalendarPopover(props: {
                 style={{ background: ev().color || '#ff6584' }}
               >
                 {ev().type.toUpperCase()}
-                {ev().completed ? ' (COMPLETED)' : ''}
+                {ev().completed ? ` (${t('calendar.popover.completed')})` : ''}
               </div>
               {ev().location && (
                 <div class="popover-loc">📍 {ev().location}</div>

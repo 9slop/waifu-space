@@ -11,6 +11,7 @@ import {
 import { getPersonality } from '../lib/personality';
 import { WaifuAvatar } from './WaifuAvatar';
 import { ChatStage } from './ChatStage';
+import { t } from '../lib/i18n';
 
 export function CompanionStage() {
   const persona = createMemo(() => getPersonality(state.waifu.personality));
@@ -39,10 +40,10 @@ export function CompanionStage() {
           {/* AFFECTION / BOND METER */}
           <div
             class="affection-card"
-            title="Affection increases as you chat, interact, and finish tasks!"
+            title={t('companion.affectionTooltip')}
           >
             <div class="affection-top">
-              <span class="affection-label">Affection Level</span>
+              <span class="affection-label">{t('companion.affectionLevel')}</span>
               <span class="affection-level-badge">Lv. {state.waifu.bondLevel}</span>
             </div>
             <div class="affection-progress-bar">
@@ -57,7 +58,7 @@ export function CompanionStage() {
         {/* AVATAR INTERACTIVE STAGE */}
         <div
           class="avatar-interactive-stage"
-          title={`Click or tap to interact with ${state.waifu.name}!`}
+          title={t('companion.avatarClickTooltip', { name: state.waifu.name })}
           onClick={pokeAvatar}
         >
           <div class={`avatar-mount ${avatarBounced() ? 'avatar-bounced' : ''}`}>
@@ -77,28 +78,28 @@ export function CompanionStage() {
             class="stage-action-chip"
             onClick={handleHeadpat}
           >
-            🌸 Headpat
+            🌸 {t('companion.headpat')}
           </button>
           <button
             type="button"
             class="stage-action-chip"
             onClick={pokeAvatar}
           >
-            👉 Poke
+            👉 {t('companion.poke')}
           </button>
           <button
             type="button"
             class="stage-action-chip"
-            onClick={() => sendUserMessage("Review today's schedule")}
+            onClick={() => sendUserMessage(t('chat.schedulePrompt'))}
           >
-            📅 Review Today's Schedule
+            📅 {t('companion.reviewSchedule')}
           </button>
           <button
             type="button"
             class="stage-action-chip"
-            onClick={() => sendUserMessage("You look cute today!")}
+            onClick={() => sendUserMessage(t('chat.cutePrompt'))}
           >
-            💖 You look cute!
+            💖 {t('companion.cute')}
           </button>
         </div>
       </div>

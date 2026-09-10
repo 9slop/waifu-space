@@ -118,6 +118,7 @@ export interface AppState {
     searchQuery: string;
   };
   settings: {
+    language: 'en' | 'ja';
     wallpaperId: string;
     wallpaperType: 'stock' | 'custom';
     customWallpaperUrl: string;
@@ -248,6 +249,7 @@ export const DEFAULT_STATE: AppState = {
     searchQuery: ''
   },
   settings: {
+    language: 'en',
     wallpaperId: 'sakura-shrine',
     wallpaperType: 'stock',
     customWallpaperUrl: '',
@@ -346,7 +348,7 @@ export function loadState() {
               }
             },
             calendar: { ...DEFAULT_STATE.calendar, ...(parsed.calendar || {}), events: Array.isArray(parsed.calendar?.events) ? parsed.calendar.events : DEFAULT_STATE.calendar.events },
-            settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
+            settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}), language: parsed.settings?.language === 'ja' ? 'ja' : 'en' },
             chat: { ...DEFAULT_STATE.chat, ...(parsed.chat || {}) }
           });
         })

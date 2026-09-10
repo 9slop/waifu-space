@@ -1,6 +1,7 @@
 import { For } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
+import { t, formatDate } from '../lib/i18n';
 
 export function CalendarMonthView(props: {
   currentDate: Date;
@@ -80,7 +81,7 @@ export function CalendarMonthView(props: {
           start: newStart.toISOString(),
           end: newEnd.toISOString()
         });
-        showToast(`Rescheduled "${ev.title}" to ${targetDate.toLocaleDateString()}`);
+        showToast(t('calendar.toasts.rescheduled', { title: ev.title, date: formatDate(targetDate) }));
       }
     } catch (err) {
       console.error(err);
@@ -90,13 +91,13 @@ export function CalendarMonthView(props: {
   return (
     <div class="month-grid-container">
       <div class="month-header-row">
-        <div class="month-col-header">SUN</div>
-        <div class="month-col-header">MON</div>
-        <div class="month-col-header">TUE</div>
-        <div class="month-col-header">WED</div>
-        <div class="month-col-header">THU</div>
-        <div class="month-col-header">FRI</div>
-        <div class="month-col-header">SAT</div>
+        <div class="month-col-header">{t('calendar.weekdays.sun')}</div>
+        <div class="month-col-header">{t('calendar.weekdays.mon')}</div>
+        <div class="month-col-header">{t('calendar.weekdays.tue')}</div>
+        <div class="month-col-header">{t('calendar.weekdays.wed')}</div>
+        <div class="month-col-header">{t('calendar.weekdays.thu')}</div>
+        <div class="month-col-header">{t('calendar.weekdays.fri')}</div>
+        <div class="month-col-header">{t('calendar.weekdays.sat')}</div>
       </div>
 
       <div class="month-days-grid">
@@ -160,7 +161,7 @@ export function CalendarMonthView(props: {
                             {startTime && <small>{startTime} </small>}
                             {ev.title}
                             {ev.recurrence && ev.recurrence !== 'none' && (
-                              <span class="pill-repeat-icon" title={`Repeats: ${ev.recurrence}`}> 🔁</span>
+                              <span class="pill-repeat-icon" title={t('calendar.sidebar.repeats', { rule: ev.recurrence })}> 🔁</span>
                             )}
                           </span>
                         </div>
@@ -168,7 +169,7 @@ export function CalendarMonthView(props: {
                     }}
                   </For>
                   {dayEvents.length > 4 && (
-                    <div class="more-events-tag">+{dayEvents.length - 4} more</div>
+                    <div class="more-events-tag">{t('calendar.moreEvents', { count: dayEvents.length - 4 })}</div>
                   )}
                 </div>
               </div>

@@ -11,10 +11,11 @@ import {
 import { PERSONALITIES } from '../lib/personality';
 import { STOCK_WALLPAPERS } from '../lib/wallpapers';
 import { WaifuAvatar } from './WaifuAvatar';
+import { t, SUPPORTED_LANGUAGES, setLanguage, SupportedLanguage } from '../lib/i18n';
 
 export function SettingsStudio() {
   const [activeTab, setActiveTab] = createSignal<
-    'personality' | 'appearance' | 'wallpapers' | 'themes' | 'voice' | 'data'
+    'personality' | 'appearance' | 'wallpapers' | 'themes' | 'voice' | 'data' | 'language'
   >('personality');
 
   const [availableVoices, setAvailableVoices] = createSignal<SpeechSynthesisVoice[]>([]);
@@ -30,7 +31,7 @@ export function SettingsStudio() {
   });
 
   const testVoice = () => {
-    speakText(`Hello! I am ${state.waifu.name}. My voice is configured and ready!`);
+    speakText(t('settings.voice.testVoiceMessage', { name: state.waifu.name }));
   };
 
   const handleCustomAvatarFile = (e: Event) => {
@@ -44,7 +45,7 @@ export function SettingsStudio() {
         setState('waifu', 'appearance', 'customAvatarUrl', dataUrl);
         setState('waifu', 'appearance', 'avatarMode', 'custom');
         saveState();
-        showToast('Custom sprite updated!');
+        showToast(t('settings.appearance.customSpriteUpdated'));
       }
     };
     reader.readAsDataURL(file);
@@ -62,7 +63,7 @@ export function SettingsStudio() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    showToast('Data exported successfully!');
+    showToast(t('settings.data.exportSuccess'));
   };
 
   const handleImportData = (e: Event) => {
@@ -76,9 +77,9 @@ export function SettingsStudio() {
         const parsed = JSON.parse(text);
         setState(parsed);
         saveState();
-        showToast('Backup restored successfully!');
+        showToast(t('settings.data.importSuccess'));
       } catch (err) {
-        showToast('Failed to import JSON: Invalid file format');
+        showToast(t('settings.data.importFailed'));
       }
     };
     reader.readAsText(file);
@@ -86,7 +87,7 @@ export function SettingsStudio() {
   };
 
   const handleResetConfirm = () => {
-    if (confirm('Are you sure you want to reset all data to factory defaults? All tasks and settings will be reset.')) {
+    if (confirm(t('settings.data.resetConfirm'))) {
       resetAllData();
     }
   };
@@ -103,42 +104,49 @@ export function SettingsStudio() {
           class={`settings-tab-btn ${activeTab() === 'personality' ? 'active' : ''}`}
           onClick={() => setActiveTab('personality')}
         >
-          🌸 Personality
+          🌸 {t('settings.tabs.personality')}
         </button>
         <button
           type="button"
           class={`settings-tab-btn ${activeTab() === 'appearance' ? 'active' : ''}`}
           onClick={() => setActiveTab('appearance')}
         >
-          👗 Appearance & Clothes
+          👗 {t('settings.tabs.appearance')}
         </button>
         <button
           type="button"
           class={`settings-tab-btn ${activeTab() === 'wallpapers' ? 'active' : ''}`}
           onClick={() => setActiveTab('wallpapers')}
         >
-          🗾 Wallpapers
+          🗾 {t('settings.tabs.wallpapers')}
         </button>
         <button
           type="button"
           class={`settings-tab-btn ${activeTab() === 'themes' ? 'active' : ''}`}
           onClick={() => setActiveTab('themes')}
         >
-          🎨 Color Palette
+          🎨 {t('settings.tabs.themes')}
         </button>
         <button
           type="button"
           class={`settings-tab-btn ${activeTab() === 'voice' ? 'active' : ''}`}
           onClick={() => setActiveTab('voice')}
         >
-          🎙️ Voice & AI
+          🎙️ {t('settings.tabs.voice')}
         </button>
         <button
           type="button"
           class={`settings-tab-btn ${activeTab() === 'data' ? 'active' : ''}`}
           onClick={() => setActiveTab('data')}
         >
-          💾 Data & Backup
+          💾 {t('settings.tabs.data')}
+        </button>
+        <button
+          type="button"
+          class={`settings-tab-btn ${activeTab() === 'language' ? 'active' : ''}`}
+          onClick={() => setActiveTab('language')}
+        >
+          🌐 {t('settings.tabs.language')}
         </button>
       </nav>
 
@@ -148,13 +156,13 @@ export function SettingsStudio() {
         <Show when={activeTab() === 'personality'}>
           <div class="settings-section active">
             <div class="section-card">
-              <h3 class="section-title">Companion Personality</h3>
+              <h3 class="section-title">{t('settings.personality.title')}</h3>
               <p class="section-subtitle">
-                Choose the personality archetype for your waifu companion. This changes her dialogue style, reactions to tasks, schedule reviews, and mood behavior.
+                {t('settings.personality.subtitle')}
               </p>
 
               <div class="form-group" style={{ 'margin-bottom': '20px' }}>
-                <label class="form-label">Companion Name</label>
+                <label class="form-label">{t('settings.personality.companionName')}</label>
                 <input
                   type="text"
                   class="modal-input"
@@ -176,7 +184,7 @@ export function SettingsStudio() {
                         setState('waifu', 'personality', p.id);
                         setState('waifu', 'mood', p.defaultMood);
                         saveState();
-                        showToast(`Switched personality archetype to ${p.name}!`);
+                        showToast(t('settings.personality.switchedToast', { name: p.name }));
                       }}
                     >
                       <div class="persona-card-header">
@@ -198,16 +206,16 @@ export function SettingsStudio() {
             <div class="appearance-studio-layout">
               {/* Controls */}
               <div class="appearance-controls-card">
-                <h3 class="section-title">Visual Customizer</h3>
+                <h3 class="section-title">{t('settings.appearance.title')}</h3>
                 <p class="section-subtitle">
-                  Customize hairstyle, outfits, accessories, and colors.
+                  {t('settings.appearance.subtitle')}
                 </p>
 
                 {/* Avatar Type */}
                 <div class="setting-row">
                   <div>
-                    <strong>Avatar Type</strong>
-                    <p class="setting-desc">Layered Anime SVG generator or custom image/GIF</p>
+                    <strong>{t('settings.appearance.avatarType')}</strong>
+                    <p class="setting-desc">{t('settings.appearance.avatarTypeDesc')}</p>
                   </div>
                   <select
                     class="modal-select"
@@ -218,8 +226,8 @@ export function SettingsStudio() {
                       saveState();
                     }}
                   >
-                    <option value="svg">Layered Anime (SVG)</option>
-                    <option value="custom">Custom Upload</option>
+                    <option value="svg">{t('settings.appearance.layeredSvg')}</option>
+                    <option value="custom">{t('settings.appearance.customUpload')}</option>
                   </select>
                 </div>
 
@@ -227,11 +235,11 @@ export function SettingsStudio() {
                   <div style={{ 'margin-top': '16px' }}>
                     <div class="setting-row">
                       <div>
-                        <strong>Upload Image / GIF</strong>
-                        <p class="setting-desc">PNG, JPG, or animated GIF sprite</p>
+                        <strong>{t('settings.appearance.uploadImage')}</strong>
+                        <p class="setting-desc">{t('settings.appearance.uploadImageDesc')}</p>
                       </div>
                       <label class="gcal-btn gcal-btn-outline" style={{ cursor: 'pointer' }}>
-                        Browse File
+                        {t('settings.appearance.browseFile')}
                         <input
                           type="file"
                           accept="image/*"
@@ -241,7 +249,7 @@ export function SettingsStudio() {
                       </label>
                     </div>
                     <div class="setting-row" style={{ 'margin-top': '10px' }}>
-                      <label class="form-label">Or Image URL:</label>
+                      <label class="form-label">{t('settings.appearance.imageUrl')}</label>
                       <input
                         type="url"
                         class="modal-input"
@@ -259,8 +267,8 @@ export function SettingsStudio() {
                     {/* Hairstyle */}
                     <div class="setting-row">
                       <div>
-                        <strong>Hairstyle</strong>
-                        <p class="setting-desc">Modular vector anime hairstyles</p>
+                        <strong>{t('settings.appearance.hairstyle')}</strong>
+                        <p class="setting-desc">{t('settings.appearance.hairstyleDesc')}</p>
                       </div>
                       <select
                         class="modal-select"
@@ -282,8 +290,8 @@ export function SettingsStudio() {
                     {/* Outfit */}
                     <div class="setting-row">
                       <div>
-                        <strong>Outfit Wardrobe</strong>
-                        <p class="setting-desc">Change outfits & costumes</p>
+                        <strong>{t('settings.appearance.outfit')}</strong>
+                        <p class="setting-desc">{t('settings.appearance.outfitDesc')}</p>
                       </div>
                       <select
                         class="modal-select"
@@ -292,7 +300,7 @@ export function SettingsStudio() {
                         onChange={e => {
                           const val = e.currentTarget.value;
                           if (!isCosmeticUnlocked('outfits', val)) {
-                            showToast('🔒 This outfit is locked! Unlock it from a Lootbox or Affection Road.');
+                            showToast(t('settings.appearance.lockedOutfitToast'));
                             e.currentTarget.value = state.waifu.appearance.outfit;
                             return;
                           }
@@ -314,8 +322,8 @@ export function SettingsStudio() {
                     {/* Accessory */}
                     <div class="setting-row">
                       <div>
-                        <strong>Accessories</strong>
-                        <p class="setting-desc">Headbands, ears, glasses</p>
+                        <strong>{t('settings.appearance.accessories')}</strong>
+                        <p class="setting-desc">{t('settings.appearance.accessoriesDesc')}</p>
                       </div>
                       <select
                         class="modal-select"
@@ -324,7 +332,7 @@ export function SettingsStudio() {
                         onChange={e => {
                           const val = e.currentTarget.value;
                           if (!isCosmeticUnlocked('accessories', val)) {
-                            showToast('🔒 This accessory is locked! Unlock it from a Lootbox or Affection Road.');
+                            showToast(t('settings.appearance.lockedAccessoryToast'));
                             e.currentTarget.value = state.waifu.appearance.accessory;
                             return;
                           }
@@ -332,7 +340,7 @@ export function SettingsStudio() {
                           saveState();
                         }}
                       >
-                        <option value="none">None</option>
+                        <option value="none">{t('common.none')}</option>
                         <option value="ribbon">{isCosmeticUnlocked('accessories', 'ribbon') ? '🎀 Ribbon' : '🔒 🎀 Ribbon'}</option>
                         <option value="glasses">{isCosmeticUnlocked('accessories', 'glasses') ? '👓 Red-rim Glasses' : '🔒 👓 Red-rim Glasses'}</option>
                         <option value="flower_pin">{isCosmeticUnlocked('accessories', 'flower_pin') ? '🌸 Sakura Hairpin' : '🔒 🌸 Sakura Hairpin'}</option>
@@ -347,8 +355,8 @@ export function SettingsStudio() {
                     {/* Hair Color */}
                     <div class="setting-row">
                       <div>
-                        <strong>Hair Color</strong>
-                        <p class="setting-desc">Select preset or custom hex color</p>
+                        <strong>{t('settings.appearance.hairColor')}</strong>
+                        <p class="setting-desc">{t('settings.appearance.hairColorDesc')}</p>
                       </div>
                       <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
                         <For each={hairColorPresets}>
@@ -378,8 +386,8 @@ export function SettingsStudio() {
                     {/* Eye Color */}
                     <div class="setting-row">
                       <div>
-                        <strong>Eye Color</strong>
-                        <p class="setting-desc">Iris gradient tint</p>
+                        <strong>{t('settings.appearance.eyeColor')}</strong>
+                        <p class="setting-desc">{t('settings.appearance.eyeColorDesc')}</p>
                       </div>
                       <div style={{ display: 'flex', 'align-items': 'center', gap: '8px' }}>
                         <For each={eyeColorPresets}>
@@ -409,8 +417,8 @@ export function SettingsStudio() {
                     {/* Mood / Expression Preview */}
                     <div class="setting-row">
                       <div>
-                        <strong>Expression Preview</strong>
-                        <p class="setting-desc">Test reactive expressions</p>
+                        <strong>{t('settings.appearance.expressionPreview')}</strong>
+                        <p class="setting-desc">{t('settings.appearance.expressionPreviewDesc')}</p>
                       </div>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <For each={['neutral', 'happy', 'blush', 'pout', 'yandere', 'surprised']}>
@@ -447,9 +455,9 @@ export function SettingsStudio() {
         <Show when={activeTab() === 'wallpapers'}>
           <div class="settings-section active">
             <div class="section-card">
-              <h3 class="section-title">Japanese Aesthetic Wallpapers</h3>
+              <h3 class="section-title">{t('settings.wallpapers.title')}</h3>
               <p class="section-subtitle">
-                Select from curated stock anime / Japanese scenery wallpapers or use your own image.
+                {t('settings.wallpapers.subtitle')}
               </p>
 
               <div class="wallpaper-grid">
@@ -461,7 +469,7 @@ export function SettingsStudio() {
                         setState('settings', 'wallpaperType', 'stock');
                         setState('settings', 'wallpaperId', wp.id);
                         saveState();
-                        showToast(`Changed wallpaper to ${wp.name}`);
+                        showToast(t('settings.wallpapers.changedToast', { name: wp.name }));
                       }}
                     >
                       <img src={wp.thumb} alt={wp.name} class="wallpaper-thumb" />
@@ -476,8 +484,8 @@ export function SettingsStudio() {
 
               <div class="setting-row" style={{ 'margin-top': '24px' }}>
                 <div>
-                  <strong>Custom Wallpaper URL</strong>
-                  <p class="setting-desc">Paste an image link from the web</p>
+                  <strong>{t('settings.wallpapers.customUrl')}</strong>
+                  <p class="setting-desc">{t('settings.wallpapers.customUrlDesc')}</p>
                 </div>
                 <input
                   type="url"
@@ -499,8 +507,8 @@ export function SettingsStudio() {
 
               <div class="setting-row">
                 <div>
-                  <strong>Background Blur ({state.settings.wallpaperBlur}px)</strong>
-                  <p class="setting-desc">Subtle blur for improved text legibility</p>
+                  <strong>{t('settings.wallpapers.blur', { blur: state.settings.wallpaperBlur })}</strong>
+                  <p class="setting-desc">{t('settings.wallpapers.blurDesc')}</p>
                 </div>
                 <input
                   type="range"
@@ -516,8 +524,8 @@ export function SettingsStudio() {
 
               <div class="setting-row">
                 <div>
-                  <strong>Atmosphere Dim ({state.settings.wallpaperDim}%)</strong>
-                  <p class="setting-desc">Darkness overlay opacity for higher contrast</p>
+                  <strong>{t('settings.wallpapers.dim', { dim: state.settings.wallpaperDim })}</strong>
+                  <p class="setting-desc">{t('settings.wallpapers.dimDesc')}</p>
                 </div>
                 <input
                   type="range"
@@ -533,8 +541,8 @@ export function SettingsStudio() {
 
               <div class="setting-row">
                 <div>
-                  <strong>Falling Sakura Blossom Petals</strong>
-                  <p class="setting-desc">Ambient cherry blossom canvas animation</p>
+                  <strong>{t('settings.wallpapers.sakuraParticles')}</strong>
+                  <p class="setting-desc">{t('settings.wallpapers.sakuraParticlesDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -553,9 +561,9 @@ export function SettingsStudio() {
         <Show when={activeTab() === 'themes'}>
           <div class="settings-section active">
             <div class="section-card">
-              <h3 class="section-title">Color Palette & Glassmorphism</h3>
+              <h3 class="section-title">{t('settings.themes.title')}</h3>
               <p class="section-subtitle">
-                Select your favorite aesthetic color palette.
+                {t('settings.themes.subtitle')}
               </p>
 
               <div class="themes-grid">
@@ -576,7 +584,7 @@ export function SettingsStudio() {
                         setState('settings', 'theme', thm.id);
                         document.documentElement.setAttribute('data-theme', thm.id);
                         saveState();
-                        showToast(`Theme set to ${thm.name}`);
+                        showToast(t('settings.themes.themeSetToast', { name: thm.name }));
                       }}
                     >
                       <span class="theme-dot" style={{ background: thm.color }} />
@@ -588,8 +596,8 @@ export function SettingsStudio() {
 
               <div class="setting-row" style={{ 'margin-top': '24px' }}>
                 <div>
-                  <strong>Custom Primary Accent Color</strong>
-                  <p class="setting-desc">Overrides primary button and highlight colors</p>
+                  <strong>{t('settings.themes.customAccent')}</strong>
+                  <p class="setting-desc">{t('settings.themes.customAccentDesc')}</p>
                 </div>
                 <input
                   type="color"
@@ -609,15 +617,15 @@ export function SettingsStudio() {
         <Show when={activeTab() === 'voice'}>
           <div class="settings-section active">
             <div class="section-card">
-              <h3 class="section-title">Voice Synthesis & Optional AI</h3>
+              <h3 class="section-title">{t('settings.voice.title')}</h3>
               <p class="section-subtitle">
-                WaifuSpace features a rich, built-in offline persona dialogue engine. You can also enable Text-to-Speech or connect external AI models.
+                {t('settings.voice.subtitle')}
               </p>
 
               <div class="setting-row">
                 <div>
-                  <strong>Enable Text-to-Speech (TTS)</strong>
-                  <p class="setting-desc">Waifu speaks her dialogues out loud using Web Speech API</p>
+                  <strong>{t('settings.voice.tts')}</strong>
+                  <p class="setting-desc">{t('settings.voice.ttsDesc')}</p>
                 </div>
                 <input
                   type="checkbox"
@@ -631,8 +639,8 @@ export function SettingsStudio() {
 
               <div class="setting-row">
                 <div>
-                  <strong>Speech Voice</strong>
-                  <p class="setting-desc">Select from your installed system voices</p>
+                  <strong>{t('settings.voice.voice')}</strong>
+                  <p class="setting-desc">{t('settings.voice.voiceDesc')}</p>
                 </div>
                 <select
                   class="modal-select"
@@ -643,7 +651,7 @@ export function SettingsStudio() {
                     saveState();
                   }}
                 >
-                  <option value="">Auto-select pleasant voice</option>
+                  <option value="">{t('settings.voice.autoVoice')}</option>
                   <For each={availableVoices()}>
                     {v => <option value={v.name}>{v.name} ({v.lang})</option>}
                   </For>
@@ -652,8 +660,8 @@ export function SettingsStudio() {
 
               <div class="setting-row">
                 <div>
-                  <strong>Voice Pitch ({state.settings.ttsPitch})</strong>
-                  <p class="setting-desc">Higher pitch gives an anime/cute tonality</p>
+                  <strong>{t('settings.voice.pitch', { pitch: state.settings.ttsPitch })}</strong>
+                  <p class="setting-desc">{t('settings.voice.pitchDesc')}</p>
                 </div>
                 <input
                   type="range"
@@ -670,8 +678,8 @@ export function SettingsStudio() {
 
               <div class="setting-row">
                 <div>
-                  <strong>Voice Speed ({state.settings.ttsRate}x)</strong>
-                  <p class="setting-desc">Adjust speech pacing</p>
+                  <strong>{t('settings.voice.speed', { rate: state.settings.ttsRate })}</strong>
+                  <p class="setting-desc">{t('settings.voice.speedDesc')}</p>
                 </div>
                 <input
                   type="range"
@@ -692,20 +700,20 @@ export function SettingsStudio() {
                 style={{ 'margin-top': '10px' }}
                 onClick={testVoice}
               >
-                🔊 Test Voice
+                🔊 {t('settings.voice.testVoice')}
               </button>
 
               <hr style={{ margin: '24px 0', opacity: 0.15 }} />
 
-              <h4 class="sidebar-heading">Optional AI LLM Provider</h4>
+              <h4 class="sidebar-heading">{t('settings.voice.aiProvider')}</h4>
               <p class="section-subtitle">
-                Connect your own API key for limitless natural responses. (Leave as None for the zero-config offline engine).
+                {t('settings.voice.aiProviderSubtitle')}
               </p>
 
               <div class="setting-row">
                 <div>
-                  <strong>AI Provider</strong>
-                  <p class="setting-desc">Google Gemini, OpenAI, or OpenRouter</p>
+                  <strong>{t('settings.voice.providerLabel')}</strong>
+                  <p class="setting-desc">{t('settings.voice.providerDesc')}</p>
                 </div>
                 <select
                   class="modal-select"
@@ -716,7 +724,7 @@ export function SettingsStudio() {
                     saveState();
                   }}
                 >
-                  <option value="none">Built-in Offline Engine</option>
+                  <option value="none">{t('settings.voice.offlineEngine')}</option>
                   <option value="gemini">Google Gemini</option>
                   <option value="openai">OpenAI (GPT-4o mini)</option>
                   <option value="openrouter">OpenRouter</option>
@@ -727,8 +735,8 @@ export function SettingsStudio() {
                 <>
                   <div class="setting-row">
                     <div>
-                      <strong>API Key</strong>
-                      <p class="setting-desc">Stored strictly locally in your browser's LocalStorage</p>
+                      <strong>{t('settings.voice.apiKey')}</strong>
+                      <p class="setting-desc">{t('settings.voice.apiKeyDesc')}</p>
                     </div>
                     <input
                       type="password"
@@ -745,8 +753,8 @@ export function SettingsStudio() {
 
                   <div class="setting-row">
                     <div>
-                      <strong>Model Name</strong>
-                      <p class="setting-desc">e.g. gemini-1.5-flash, gpt-4o-mini</p>
+                      <strong>{t('settings.voice.modelName')}</strong>
+                      <p class="setting-desc">{t('settings.voice.modelNameDesc')}</p>
                     </div>
                     <input
                       type="text"
@@ -769,32 +777,32 @@ export function SettingsStudio() {
         <Show when={activeTab() === 'data'}>
           <div class="settings-section active">
             <div class="section-card">
-              <h3 class="section-title">Data Backup, Export & Factory Reset</h3>
+              <h3 class="section-title">{t('settings.data.title')}</h3>
               <p class="section-subtitle">
-                All your calendar schedules, customization settings, and companion affection progression are preserved in your browser.
+                {t('settings.data.subtitle')}
               </p>
 
               <div class="setting-row">
                 <div>
-                  <strong>Export Full JSON Backup</strong>
-                  <p class="setting-desc">Download a backup file of your events, settings, and progress</p>
+                  <strong>{t('settings.data.exportJson')}</strong>
+                  <p class="setting-desc">{t('settings.data.exportJsonDesc')}</p>
                 </div>
                 <button
                   type="button"
                   class="gcal-btn gcal-btn-outline"
                   onClick={handleExportData}
                 >
-                  💾 Export Backup (.json)
+                  {t('settings.data.exportBtn')}
                 </button>
               </div>
 
               <div class="setting-row">
                 <div>
-                  <strong>Restore Backup</strong>
-                  <p class="setting-desc">Import a previously exported JSON backup</p>
+                  <strong>{t('settings.data.restoreBackup')}</strong>
+                  <p class="setting-desc">{t('settings.data.restoreBackupDesc')}</p>
                 </div>
                 <label class="gcal-btn gcal-btn-outline" style={{ cursor: 'pointer' }}>
-                  📂 Import Backup (.json)
+                  {t('settings.data.importBtn')}
                   <input
                     type="file"
                     accept=".json"
@@ -806,16 +814,97 @@ export function SettingsStudio() {
 
               <div class="setting-row" style={{ 'margin-top': '24px' }}>
                 <div>
-                  <strong style={{ color: '#ff4757' }}>Factory Reset</strong>
-                  <p class="setting-desc">Erase all calendar events and reset companion to initial state</p>
+                  <strong style={{ color: '#ff4757' }}>{t('settings.data.factoryReset')}</strong>
+                  <p class="setting-desc">{t('settings.data.factoryResetDesc')}</p>
                 </div>
                 <button
                   type="button"
                   class="gcal-btn gcal-btn-danger"
                   onClick={handleResetConfirm}
                 >
-                  ⚠️ Reset Everything
+                  {t('settings.data.resetBtn')}
                 </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
+        {/* 7. LANGUAGE TAB */}
+        <Show when={activeTab() === 'language'}>
+          <div class="settings-section active" data-testid="language-settings-section">
+            <div class="section-card">
+              <h3 class="section-title">🌐 {t('settings.language.title')}</h3>
+              <p class="section-subtitle">
+                {t('settings.language.subtitle')}
+              </p>
+
+              <div
+                class="language-selection-grid"
+                style={{
+                  display: 'grid',
+                  'grid-template-columns': 'repeat(auto-fit, minmax(220px, 1fr))',
+                  gap: '16px',
+                  'margin-top': '20px'
+                }}
+              >
+                <For each={SUPPORTED_LANGUAGES}>
+                  {lang => {
+                    const isSelected = () => (state.settings.language || 'en') === lang.code;
+                    return (
+                      <div
+                        class={`personality-card language-card ${isSelected() ? 'active' : ''}`}
+                        data-testid={`language-card-${lang.code}`}
+                        style={{ cursor: 'pointer', padding: '16px', 'border-radius': '12px' }}
+                        onClick={() => {
+                          setLanguage(lang.code);
+                          showToast(t('settings.language.switchedToast', { lang: lang.nativeName }));
+                        }}
+                      >
+                        <div
+                          class="persona-card-header"
+                          style={{
+                            display: 'flex',
+                            'align-items': 'center',
+                            'justify-content': 'space-between',
+                            'margin-bottom': '8px'
+                          }}
+                        >
+                          <span style={{ 'font-size': '1.3rem', display: 'flex', 'align-items': 'center', gap: '8px' }}>
+                            <span>{lang.flag}</span>
+                            <strong>{lang.nativeName}</strong>
+                          </span>
+                          {isSelected() && <span class="persona-check">✔</span>}
+                        </div>
+                        <p class="persona-tagline" style={{ margin: 0, opacity: 0.8 }}>
+                          {lang.name} {isSelected() ? `(${t('common.active')})` : ''}
+                        </p>
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+
+              <div class="setting-row" style={{ 'margin-top': '24px' }}>
+                <div>
+                  <strong>{t('settings.language.currentLanguage')}</strong>
+                  <p class="setting-desc">{t('settings.language.autoSaved')}</p>
+                </div>
+                <select
+                  class="modal-select"
+                  data-testid="language-select"
+                  style={{ width: '220px' }}
+                  value={state.settings.language || 'en'}
+                  onChange={e => {
+                    const lang = e.currentTarget.value as SupportedLanguage;
+                    setLanguage(lang);
+                    const opt = SUPPORTED_LANGUAGES.find(l => l.code === lang);
+                    showToast(t('settings.language.switchedToast', { lang: opt ? opt.nativeName : lang }));
+                  }}
+                >
+                  <For each={SUPPORTED_LANGUAGES}>
+                    {l => <option value={l.code}>{l.flag} {l.nativeName} ({l.name})</option>}
+                  </For>
+                </select>
               </div>
             </div>
           </div>
