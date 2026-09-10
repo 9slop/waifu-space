@@ -288,6 +288,43 @@ export function WaifuAvatar() {
                   <circle cx="200" cy="336" r="5" fill="#d63031" />
                 </>
               )}
+              {outfit() === 'miko' && (
+                <>
+                  <path d="M 125,320 L 70,440 L 125,520 L 145,390 Z" fill="#ffffff" stroke="#c0392b" stroke-width="1.5" />
+                  <path d="M 275,320 L 330,440 L 275,520 L 255,390 Z" fill="#ffffff" stroke="#c0392b" stroke-width="1.5" />
+                  <path d="M 135,290 L 265,290 L 285,520 L 115,520 Z" fill="#ffffff" />
+                  <polygon points="160,285 200,345 240,285 224,285 200,325 176,285" fill="#e74c3c" />
+                  <rect x="135" y="360" width="130" height="52" rx="4" fill="#c0392b" />
+                  <rect x="135" y="378" width="130" height="14" fill="#ffffff" />
+                  <path d="M 115,410 L 285,410 L 295,520 L 105,520 Z" fill="#e74c3c" />
+                </>
+              )}
+              {outfit() === 'magical' && (
+                <>
+                  <ellipse cx="116" cy="335" rx="26" ry="22" fill="#fd79a8" />
+                  <ellipse cx="284" cy="335" rx="26" ry="22" fill="#fd79a8" />
+                  <path d="M 136,295 L 264,295 L 285,520 L 115,520 Z" fill="#fd79a8" />
+                  <path d="M 160,295 L 240,295 L 250,520 L 150,520 Z" fill="#ffffff" />
+                  <circle cx="200" cy="320" r="12" fill="#f1c40f" />
+                  <polygon points="200,312 203,318 210,320 204,324 206,330 200,326 194,330 196,324 190,320 197,318" fill="#ffffff" />
+                  <path d="M 140,360 Q 200,380 260,360 Q 200,400 140,360 Z" fill="#e84393" />
+                  <circle cx="150" cy="450" r="5" fill="#f1c40f" />
+                  <circle cx="250" cy="450" r="5" fill="#f1c40f" />
+                  <circle cx="200" cy="480" r="6" fill="#f1c40f" />
+                </>
+              )}
+              {outfit() === 'armor' && (
+                <>
+                  <path d="M 110,320 L 80,420 L 130,420 L 145,340 Z" fill="#747d8c" />
+                  <path d="M 290,320 L 320,420 L 270,420 L 255,340 Z" fill="#747d8c" />
+                  <ellipse cx="115" cy="330" rx="30" ry="25" fill="#ced6e0" stroke="#2f3542" stroke-width="2.5" />
+                  <ellipse cx="285" cy="330" rx="30" ry="25" fill="#ced6e0" stroke="#2f3542" stroke-width="2.5" />
+                  <path d="M 135,295 L 265,295 L 280,520 L 120,520 Z" fill="#2f3542" />
+                  <polygon points="160,295 240,295 248,420 200,450 152,420" fill="#dfe4ea" stroke="#747d8c" stroke-width="2" />
+                  <polygon points="180,310 220,310 226,380 200,400 174,380" fill="#a4b0be" />
+                  <circle cx="200" cy="340" r="8" fill="#f1c40f" stroke="#e67e22" stroke-width="1.5" />
+                </>
+              )}
             </g>
 
             {/* 4. HEAD BASE */}
@@ -494,6 +531,44 @@ export function WaifuAvatar() {
                   <path d="M 150,130 L 168,116 L 164,136 Z" fill="#ff6b81" />
                   <path d="M 150,130 L 138,148 L 148,143 Z" fill="#ff4757" />
                   <path d="M 150,130 L 162,148 L 152,143 Z" fill="#ff4757" />
+                </>
+              )}
+              {accessory() === 'bunny_ears' && (
+                <>
+                  <path d="M 140,120 C 130,10 160,-20 168,10 C 176,40 165,90 160,110 Z" fill="#ffffff" stroke="#e0e0e0" stroke-width="2" />
+                  <path d="M 145,110 C 138,25 158,5 163,22 C 168,45 160,85 156,105 Z" fill="#ff7675" opacity="0.8" />
+                  <path d="M 260,120 C 270,10 240,-20 232,10 C 224,40 235,90 240,110 Z" fill="#ffffff" stroke="#e0e0e0" stroke-width="2" />
+                  <path d="M 255,110 C 262,25 242,5 237,22 C 232,45 240,85 244,105 Z" fill="#ff7675" opacity="0.8" />
+                  <circle cx="150" cy="118" r="6" fill="#fd79a8" />
+                  <circle cx="250" cy="118" r="6" fill="#fd79a8" />
+                </>
+              )}
+              {accessory() === 'halo' && (
+                <>
+                  <ellipse cx="200" cy="65" rx="55" ry="14" fill="none" stroke="#f1c40f" stroke-width="5" />
+                  <ellipse cx="200" cy="65" rx="53" ry="12" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.9" />
+                </>
+              )}
+              {accessory() === 'kitsune_mask' && (
+                <>
+                  <path d="M 250,110 C 285,90 310,130 295,165 C 280,195 240,185 245,150 Z" fill="#ffffff" stroke="#2d3436" stroke-width="2.5" />
+                  <polygon points="265,95 285,75 285,105" fill="#ffffff" stroke="#2d3436" stroke-width="2" />
+                  <polygon points="270,95 282,82 282,102" fill="#d63031" />
+                  <path d="M 265,135 Q 275,128 285,135" stroke="#d63031" stroke-width="3" stroke-linecap="round" fill="none" />
+                  <path d="M 260,150 Q 272,146 280,155" stroke="#d63031" stroke-width="2" fill="none" />
+                  <circle cx="256" cy="165" r="3.5" fill="#f1c40f" />
+                  <line x1="256" y1="168" x2="252" y2="185" stroke="#d63031" stroke-width="2" />
+                </>
+              )}
+              {accessory() === 'flower_pin' && (
+                <>
+                  <circle cx="145" cy="128" r="5" fill="#f1c40f" />
+                  <ellipse cx="145" cy="118" rx="5" ry="7" fill="#ff7597" />
+                  <ellipse cx="145" cy="138" rx="5" ry="7" fill="#ff7597" />
+                  <ellipse cx="135" cy="128" rx="7" ry="5" fill="#ff7597" />
+                  <ellipse cx="155" cy="128" rx="7" ry="5" fill="#ff7597" />
+                  <ellipse cx="138" cy="121" rx="5" ry="5" fill="#ff99bb" />
+                  <ellipse cx="152" cy="135" rx="5" ry="5" fill="#ff99bb" />
                 </>
               )}
             </g>
