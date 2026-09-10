@@ -11,7 +11,7 @@ export function LootboxModal() {
 
   const userCoins = () => state.rpg?.coins ?? 0;
 
-  const handleOpenChest = () => {
+  const handleOpenChest = async () => {
     const cost = selectedChest() === 'standard' ? 100 : 250;
     if (userCoins() < cost) {
       showToast(t('gacha.notEnoughCoins', { cost, balance: userCoins() }));
@@ -22,7 +22,62 @@ export function LootboxModal() {
     setRevealedItem(null);
     setDuplicateCompensation(null);
 
-    // Simulate mystery chest opening animation delay
+    try {
+      const token = state.user?.token;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const allUnlocked = [
+        ...(state.rpg?.unlockedOutfits || []),
+        ...(state.rpg?.unlockedAccessories || []),
+        ...(state.rpg?.unlockedHairstyles || [])
+      ];
+
+      const res = await fetch('/api/gacha/roll', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          boxType: selectedChest(),
+          currentCoins: userCoins(),
+          unlockedItemIds: allUnlocked
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.result) {
+          const item = data.result.item;
+          setRevealedItem(item);
+
+          if (data.result.isDuplicate) {
+            setDuplicateCompensation(data.result.duplicateCoins);
+          }
+
+          // Apply state update from verified server outcome
+          if (typeof data.newCoins === 'number') {
+            setState('rpg', 'coins', data.newCoins);
+          }
+          if (data.result.duplicateExp) {
+            gainBondExp(data.result.duplicateExp);
+          }
+          if (!data.result.isDuplicate) {
+            const cat = item.category === 'outfit' ? 'outfits' : item.category === 'accessory' ? 'accessories' : 'hairstyles';
+            unlockCosmetic(cat, item.id);
+          }
+
+          setHistory(prev => [
+            { item, wasDup: data.result.isDuplicate, date: new Date().toLocaleTimeString() },
+            ...prev.slice(0, 7)
+          ]);
+          setIsOpening(false);
+          return;
+        }
+      }
+    } catch {
+      // Local fallback in case server endpoint is unreachable in client tests
+    }
+
+    // Fallback locally
     setTimeout(() => {
       const result = openLootbox(selectedChest());
       if (result) {
@@ -36,7 +91,7 @@ export function LootboxModal() {
         ]);
       }
       setIsOpening(false);
-    }, 1200);
+    }, 800);
   };
 
   const equipItem = (item: RpgCosmeticItem) => {
@@ -51,6 +106,7 @@ export function LootboxModal() {
 
   const getRarityClass = (rarity: string) => {
     switch (rarity) {
+      case 'mystical': return 'rarity-mystical';
       case 'legendary': return 'rarity-legendary';
       case 'epic': return 'rarity-epic';
       case 'rare': return 'rarity-rare';

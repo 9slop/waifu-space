@@ -26,7 +26,58 @@
     "calendar": "カレンダー",
     "rpg": "RPG拠点",
     "settings": "設定",
+    "profile": "プロフィール",
+    "leaderboard": "ランキング",
+    "login": "ログイン",
+    "logout": "ログアウト",
     "coinTooltip": "RPGゴールドコイン - クリックしてRPG拠点へ"
+  },
+  "profile": {
+    "title": "コマンダープロフィール",
+    "defaultBio": "パートナーの指導者にして桜の神社の防衛者。",
+    "share": "共有",
+    "goblinsKilled": "討伐ゴブリン数",
+    "showcaseTitle": "トロフィーショーケース",
+    "showcaseDesc": "獲得した自慢の衣装やアクセサリーを他プレイヤーに公開展示できます。"
+  },
+  "auth": {
+    "loginTitle": "おかえりなさい、コマンダー",
+    "loginSubtitle": "ログインして衣装、コイン、神社の進行状況を同期しましょう。",
+    "registerTitle": "WaifuSpace に登録",
+    "registerSubtitle": "アカウントを作成して、大切なパートナーとの絆を守りましょう。",
+    "loginTab": "ログイン",
+    "registerTab": "新規登録",
+    "username": "コマンダー名",
+    "email": "メールアドレス (任意)",
+    "password": "パスワード",
+    "confirmPassword": "パスワード確認",
+    "loginBtn": "ログイン",
+    "registerBtn": "アカウント作成",
+    "processing": "処理中...",
+    "or": "または",
+    "continueAsGuest": "ゲストとして続ける",
+    "usernameTooShort": "ユーザー名は3文字以上必要です。",
+    "passwordTooShort": "パスワードは6文字以上必要です。",
+    "passwordMismatch": "パスワードが一致しません。",
+    "fieldsRequired": "ユーザー名とパスワードを入力してください。",
+    "loginSuccess": "ログインしました！✨",
+    "welcomeToast": "ようこそWaifuSpaceへ、{name}！🌸",
+    "guestSuccess": "ゲストコマンダーとして開始しました。",
+    "logoutSuccess": "ログアウトしました。"
+  },
+  "leaderboard": {
+    "title": "グローバル栄誉殿堂",
+    "subtitle": "神社防衛ウェーブ、親密度、討伐数で競い合う世界ランキング。",
+    "tabWave": "防衛ウェーブ",
+    "tabBond": "親密度レベル",
+    "tabGoblins": "討伐ゴブリン数",
+    "rank": "順位",
+    "player": "コマンダー",
+    "wave": "最高ウェーブ",
+    "bond": "親密度",
+    "goblins": "討伐数",
+    "coins": "所持金",
+    "you": "あなた"
   },
   "companion": {
     "affectionLevel": "親密度レベル",
@@ -167,10 +218,11 @@
       "cosmeticsUnlocked": "衣装・アクセ解放数"
     },
     "tabs": {
-      "defense": "神社防衛戦",
+      "defense": "防衛戦",
       "gacha": "ガチャ宝箱",
-      "affection": "親密度の道",
-      "wardrobe": "衣装部屋・カタログ"
+      "affection": "好感度ロード",
+      "wardrobe": "ワードローブ",
+      "inventory": "所持品・ショーケース"
     },
     "affectionRoad": {
       "title": "親密度の道 マイルストーン",
@@ -189,6 +241,19 @@
       "livePreview": "リアルタイムプレビュー",
       "outfitLabel": "衣装:",
       "accessoryLabel": "アクセサリー:"
+    },
+    "inventory": {
+      "title": "所持品・衣装インベントリ ({count})",
+      "subtitle": "獲得した衣装、ヘアスタイル、アクセサリーの全コレクションです。",
+      "showcaseSlots": "ショーケース",
+      "featuredShowcase": "プロフィール ショーケース（公開）",
+      "showcaseHint": "最大6つの自慢のアイテムを選んで、公開プロフィールに展示できます！",
+      "emptySlot": "空きスロット",
+      "category": "カテゴリ",
+      "rarity": "レア度",
+      "noItemsFound": "このカテゴリに該当するアイテムはありません。",
+      "featured": "展示中",
+      "showcaseBtn": "展示する"
     },
     "toasts": {
       "lockedItem": "このアイテムはロックされています！宝箱や親密度報酬で解放しましょう。",

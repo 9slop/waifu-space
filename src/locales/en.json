@@ -26,7 +26,58 @@
     "calendar": "Calendar",
     "rpg": "RPG Hub",
     "settings": "Settings",
+    "profile": "Profile",
+    "leaderboard": "Leaderboard",
+    "login": "Login",
+    "logout": "Logout",
     "coinTooltip": "RPG Gold Coins - Click to visit RPG Hub"
+  },
+  "profile": {
+    "title": "Commander Profile",
+    "defaultBio": "Companion commander and defender of the sakura shrine.",
+    "share": "Share",
+    "goblinsKilled": "Goblins Vanquished",
+    "showcaseTitle": "Trophy Showcase",
+    "showcaseDesc": "Featured prized cosmetics proudly displayed for other players to admire."
+  },
+  "auth": {
+    "loginTitle": "Welcome Back, Commander",
+    "loginSubtitle": "Sign in to synchronize your outfits, coins, and shrine progress.",
+    "registerTitle": "Enlist in WaifuSpace",
+    "registerSubtitle": "Create an account to protect your waifu bond across devices.",
+    "loginTab": "Sign In",
+    "registerTab": "Register",
+    "username": "Commander Username",
+    "email": "Email Address (Optional)",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "loginBtn": "Sign In",
+    "registerBtn": "Create Account",
+    "processing": "Processing...",
+    "or": "or",
+    "continueAsGuest": "Continue as Guest",
+    "usernameTooShort": "Username must be at least 3 characters.",
+    "passwordTooShort": "Password must be at least 6 characters.",
+    "passwordMismatch": "Passwords do not match.",
+    "fieldsRequired": "Please enter both username and password.",
+    "loginSuccess": "Successfully logged in! ✨",
+    "welcomeToast": "Welcome to WaifuSpace, {name}! 🌸",
+    "guestSuccess": "Signed in as Guest Commander.",
+    "logoutSuccess": "Logged out successfully."
+  },
+  "leaderboard": {
+    "title": "Global Hall of Fame",
+    "subtitle": "Top commanders ranked by shrine defense waves, waifu affection, and battle glory.",
+    "tabWave": "Defense Wave",
+    "tabBond": "Waifu Bond",
+    "tabGoblins": "Goblins Vanquished",
+    "rank": "Rank",
+    "player": "Commander",
+    "wave": "High Wave",
+    "bond": "Bond Level",
+    "goblins": "Goblins",
+    "coins": "Treasury",
+    "you": "You"
   },
   "companion": {
     "affectionLevel": "Affection Level",
@@ -170,7 +221,8 @@
       "defense": "Waifu Defense",
       "gacha": "Gacha Chests",
       "affection": "Affection Road",
-      "wardrobe": "Wardrobe & Catalog"
+      "wardrobe": "Wardrobe & Catalog",
+      "inventory": "Inventory & Showcase"
     },
     "affectionRoad": {
       "title": "Affection Road Milestones",
@@ -189,6 +241,19 @@
       "livePreview": "Live Preview",
       "outfitLabel": "Outfit:",
       "accessoryLabel": "Accessory:"
+    },
+    "inventory": {
+      "title": "Cosmetics Inventory ({count})",
+      "subtitle": "Browse your collection of acquired outfits, hairstyles, and celestial accessories.",
+      "showcaseSlots": "Featured Showcase",
+      "featuredShowcase": "Profile Showcase Case (Public)",
+      "showcaseHint": "Select up to 6 of your proudest items to display on your public profile!",
+      "emptySlot": "Empty Showcase Slot",
+      "category": "Category",
+      "rarity": "Rarity",
+      "noItemsFound": "No items found in this inventory category.",
+      "featured": "Featured",
+      "showcaseBtn": "Showcase"
     },
     "toasts": {
       "lockedItem": "This item is locked! Unlock it via Lootboxes or Affection milestones.",

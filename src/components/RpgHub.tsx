@@ -6,6 +6,7 @@ import {
   AFFECTION_MILESTONES,
   claimAffectionReward,
   isCosmeticUnlocked,
+  toggleShowcaseItem,
   getUnlockedCosmeticsCount,
   showToast,
   RpgCosmeticItem
@@ -16,8 +17,9 @@ import { WaifuAvatar } from './WaifuAvatar';
 import { t } from '../lib/i18n';
 
 export function RpgHub() {
-  const [activeTab, setActiveTab] = createSignal<'defense' | 'gacha' | 'affection' | 'wardrobe'>('defense');
+  const [activeTab, setActiveTab] = createSignal<'defense' | 'gacha' | 'affection' | 'wardrobe' | 'inventory'>('defense');
   const [filterCategory, setFilterCategory] = createSignal<'all' | 'outfit' | 'accessory'>('all');
+  const [inventoryRarityFilter, setInventoryRarityFilter] = createSignal<'all' | 'common' | 'rare' | 'epic' | 'legendary' | 'mystical'>('all');
 
   const equipCosmetic = (item: RpgCosmeticItem) => {
     if (!isCosmeticUnlocked(item.id)) {
@@ -36,6 +38,7 @@ export function RpgHub() {
 
   const getRarityClass = (rarity: string) => {
     switch (rarity) {
+      case 'mystical': return 'rarity-mystical';
       case 'legendary': return 'rarity-legendary';
       case 'epic': return 'rarity-epic';
       case 'rare': return 'rarity-rare';
@@ -46,6 +49,16 @@ export function RpgHub() {
   const filteredCatalog = () => {
     if (filterCategory() === 'all') return COSMETIC_CATALOG;
     return COSMETIC_CATALOG.filter(item => item.category === filterCategory());
+  };
+
+  const ownedItems = () => {
+    return COSMETIC_CATALOG.filter(item => {
+      if (item.id === 'none') return false;
+      if (!isCosmeticUnlocked(item.id)) return false;
+      if (inventoryRarityFilter() !== 'all' && item.rarity !== inventoryRarityFilter()) return false;
+      if (filterCategory() !== 'all' && item.category !== filterCategory()) return false;
+      return true;
+    });
   };
 
   const currentCoins = () => state.rpg?.coins ?? 0;
@@ -151,6 +164,15 @@ export function RpgHub() {
         >
           <span>👗</span>
           <span>{t('rpg.tabs.wardrobe')}</span>
+        </button>
+
+        <button
+          class={`rpg-tab-btn ${activeTab() === 'inventory' ? 'active' : ''}`}
+          data-testid="rpg-tab-inventory"
+          onClick={() => setActiveTab('inventory')}
+        >
+          <span>🎒</span>
+          <span>{t('rpg.tabs.inventory')}</span>
         </button>
       </div>
 
@@ -317,6 +339,158 @@ export function RpgHub() {
                   <div><strong>{t('rpg.wardrobe.accessoryLabel')}</strong> {state.waifu?.appearance?.accessory || 'none'}</div>
                 </div>
               </div>
+            </div>
+          </div>
+        </Show>
+
+        {/* 5. INVENTORY & SHOWCASE TAB */}
+        <Show when={activeTab() === 'inventory'}>
+          <div class="tab-pane inventory-pane" data-testid="inventory-pane">
+            <div class="inventory-header-banner">
+              <div>
+                <h2>🎒 {t('rpg.inventory.title', { count: ownedItems().length })}</h2>
+                <p>{t('rpg.inventory.subtitle')}</p>
+              </div>
+              <div class="showcase-summary-pill">
+                <span>🏆 {t('rpg.inventory.showcaseSlots')}:</span>
+                <strong>{(state.rpg?.showcaseItems || []).length} / 6</strong>
+              </div>
+            </div>
+
+            {/* SHOWCASE DISPLAY CASE */}
+            <div class="inventory-showcase-section">
+              <div class="showcase-section-title">
+                <h3>✨ {t('rpg.inventory.featuredShowcase')}</h3>
+                <small>{t('rpg.inventory.showcaseHint')}</small>
+              </div>
+
+              <div class="showcase-slots-grid">
+                <For each={[0, 1, 2, 3, 4, 5]}>
+                  {index => {
+                    const showcaseItemId = () => (state.rpg?.showcaseItems || [])[index];
+                    const showcaseItem = () => showcaseItemId() ? COSMETIC_CATALOG.find(c => c.id === showcaseItemId()) : null;
+
+                    return (
+                      <div
+                        class={`showcase-pedestal ${showcaseItem() ? getRarityClass(showcaseItem()!.rarity) : 'empty-slot'}`}
+                        data-testid={`showcase-pedestal-${index}`}
+                      >
+                        <Show when={showcaseItem()} fallback={
+                          <div class="empty-slot-content">
+                            <span class="slot-num">#{index + 1}</span>
+                            <small>{t('rpg.inventory.emptySlot')}</small>
+                          </div>
+                        }>
+                          {item => (
+                            <div class="showcase-item-content">
+                              <span class="showcase-slot-icon">{item().icon}</span>
+                              <div class="showcase-item-info">
+                                <strong>{item().name}</strong>
+                                <span class={`rarity-pill ${getRarityClass(item().rarity)}`}>{item().rarity}</span>
+                              </div>
+                              <button
+                                class="btn-remove-showcase"
+                                title="Remove from showcase"
+                                onClick={() => toggleShowcaseItem(item().id)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          )}
+                        </Show>
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+            </div>
+
+            {/* INVENTORY FILTERS */}
+            <div class="inventory-filters-row">
+              <div class="category-filter-group">
+                <span class="filter-group-label">{t('rpg.inventory.category')}:</span>
+                <button
+                  class={`filter-btn ${filterCategory() === 'all' ? 'active' : ''}`}
+                  onClick={() => setFilterCategory('all')}
+                >
+                  {t('rpg.wardrobe.allItems')}
+                </button>
+                <button
+                  class={`filter-btn ${filterCategory() === 'outfit' ? 'active' : ''}`}
+                  onClick={() => setFilterCategory('outfit')}
+                >
+                  {t('rpg.wardrobe.outfits')}
+                </button>
+                <button
+                  class={`filter-btn ${filterCategory() === 'accessory' ? 'active' : ''}`}
+                  onClick={() => setFilterCategory('accessory')}
+                >
+                  {t('rpg.wardrobe.accessories')}
+                </button>
+              </div>
+
+              <div class="rarity-filter-group">
+                <span class="filter-group-label">{t('rpg.inventory.rarity')}:</span>
+                {(['all', 'common', 'rare', 'epic', 'legendary', 'mystical'] as const).map(rarity => (
+                  <button
+                    class={`filter-btn filter-btn-rarity ${inventoryRarityFilter() === rarity ? 'active' : ''} ${rarity !== 'all' ? getRarityClass(rarity) : ''}`}
+                    onClick={() => setInventoryRarityFilter(rarity)}
+                  >
+                    {rarity.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* OWNED ITEMS GRID */}
+            <div class="inventory-items-grid">
+              <Show when={ownedItems().length === 0}>
+                <div class="empty-inventory-notice">
+                  <span>📦</span>
+                  <p>{t('rpg.inventory.noItemsFound')}</p>
+                </div>
+              </Show>
+
+              <For each={ownedItems()}>
+                {item => {
+                  const inShowcase = () => (state.rpg?.showcaseItems || []).includes(item.id);
+                  const isEquipped = () =>
+                    (item.category === 'outfit' && state.waifu?.appearance?.outfit === item.id) ||
+                    (item.category === 'accessory' && state.waifu?.appearance?.accessory === item.id);
+
+                  return (
+                    <div class={`inventory-item-card ${getRarityClass(item.rarity)}`}>
+                      <div class="card-top-row">
+                        <span class="item-icon-big">{item.icon}</span>
+                        <span class={`rarity-tag ${getRarityClass(item.rarity)}`}>{item.rarity}</span>
+                      </div>
+
+                      <div class="item-title-group">
+                        <strong class="item-name">{item.name}</strong>
+                        <p class="item-desc">{item.description}</p>
+                      </div>
+
+                      <div class="item-actions-row">
+                        <button
+                          class={`btn-equip-item ${isEquipped() ? 'equipped' : ''}`}
+                          disabled={isEquipped()}
+                          onClick={() => equipCosmetic(item)}
+                        >
+                          {isEquipped() ? `✨ ${t('common.equipped')}` : t('common.equip')}
+                        </button>
+
+                        <button
+                          class={`btn-toggle-showcase ${inShowcase() ? 'active' : ''}`}
+                          onClick={() => toggleShowcaseItem(item.id)}
+                          title={inShowcase() ? 'Remove from Showcase' : 'Feature in Showcase'}
+                        >
+                          {inShowcase() ? '🏆 ' + t('rpg.inventory.featured') : '⭐ ' + t('rpg.inventory.showcaseBtn')}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }}
+              </For>
             </div>
           </div>
         </Show>
