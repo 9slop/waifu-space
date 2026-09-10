@@ -134,6 +134,7 @@ body {
   border-radius: 30px;
   cursor: pointer;
   transition: all 0.25s ease;
+  text-decoration: none;
 }
 
 .nav-tab-btn:hover {

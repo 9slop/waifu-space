@@ -1,6 +1,18 @@
 // Optional LLM Provider Integration (Gemini, OpenAI, OpenRouter)
 
-export async function callLLM(prompt, state, systemInstruction) {
+export interface LLMState {
+  settings: {
+    llmProvider: string;
+    llmApiKey: string;
+    llmModel: string;
+  };
+  waifu: {
+    personality: string;
+    name: string;
+  };
+}
+
+export async function callLLM(prompt: string, state: LLMState, systemInstruction?: string): Promise<string | null> {
   const settings = state.settings;
   const provider = settings.llmProvider;
   const apiKey = settings.llmApiKey?.trim();
