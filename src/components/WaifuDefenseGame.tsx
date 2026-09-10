@@ -205,24 +205,24 @@ export function WaifuDefenseGame() {
   const spawnEnemy = (type: Enemy['type']) => {
     const curWave = wave();
     let hp = 45 + curWave * 12;
-    let speed = 1.6;
+    let speed = 0.8;
     let goldValue = 6 + curWave * 2;
 
     if (type === 'warrior') {
       hp = 90 + curWave * 25;
-      speed = 1.1;
+      speed = 0.55;
       goldValue = 12 + curWave * 3;
     } else if (type === 'shaman') {
       hp = 120 + curWave * 30;
-      speed = 0.95;
+      speed = 0.45;
       goldValue = 18 + curWave * 4;
     } else if (type === 'brute') {
       hp = 280 + curWave * 60;
-      speed = 0.7;
+      speed = 0.32;
       goldValue = 28 + curWave * 5;
     } else if (type === 'boss') {
       hp = 900 + curWave * 200;
-      speed = 0.55;
+      speed = 0.24;
       goldValue = 80 + curWave * 15;
     }
 

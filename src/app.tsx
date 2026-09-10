@@ -85,7 +85,7 @@ function AppLayout(props: { children: any }) {
         <A href="/" class="app-brand">
           <span class="brand-icon">🌸</span>
           <span class="brand-name">WaifuSpace</span>
-          <span class="brand-tag">SolidStart</span>
+          <span class="brand-tag">v2.0.0</span>
         </A>
 
         {/* 3 PRIMARY TABS */}

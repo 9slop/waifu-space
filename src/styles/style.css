@@ -170,7 +170,27 @@ body {
 .app-content {
   flex: 1;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: calc(100vh - var(--header-height));
+  scroll-behavior: smooth;
+}
+
+.app-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.app-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.app-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+
+.app-content::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-accent);
 }
 
 .app-page-view {
