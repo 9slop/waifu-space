@@ -117,13 +117,16 @@ export function CalendarPlanner() {
   const openPopover = (ev: CalendarEventItem, anchorRect?: DOMRect) => {
     setPopoverEvent(ev);
     if (anchorRect) {
-      let top = anchorRect.top + window.scrollY;
+      const scrollY = typeof window !== 'undefined' ? window.scrollY : 0;
+      const innerW = typeof window !== 'undefined' ? window.innerWidth : 1024;
+      const innerH = typeof window !== 'undefined' ? window.innerHeight : 768;
+      let top = anchorRect.top + scrollY;
       let left = anchorRect.right + 12;
-      if (left + 320 > window.innerWidth) {
+      if (left + 320 > innerW) {
         left = Math.max(16, anchorRect.left - 330);
       }
-      if (top + 260 > window.innerHeight) {
-        top = Math.max(70, window.innerHeight - 280);
+      if (top + 260 > innerH) {
+        top = Math.max(70, innerH - 280);
       }
       setPopoverPos({ top, left });
     } else {
@@ -216,13 +219,17 @@ export function CalendarPlanner() {
   };
 
   onMount(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('click', handleDocClick);
-  });
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('click', handleDocClick);
+    }
 
-  onCleanup(() => {
-    window.removeEventListener('keydown', handleKeyDown);
-    window.removeEventListener('click', handleDocClick);
+    onCleanup(() => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('click', handleDocClick);
+      }
+    });
   });
 
   return (

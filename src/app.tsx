@@ -58,6 +58,11 @@ function AppLayout(props: { children: any }) {
         triggerWaifuResponse(note, 'pout');
       }
     }, 60000);
+
+    onCleanup(() => {
+      clearInterval(clockInterval);
+      clearInterval(deadlineInterval);
+    });
   });
 
   createEffect(() => {
@@ -67,11 +72,6 @@ function AppLayout(props: { children: any }) {
         document.documentElement.style.setProperty('--primary-accent', state.settings.customAccent);
       }
     }
-  });
-
-  onCleanup(() => {
-    clearInterval(clockInterval);
-    clearInterval(deadlineInterval);
   });
 
   return (

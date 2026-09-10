@@ -56,10 +56,9 @@ export function WaifuAvatar() {
 
   onMount(() => {
     scheduleBlink();
-  });
-
-  onCleanup(() => {
-    clearTimeout(blinkTimeout);
+    onCleanup(() => {
+      clearTimeout(blinkTimeout);
+    });
   });
 
   const pfx = 'wa_start';
