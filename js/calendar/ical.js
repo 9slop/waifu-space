@@ -1,0 +1,128 @@
+// iCalendar (.ics) and JSON Import/Export Utilities
+
+export function exportToICS(events) {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//WaifuSpace//Anime Calendar 1.0//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH'
+  ];
+
+  events.forEach(ev => {
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${ev.id}@waifuspace.local`);
+    lines.push(`SUMMARY:${escapeICS(ev.title)}`);
+    if (ev.description) lines.push(`DESCRIPTION:${escapeICS(ev.description)}`);
+    if (ev.location) lines.push(`LOCATION:${escapeICS(ev.location)}`);
+
+    if (ev.allDay) {
+      const d = new Date(ev.start);
+      const dt = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+      lines.push(`DTSTART;VALUE=DATE:${dt}`);
+    } else {
+      lines.push(`DTSTART:${formatICSDate(new Date(ev.start))}`);
+      lines.push(`DTEND:${formatICSDate(new Date(ev.end || ev.start))}`);
+    }
+
+    lines.push(`STATUS:${ev.completed ? 'COMPLETED' : 'CONFIRMED'}`);
+    lines.push('END:VEVENT');
+  });
+
+  lines.push('END:VCALENDAR');
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  downloadBlob(blob, 'waifu-space-calendar.ics');
+}
+
+export function importFromICS(icsText) {
+  const events = [];
+  const lines = icsText.split(/\r\n|\n|\r/);
+  let inEvent = false;
+  let curr = null;
+
+  lines.forEach(line => {
+    line = line.trim();
+    if (line === 'BEGIN:VEVENT') {
+      inEvent = true;
+      curr = {
+        id: 'evt-import-' + Math.random().toString(36).substr(2, 7),
+        title: 'Imported Event',
+        start: new Date().toISOString(),
+        end: new Date(Date.now() + 3600000).toISOString(),
+        allDay: false,
+        type: 'event',
+        completed: false,
+        color: '#ff6584'
+      };
+    } else if (line === 'END:VEVENT' && inEvent) {
+      inEvent = false;
+      if (curr) events.push(curr);
+      curr = null;
+    } else if (inEvent && curr) {
+      if (line.startsWith('SUMMARY:')) {
+        curr.title = unescapeICS(line.substring(8));
+      } else if (line.startsWith('DESCRIPTION:')) {
+        curr.description = unescapeICS(line.substring(12));
+      } else if (line.startsWith('LOCATION:')) {
+        curr.location = unescapeICS(line.substring(9));
+      } else if (line.startsWith('DTSTART')) {
+        const val = line.split(':')[1];
+        if (line.includes('VALUE=DATE')) {
+          curr.allDay = true;
+          curr.start = parseICSDate(val, true).toISOString();
+        } else {
+          curr.start = parseICSDate(val, false).toISOString();
+        }
+      } else if (line.startsWith('DTEND')) {
+        const val = line.split(':')[1];
+        curr.end = parseICSDate(val, false).toISOString();
+      }
+    }
+  });
+
+  return events;
+}
+
+function escapeICS(str) {
+  return (str || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
+
+function unescapeICS(str) {
+  return (str || '').replace(/\\n/g, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
+}
+
+function formatICSDate(d) {
+  return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+}
+
+function parseICSDate(str, isDateOnly) {
+  if (!str) return new Date();
+  if (isDateOnly || str.length === 8) {
+    const y = parseInt(str.substring(0, 4), 10);
+    const m = parseInt(str.substring(4, 6), 10) - 1;
+    const d = parseInt(str.substring(6, 8), 10);
+    return new Date(y, m, d);
+  }
+  const y = parseInt(str.substring(0, 4), 10);
+  const m = parseInt(str.substring(4, 6), 10) - 1;
+  const d = parseInt(str.substring(6, 8), 10);
+  const h = parseInt(str.substring(9, 11) || 0, 10);
+  const min = parseInt(str.substring(11, 13) || 0, 10);
+  const s = parseInt(str.substring(13, 15) || 0, 10);
+  return new Date(Date.UTC(y, m, d, h, min, s));
+}
+
+function pad(n) {
+  return n < 10 ? '0' + n : n;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}

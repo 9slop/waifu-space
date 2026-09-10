@@ -1,0 +1,82 @@
+/* Theme Definitions & Color Systems */
+
+:root {
+  /* Default Sakura Theme */
+  --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --bg-dark: #0f0c15;
+  --surface-1: rgba(26, 21, 38, 0.72);
+  --surface-2: rgba(38, 30, 54, 0.85);
+  --surface-glass: rgba(255, 255, 255, 0.08);
+  --border-color: rgba(255, 255, 255, 0.12);
+  --border-focus: rgba(255, 101, 132, 0.6);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: rgba(255, 255, 255, 0.45);
+  --primary-accent: #ff6584;
+  --primary-glow: rgba(255, 101, 132, 0.35);
+  --card-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --header-height: 64px;
+}
+
+/* Cyberpunk Tokyo */
+[data-theme="cyberpunk"] {
+  --bg-dark: #05050f;
+  --surface-1: rgba(10, 15, 35, 0.8);
+  --surface-2: rgba(15, 25, 55, 0.9);
+  --surface-glass: rgba(0, 242, 254, 0.08);
+  --border-color: rgba(0, 242, 254, 0.25);
+  --border-focus: #ff007f;
+  --primary-accent: #00f2fe;
+  --primary-glow: rgba(0, 242, 254, 0.45);
+}
+
+/* Midnight Lavender */
+[data-theme="midnight"] {
+  --bg-dark: #0a0614;
+  --surface-1: rgba(24, 16, 46, 0.78);
+  --surface-2: rgba(36, 24, 68, 0.88);
+  --surface-glass: rgba(162, 155, 254, 0.08);
+  --border-color: rgba(162, 155, 254, 0.18);
+  --border-focus: #a29bfe;
+  --primary-accent: #6c5ce7;
+  --primary-glow: rgba(108, 92, 231, 0.4);
+}
+
+/* Matcha Zen */
+[data-theme="matcha"] {
+  --bg-dark: #0a1310;
+  --surface-1: rgba(18, 34, 29, 0.78);
+  --surface-2: rgba(25, 48, 41, 0.88);
+  --surface-glass: rgba(85, 239, 196, 0.08);
+  --border-color: rgba(85, 239, 196, 0.18);
+  --border-focus: #55efc4;
+  --primary-accent: #00b894;
+  --primary-glow: rgba(0, 184, 148, 0.35);
+}
+
+/* Sunset Amber */
+[data-theme="sunset"] {
+  --bg-dark: #140d0a;
+  --surface-1: rgba(38, 24, 18, 0.78);
+  --surface-2: rgba(54, 34, 25, 0.88);
+  --surface-glass: rgba(253, 121, 168, 0.08);
+  --border-color: rgba(243, 156, 18, 0.2);
+  --border-focus: #fd79a8;
+  --primary-accent: #e17055;
+  --primary-glow: rgba(225, 112, 85, 0.4);
+}
+
+/* AMOLED Dark */
+[data-theme="amoled"] {
+  --bg-dark: #000000;
+  --surface-1: rgba(12, 12, 12, 0.92);
+  --surface-2: rgba(22, 22, 22, 0.96);
+  --surface-glass: rgba(255, 255, 255, 0.05);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-focus: #ff6584;
+  --primary-accent: #ff6584;
+  --primary-glow: rgba(255, 101, 132, 0.25);
+}
