@@ -13,6 +13,7 @@ import {
 import { WaifuDefenseGame } from './WaifuDefenseGame';
 import { LootboxModal } from './LootboxModal';
 import { WaifuAvatar } from './WaifuAvatar';
+import { t } from '../lib/i18n';
 
 export function RpgHub() {
   const [activeTab, setActiveTab] = createSignal<'defense' | 'gacha' | 'affection' | 'wardrobe'>('defense');
@@ -20,16 +21,16 @@ export function RpgHub() {
 
   const equipCosmetic = (item: RpgCosmeticItem) => {
     if (!isCosmeticUnlocked(item.id)) {
-      showToast('This item is locked! Unlock it via Lootboxes or Affection milestones.');
+      showToast(t('rpg.toasts.lockedItem'));
       return;
     }
 
     if (item.category === 'outfit') {
       setState('waifu', 'appearance', 'outfit', item.id);
-      showToast(`Equipped outfit: ${item.name}! ✨`);
+      showToast(t('rpg.toasts.equippedOutfit', { name: item.name }));
     } else if (item.category === 'accessory') {
       setState('waifu', 'appearance', 'accessory', item.id);
-      showToast(`Equipped accessory: ${item.name}! ✨`);
+      showToast(t('rpg.toasts.equippedAccessory', { name: item.name }));
     }
   };
 
@@ -64,7 +65,7 @@ export function RpgHub() {
             <div class="rpg-bars-group">
               <div class="rpg-bar-item">
                 <div class="bar-header">
-                  <span>🌟 Waifu Bond Lv {state.waifu?.bondLevel || 1}</span>
+                  <span>🌟 {t('rpg.dashboard.bondLevel', { level: state.waifu?.bondLevel || 1 })}</span>
                   <small>{state.waifu?.bondExp || 0} / {(state.waifu?.bondLevel || 1) * 50} XP</small>
                 </div>
                 <div class="stat-progress-bar">
@@ -77,8 +78,8 @@ export function RpgHub() {
 
               <div class="rpg-bar-item">
                 <div class="bar-header">
-                  <span>💖 Affection Milestone Lv {state.waifu?.bondLevel || 1}</span>
-                  <small>Unlocked Tier: {state.rpg?.claimedAffectionMilestones?.length || 0} / {AFFECTION_MILESTONES.length}</small>
+                  <span>💖 {t('rpg.dashboard.affectionLevel', { level: state.waifu?.bondLevel || 1 })}</span>
+                  <small>{t('rpg.dashboard.unlockedTier', { current: state.rpg?.claimedAffectionMilestones?.length || 0, total: AFFECTION_MILESTONES.length })}</small>
                 </div>
                 <div class="stat-progress-bar">
                   <div
@@ -95,7 +96,7 @@ export function RpgHub() {
           <div class="rpg-stat-chip">
             <span class="chip-icon">🪙</span>
             <div class="chip-content">
-              <span class="chip-label">Gold Coins</span>
+              <span class="chip-label">{t('rpg.dashboard.goldCoins')}</span>
               <strong class="chip-val">{currentCoins()}</strong>
             </div>
           </div>
@@ -103,15 +104,15 @@ export function RpgHub() {
           <div class="rpg-stat-chip">
             <span class="chip-icon">🛡️</span>
             <div class="chip-content">
-              <span class="chip-label">Defense High Score</span>
-              <strong class="chip-val">Wave {currentHighWave()}</strong>
+              <span class="chip-label">{t('rpg.dashboard.defenseHighScore')}</span>
+              <strong class="chip-val">{t('rpg.dashboard.defenseScoreWave', { wave: currentHighWave() })}</strong>
             </div>
           </div>
 
           <div class="rpg-stat-chip">
             <span class="chip-icon">👗</span>
             <div class="chip-content">
-              <span class="chip-label">Cosmetics Unlocked</span>
+              <span class="chip-label">{t('rpg.dashboard.cosmeticsUnlocked')}</span>
               <strong class="chip-val">{unlockedCount()} / {COSMETIC_CATALOG.length}</strong>
             </div>
           </div>
@@ -125,7 +126,7 @@ export function RpgHub() {
           onClick={() => setActiveTab('defense')}
         >
           <span>⚔️</span>
-          <span>Waifu Defense</span>
+          <span>{t('rpg.tabs.defense')}</span>
         </button>
 
         <button
@@ -133,7 +134,7 @@ export function RpgHub() {
           onClick={() => setActiveTab('gacha')}
         >
           <span>🎁</span>
-          <span>Gacha Chests</span>
+          <span>{t('rpg.tabs.gacha')}</span>
         </button>
 
         <button
@@ -141,7 +142,7 @@ export function RpgHub() {
           onClick={() => setActiveTab('affection')}
         >
           <span>💖</span>
-          <span>Affection Road</span>
+          <span>{t('rpg.tabs.affection')}</span>
         </button>
 
         <button
@@ -149,7 +150,7 @@ export function RpgHub() {
           onClick={() => setActiveTab('wardrobe')}
         >
           <span>👗</span>
-          <span>Wardrobe & Catalog</span>
+          <span>{t('rpg.tabs.wardrobe')}</span>
         </button>
       </div>
 
@@ -174,9 +175,9 @@ export function RpgHub() {
           <div class="tab-pane">
             <div class="affection-road-container">
               <div class="road-header">
-                <h2>💖 Affection Road Milestones</h2>
+                <h2>💖 {t('rpg.affectionRoad.title')}</h2>
                 <p>
-                  Deepen your bond with {state.waifu?.name || 'your companion'} by chatting, poking, completing tasks, and defending her shrine!
+                  {t('rpg.affectionRoad.subtitle', { name: state.waifu?.name || 'your companion' })}
                 </p>
               </div>
 
@@ -211,18 +212,18 @@ export function RpgHub() {
 
                         <div class="milestone-actions">
                           <Show when={isClaimed()}>
-                            <span class="status-claimed">✅ Claimed</span>
+                            <span class="status-claimed">✅ {t('rpg.affectionRoad.claimed')}</span>
                           </Show>
                           <Show when={canClaim()}>
                             <button
                               class="btn-claim"
                               onClick={() => claimAffectionReward(milestone.level)}
                             >
-                              🎁 Claim!
+                              🎁 {t('rpg.affectionRoad.claimBtn')}
                             </button>
                           </Show>
                           <Show when={isLocked()}>
-                            <span class="status-locked">🔒 Needs Lv {milestone.level}</span>
+                            <span class="status-locked">🔒 {t('rpg.affectionRoad.needsLevel', { level: milestone.level })}</span>
                           </Show>
                         </div>
                       </div>
@@ -245,19 +246,19 @@ export function RpgHub() {
                     class={`filter-btn ${filterCategory() === 'all' ? 'active' : ''}`}
                     onClick={() => setFilterCategory('all')}
                   >
-                    All Items
+                    {t('rpg.wardrobe.allItems')}
                   </button>
                   <button
                     class={`filter-btn ${filterCategory() === 'outfit' ? 'active' : ''}`}
                     onClick={() => setFilterCategory('outfit')}
                   >
-                    Outfits
+                    {t('rpg.wardrobe.outfits')}
                   </button>
                   <button
                     class={`filter-btn ${filterCategory() === 'accessory' ? 'active' : ''}`}
                     onClick={() => setFilterCategory('accessory')}
                   >
-                    Accessories
+                    {t('rpg.wardrobe.accessories')}
                   </button>
                 </div>
 
@@ -291,11 +292,11 @@ export function RpgHub() {
                                 disabled={isEquipped()}
                                 onClick={() => equipCosmetic(item)}
                               >
-                                {isEquipped() ? 'Equipped ✨' : 'Equip'}
+                                {isEquipped() ? t('rpg.wardrobe.equipped') : t('rpg.wardrobe.equip')}
                               </button>
                             </Show>
                             <Show when={!unlocked()}>
-                              <span class="locked-badge">🔒 Locked</span>
+                              <span class="locked-badge">🔒 {t('rpg.wardrobe.locked')}</span>
                             </Show>
                           </div>
                         </div>
@@ -307,13 +308,13 @@ export function RpgHub() {
 
               {/* LIVE WAIFU PREVIEW */}
               <div class="wardrobe-preview-panel">
-                <h3>Live Preview</h3>
+                <h3>{t('rpg.wardrobe.livePreview')}</h3>
                 <div class="preview-avatar-box">
                   <WaifuAvatar />
                 </div>
                 <div class="preview-active-specs">
-                  <div><strong>Outfit:</strong> {state.waifu?.appearance?.outfit || 'seifuku'}</div>
-                  <div><strong>Accessory:</strong> {state.waifu?.appearance?.accessory || 'none'}</div>
+                  <div><strong>{t('rpg.wardrobe.outfitLabel')}</strong> {state.waifu?.appearance?.outfit || 'seifuku'}</div>
+                  <div><strong>{t('rpg.wardrobe.accessoryLabel')}</strong> {state.waifu?.appearance?.accessory || 'none'}</div>
                 </div>
               </div>
             </div>

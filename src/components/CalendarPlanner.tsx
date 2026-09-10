@@ -18,6 +18,7 @@ import { CalendarPopover } from './CalendarPopover';
 import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarWeekView } from './CalendarWeekView';
 import { CalendarDayView } from './CalendarDayView';
+import { t, getLocale } from '../lib/i18n';
 
 export function CalendarPlanner() {
   const [currentDate, setCurrentDate] = createSignal(new Date());
@@ -83,16 +84,17 @@ export function CalendarPlanner() {
   const getTitleDisplay = () => {
     const d = currentDate();
     const view = state.calendar.view;
+    const loc = getLocale();
     if (view === 'month') {
-      return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      return d.toLocaleDateString(loc, { month: 'long', year: 'numeric' });
     }
     if (view === 'week') {
       const start = new Date(d);
       start.setDate(start.getDate() - start.getDay());
       const end = new Date(start.getTime() + 6 * 86400000);
-      return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+      return `${start.toLocaleDateString(loc, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(loc, { month: 'short', day: 'numeric', year: 'numeric' })}`;
     }
-    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    return d.toLocaleDateString(loc, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   };
 
   const openCreateModal = (
@@ -148,25 +150,25 @@ export function CalendarPlanner() {
 
     const persona = getPersonality(state.waifu.personality);
     const review = persona.scheduleReview(evCount, tkCount);
-    showToast(`🌸 Waifu Briefing: ${review.text}`);
+    showToast(`🌸 ${t('calendar.toasts.waifuBriefing', { text: review.text })}`);
     triggerWaifuResponse(review.text, review.mood);
   };
 
   // Quick Task Submit
   const handleQuickTask = (e: Event) => {
     e.preventDefault();
-    const t = quickTaskInput().trim();
-    if (!t) return;
+    const taskTitle = quickTaskInput().trim();
+    if (!taskTitle) return;
     setQuickTaskInput('');
     addCalendarEvent({
-      title: t,
+      title: taskTitle,
       type: 'task',
       start: new Date().toISOString(),
       end: new Date(Date.now() + 1800000).toISOString(),
       color: '#00cec9',
       allDay: false
     });
-    showToast(`Added task "${t}"`);
+    showToast(t('calendar.toasts.taskAdded', { title: taskTitle }));
   };
 
   // iCal Import
@@ -181,9 +183,9 @@ export function CalendarPlanner() {
         const imported = importFromICS(text);
         if (imported.length > 0) {
           setState('calendar', 'events', evs => [...imported, ...evs]);
-          showToast(`Imported ${imported.length} events from ${file.name}!`);
+          showToast(t('calendar.toasts.importedEvents', { count: imported.length, file: file.name }));
         } else {
-          showToast('No valid events found in .ics file');
+          showToast(t('calendar.toasts.noValidEvents'));
         }
       }
     };
@@ -242,10 +244,10 @@ export function CalendarPlanner() {
               type="button"
               class="gcal-btn gcal-btn-primary create-menu-btn"
               onClick={() => setCreateMenuOpen(!createMenuOpen())}
-              title="Create event or task (Shortcut: Press 'c')"
+              title={t('calendar.toolbar.createTooltip')}
             >
               <span class="btn-icon">➕</span>
-              <span class="btn-text">Create</span>
+              <span class="btn-text">{t('calendar.toolbar.create')}</span>
               <span class="create-caret">▾</span>
             </button>
             <Show when={createMenuOpen()}>
@@ -260,8 +262,8 @@ export function CalendarPlanner() {
                 >
                   <span class="dropdown-item-icon">📅</span>
                   <div class="dropdown-item-text">
-                    <span class="dropdown-item-title">Event</span>
-                    <span class="dropdown-item-desc">Schedule activity or meeting</span>
+                    <span class="dropdown-item-title">{t('calendar.menu.event')}</span>
+                    <span class="dropdown-item-desc">{t('calendar.menu.eventDesc')}</span>
                   </div>
                 </button>
                 <button
@@ -274,8 +276,8 @@ export function CalendarPlanner() {
                 >
                   <span class="dropdown-item-icon">☑️</span>
                   <div class="dropdown-item-text">
-                    <span class="dropdown-item-title">Task</span>
-                    <span class="dropdown-item-desc">To-do item with completion</span>
+                    <span class="dropdown-item-title">{t('calendar.menu.task')}</span>
+                    <span class="dropdown-item-desc">{t('calendar.menu.taskDesc')}</span>
                   </div>
                 </button>
               </div>
@@ -285,16 +287,16 @@ export function CalendarPlanner() {
             type="button"
             class="gcal-btn gcal-btn-outline"
             onClick={jumpToToday}
-            title="Shortcut: Press 't'"
+            title={t('calendar.toolbar.todayTooltip')}
           >
-            Today
+            {t('calendar.toolbar.today')}
           </button>
           <div class="gcal-nav-arrows">
             <button
               type="button"
               class="gcal-icon-btn"
               onClick={() => navigateDate(-1)}
-              title="Previous"
+              title={t('calendar.toolbar.prev')}
             >
               ◀
             </button>
@@ -302,7 +304,7 @@ export function CalendarPlanner() {
               type="button"
               class="gcal-icon-btn"
               onClick={() => navigateDate(1)}
-              title="Next"
+              title={t('calendar.toolbar.next')}
             >
               ▶
             </button>
@@ -316,7 +318,7 @@ export function CalendarPlanner() {
           <input
             type="text"
             class="gcal-search-input"
-            placeholder="Search events & tasks..."
+            placeholder={t('calendar.toolbar.searchPlaceholder')}
             value={state.calendar.searchQuery}
             onInput={e => setState('calendar', 'searchQuery', e.currentTarget.value)}
           />
@@ -327,10 +329,10 @@ export function CalendarPlanner() {
             type="button"
             class="gcal-btn gcal-btn-waifu"
             onClick={triggerBriefing}
-            title="Ask Waifu to review today's agenda"
+            title={t('calendar.toolbar.waifuBriefingTooltip')}
           >
             <span class="btn-icon">🌸</span>
-            <span class="btn-text">Waifu Briefing</span>
+            <span class="btn-text">{t('calendar.toolbar.waifuBriefing')}</span>
           </button>
 
           <div class="gcal-view-selector">
@@ -340,7 +342,7 @@ export function CalendarPlanner() {
               onClick={() => setState('calendar', 'view', 'month')}
               title="Shortcut: 'm'"
             >
-              Month
+              {t('calendar.views.month')}
             </button>
             <button
               type="button"
@@ -348,7 +350,7 @@ export function CalendarPlanner() {
               onClick={() => setState('calendar', 'view', 'week')}
               title="Shortcut: 'w'"
             >
-              Week
+              {t('calendar.views.week')}
             </button>
             <button
               type="button"
@@ -356,7 +358,7 @@ export function CalendarPlanner() {
               onClick={() => setState('calendar', 'view', 'day')}
               title="Shortcut: 'd'"
             >
-              Day
+              {t('calendar.views.day')}
             </button>
           </div>
 
@@ -365,13 +367,13 @@ export function CalendarPlanner() {
               type="button"
               class="gcal-icon-btn"
               onClick={() => exportToICS(state.calendar.events)}
-              title="Export .ics Calendar"
+              title={t('calendar.toolbar.exportIcs')}
             >
               📅 ⬇️
             </button>
             <label
               class="gcal-icon-btn"
-              title="Import .ics Calendar"
+              title={t('calendar.toolbar.importIcs')}
               style={{ cursor: 'pointer' }}
             >
               📅 ⬆️
@@ -400,7 +402,7 @@ export function CalendarPlanner() {
 
           {/* MY CALENDARS FILTER */}
           <div class="gcal-category-box">
-            <h4 class="sidebar-heading">My Calendars</h4>
+            <h4 class="sidebar-heading">{t('calendar.sidebar.myCalendars')}</h4>
             <label class="cal-filter-item">
               <input
                 type="checkbox"
@@ -408,7 +410,7 @@ export function CalendarPlanner() {
                 onChange={e => setState('calendar', 'filterEvents', e.currentTarget.checked)}
               />
               <span class="filter-dot" style={{ background: '#ff6584' }} />
-              Events
+              {t('calendar.sidebar.events')}
             </label>
             <label class="cal-filter-item">
               <input
@@ -417,7 +419,7 @@ export function CalendarPlanner() {
                 onChange={e => setState('calendar', 'filterTasks', e.currentTarget.checked)}
               />
               <span class="filter-dot" style={{ background: '#00cec9' }} />
-              Tasks
+              {t('calendar.sidebar.tasks')}
             </label>
             <label class="cal-filter-item">
               <input
@@ -426,20 +428,20 @@ export function CalendarPlanner() {
                 onChange={e => setState('calendar', 'filterBirthdays', e.currentTarget.checked)}
               />
               <span class="filter-dot" style={{ background: '#e84393' }} />
-              Birthdays 🎂
+              {t('calendar.sidebar.birthdays')}
             </label>
           </div>
 
           {/* TASKS TO-DO SECTION */}
           <div class="gcal-tasks-box">
             <div class="tasks-box-header">
-              <h4 class="sidebar-heading">Tasks</h4>
+              <h4 class="sidebar-heading">{t('calendar.sidebar.tasks')}</h4>
               <span class="tasks-badge">{sidebarTasks().length}</span>
             </div>
             <form class="quick-task-form" onSubmit={handleQuickTask}>
               <input
                 type="text"
-                placeholder="+ Add a task & press Enter"
+                placeholder={t('calendar.sidebar.quickTaskPlaceholder')}
                 value={quickTaskInput()}
                 onInput={e => setQuickTaskInput(e.currentTarget.value)}
                 required
@@ -471,7 +473,7 @@ export function CalendarPlanner() {
                     >
                       {tk.title}
                       {tk.recurrence && tk.recurrence !== 'none' && (
-                        <span class="task-repeat-badge" title={`Repeats: ${tk.recurrence}`}> 🔁</span>
+                        <span class="task-repeat-badge" title={t('calendar.sidebar.repeats', { rule: tk.recurrence })}> 🔁</span>
                       )}
                     </span>
                     <button

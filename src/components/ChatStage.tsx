@@ -5,6 +5,7 @@ import {
   clearChatHistory,
   ChatMessage
 } from '../lib/store';
+import { t } from '../lib/i18n';
 
 export function ChatStage() {
   const [inputText, setInputText] = createSignal('');
@@ -48,14 +49,14 @@ export function ChatStage() {
     <div class="chat-panel">
       <div class="chat-header">
         <div class="chat-header-title">
-          <span>Chat with {state.waifu.name}</span>
+          <span>{t('chat.headerTitle', { name: state.waifu.name })}</span>
           <span class="chat-status-dot online" />
         </div>
         <div class="chat-header-actions">
           <button
             class="chat-icon-btn"
             id="clear-chat-btn"
-            title="Clear Conversation"
+            title={t('chat.clearTooltip')}
             onClick={clearChatHistory}
           >
             🗑️
@@ -73,7 +74,7 @@ export function ChatStage() {
               </div>
               <div class="chat-bubble-content">
                 <span class="chat-bubble-sender">
-                  {msg.sender === 'user' ? 'You' : state.waifu.name}
+                  {msg.sender === 'user' ? t('chat.you') : state.waifu.name}
                 </span>
                 <div class="chat-bubble-text">{msg.text}</div>
                 <span class="chat-bubble-time">{formatTime(msg.timestamp)}</span>
@@ -114,11 +115,11 @@ export function ChatStage() {
         <input
           type="text"
           class="chat-input"
-          placeholder={`Talk to ${state.waifu.name}...`}
+          placeholder={t('chat.placeholder', { name: state.waifu.name })}
           value={inputText()}
           onInput={e => setInputText(e.currentTarget.value)}
         />
-        <button type="submit" class="chat-send-btn" title="Send message">
+        <button type="submit" class="chat-send-btn" title={t('chat.sendTooltip')}>
           <span>➤</span>
         </button>
       </form>

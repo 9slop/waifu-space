@@ -1,6 +1,7 @@
 import { createSignal, createEffect, For } from 'solid-js';
 import { CalendarEventItem, RecurrenceRule } from '../lib/ical';
 import { addCalendarEvent, updateCalendarEvent, deleteCalendarEvent, showToast } from '../lib/store';
+import { t } from '../lib/i18n';
 
 export function EventModal(props: {
   isOpen: boolean;
@@ -80,8 +81,8 @@ export function EventModal(props: {
 
   const handleSubmit = (e: Event) => {
     e.preventDefault();
-    const t = title().trim();
-    if (!t) return;
+    const trimmedTitle = title().trim();
+    if (!trimmedTitle) return;
 
     const startIso = allDay()
       ? new Date(startDate() + 'T00:00:00').toISOString()
@@ -92,7 +93,7 @@ export function EventModal(props: {
       : new Date(`${endDate()}T${endTime()}:00`).toISOString();
 
     const payload = {
-      title: t,
+      title: trimmedTitle,
       type: type(),
       allDay: allDay(),
       recurrence: recurrence(),
@@ -105,10 +106,10 @@ export function EventModal(props: {
 
     if (props.event) {
       updateCalendarEvent(props.event.id, payload);
-      showToast(`Updated "${t}"`);
+      showToast(t('calendar.toasts.eventUpdated', { title: trimmedTitle }));
     } else {
       addCalendarEvent(payload);
-      showToast(`Created "${t}"`);
+      showToast(t('calendar.toasts.eventCreated', { title: trimmedTitle }));
     }
 
     props.onClose();
@@ -117,7 +118,7 @@ export function EventModal(props: {
   const handleDelete = () => {
     if (props.event) {
       deleteCalendarEvent(props.event.id);
-      showToast(`Deleted "${props.event.title}"`);
+      showToast(t('calendar.toasts.eventDeleted', { title: props.event.title }));
       props.onClose();
     }
   };
@@ -134,11 +135,11 @@ export function EventModal(props: {
           <h3>
             {props.event
               ? type() === 'task'
-                ? 'Edit Task'
-                : 'Edit Event'
+                ? t('calendar.modal.editTask')
+                : t('calendar.modal.editEvent')
               : type() === 'task'
-              ? 'Add Task'
-              : 'Add Event'}
+              ? t('calendar.modal.addTask')
+              : t('calendar.modal.addEvent')}
           </h3>
           <button class="modal-close-btn" type="button" onClick={props.onClose}>
             ✕
@@ -149,7 +150,7 @@ export function EventModal(props: {
           <div class="form-group">
             <input
               type="text"
-              placeholder="Add title"
+              placeholder={t('calendar.modal.addTitle')}
               class="modal-title-input"
               value={title()}
               onInput={e => setTitle(e.currentTarget.value)}
@@ -158,35 +159,35 @@ export function EventModal(props: {
           </div>
 
           <div class="form-group-row">
-            <label class="form-label">Type</label>
+            <label class="form-label">{t('calendar.modal.type')}</label>
             <select
               class="modal-select"
               value={type()}
               onChange={e => setType(e.currentTarget.value as any)}
             >
-              <option value="event">Event</option>
-              <option value="task">Task</option>
-              <option value="birthday">Birthday 🎂</option>
+              <option value="event">{t('calendar.menu.event')}</option>
+              <option value="task">{t('calendar.menu.task')}</option>
+              <option value="birthday">{t('calendar.menu.birthday')} 🎂</option>
             </select>
           </div>
 
           <div class="form-group-row">
-            <label class="form-label">Repeat</label>
+            <label class="form-label">{t('calendar.modal.repeat')}</label>
             <select
               class="modal-select"
               value={recurrence()}
               onChange={e => setRecurrence(e.currentTarget.value as any)}
             >
-              <option value="none">Does not repeat</option>
-              <option value="daily">Every day (Daily)</option>
-              <option value="weekly">Every week (Weekly)</option>
-              <option value="weekdays">Every weekday (Mon - Fri)</option>
-              <option value="monthly">Every month (Monthly)</option>
+              <option value="none">{t('calendar.recurrence.none')}</option>
+              <option value="daily">{t('calendar.recurrence.daily')}</option>
+              <option value="weekly">{t('calendar.recurrence.weekly')}</option>
+              <option value="weekdays">{t('calendar.recurrence.weekdays')}</option>
+              <option value="monthly">{t('calendar.recurrence.monthly')}</option>
             </select>
           </div>
 
           <div class="form-group-row">
-            <label class="form-label">All day</label>
+            <label class="form-label">{t('calendar.modal.allDay')}</label>
             <input
               type="checkbox"
               checked={allDay()}
@@ -196,7 +197,7 @@ export function EventModal(props: {
 
           <div class="form-group-row">
             <div class="time-col" style={{ flex: 1 }}>
-              <label class="form-sublabel">Start</label>
+              <label class="form-sublabel">{t('calendar.modal.start')}</label>
               <input
                 type="date"
                 class="modal-input"
@@ -215,7 +216,7 @@ export function EventModal(props: {
               )}
             </div>
             <div class="time-col" style={{ flex: 1 }}>
-              <label class="form-sublabel">End</label>
+              <label class="form-sublabel">{t('calendar.modal.end')}</label>
               <input
                 type="date"
                 class="modal-input"
@@ -236,7 +237,7 @@ export function EventModal(props: {
           </div>
 
           <div class="form-group">
-            <label class="form-label">Color Badge</label>
+            <label class="form-label">{t('calendar.modal.colorBadge')}</label>
             <div class="color-palette-options">
               <For each={colors}>
                 {c => (
@@ -252,10 +253,10 @@ export function EventModal(props: {
           </div>
 
           <div class="form-group">
-            <label class="form-label">Location / Link</label>
+            <label class="form-label">{t('calendar.modal.location')}</label>
             <input
               type="text"
-              placeholder="e.g. Discord, Classroom, Desk"
+              placeholder={t('calendar.modal.locationPlaceholder')}
               class="modal-input"
               value={location()}
               onInput={e => setLocation(e.currentTarget.value)}
@@ -263,9 +264,9 @@ export function EventModal(props: {
           </div>
 
           <div class="form-group">
-            <label class="form-label">Description / Notes</label>
+            <label class="form-label">{t('calendar.modal.description')}</label>
             <textarea
-              placeholder="Add description..."
+              placeholder={t('calendar.modal.descriptionPlaceholder')}
               class="modal-textarea"
               rows={3}
               value={description()}
@@ -280,7 +281,7 @@ export function EventModal(props: {
                 class="gcal-btn gcal-btn-danger"
                 onClick={handleDelete}
               >
-                🗑️ Delete
+                🗑️ {t('calendar.modal.delete')}
               </button>
             )}
             <div style={{ flex: 1 }} />
@@ -289,10 +290,10 @@ export function EventModal(props: {
               class="gcal-btn gcal-btn-outline"
               onClick={props.onClose}
             >
-              Cancel
+              {t('calendar.modal.cancel')}
             </button>
             <button type="submit" class="gcal-btn gcal-btn-primary">
-              Save
+              {t('calendar.modal.save')}
             </button>
           </div>
         </form>

@@ -1,4 +1,5 @@
 import { createSignal, For } from 'solid-js';
+import { t, getLocale } from '../lib/i18n';
 
 export function MiniCalendar(props: {
   selectedDate: Date;
@@ -66,7 +67,7 @@ export function MiniCalendar(props: {
     <div class="mini-cal-card">
       <div class="mini-cal-header">
         <span>
-          {navDate().toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+          {navDate().toLocaleDateString(getLocale(), { month: 'short', year: 'numeric' })}
         </span>
         <div class="mini-nav">
           <button type="button" onClick={prevMonth}>◀</button>
@@ -74,13 +75,13 @@ export function MiniCalendar(props: {
         </div>
       </div>
       <div class="mini-cal-grid">
-        <div class="mini-day-label">S</div>
-        <div class="mini-day-label">M</div>
-        <div class="mini-day-label">T</div>
-        <div class="mini-day-label">W</div>
-        <div class="mini-day-label">T</div>
-        <div class="mini-day-label">F</div>
-        <div class="mini-day-label">S</div>
+        <div class="mini-day-label">{t('calendar.weekdaysInitial.sun')}</div>
+        <div class="mini-day-label">{t('calendar.weekdaysInitial.mon')}</div>
+        <div class="mini-day-label">{t('calendar.weekdaysInitial.tue')}</div>
+        <div class="mini-day-label">{t('calendar.weekdaysInitial.wed')}</div>
+        <div class="mini-day-label">{t('calendar.weekdaysInitial.thu')}</div>
+        <div class="mini-day-label">{t('calendar.weekdaysInitial.fri')}</div>
+        <div class="mini-day-label">{t('calendar.weekdaysInitial.sat')}</div>
 
         <For each={daysInGrid()}>
           {item => {

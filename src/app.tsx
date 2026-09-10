@@ -2,6 +2,7 @@ import { createSignal, onMount, onCleanup, createEffect, Suspense } from 'solid-
 import { Router, A, useLocation } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
 import { state, loadState, showToast, triggerWaifuResponse } from './lib/store';
+import { t } from './lib/i18n';
 import { WallpaperBackground } from './components/WallpaperBackground';
 import { SakuraCanvas } from './components/SakuraCanvas';
 import { ToastNotification } from './components/ToastNotification';
@@ -92,25 +93,25 @@ function AppLayout(props: { children: any }) {
         <nav class="nav-tabs">
           <A href="/" class="nav-tab-btn" activeClass="active" end={true}>
             <span>🌸</span>
-            <span>Companion</span>
+            <span>{t('nav.companion')}</span>
           </A>
           <A href="/calendar" class="nav-tab-btn" activeClass="active">
             <span>📅</span>
-            <span>Calendar</span>
+            <span>{t('nav.calendar')}</span>
           </A>
           <A href="/rpg" class="nav-tab-btn" activeClass="active">
             <span>⚔️</span>
-            <span>RPG Hub</span>
+            <span>{t('nav.rpg')}</span>
           </A>
           <A href="/settings" class="nav-tab-btn" activeClass="active">
             <span>⚙️</span>
-            <span>Settings</span>
+            <span>{t('nav.settings')}</span>
           </A>
         </nav>
 
         {/* RIGHT HEADER META */}
         <div class="header-right">
-          <A href="/rpg" class="header-coin-pill" title="RPG Gold Coins - Click to visit RPG Hub">
+          <A href="/rpg" class="header-coin-pill" title={t('nav.coinTooltip')}>
             <span>🪙</span>
             <span>{state.rpg ? state.rpg.coins : 0}</span>
           </A>
