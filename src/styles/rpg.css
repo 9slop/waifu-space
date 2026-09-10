@@ -409,9 +409,50 @@
   font-size: 22px;
 }
 
+.tower-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.tower-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .tower-meta strong {
   display: block;
   font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tower-role-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.tower-role-tag.role-attack {
+  background: rgba(255, 75, 75, 0.18);
+  border: 1px solid rgba(255, 100, 100, 0.45);
+  color: #ff7675;
+  box-shadow: 0 0 8px rgba(255, 75, 75, 0.2);
+}
+
+.tower-role-tag.role-support {
+  background: rgba(46, 213, 115, 0.18);
+  border: 1px solid rgba(46, 213, 115, 0.45);
+  color: #2ed573;
+  box-shadow: 0 0 8px rgba(46, 213, 115, 0.2);
 }
 
 .tower-meta small {
@@ -440,6 +481,10 @@
 .panel-details h4 {
   font-size: 15px;
   color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .panel-details p {
