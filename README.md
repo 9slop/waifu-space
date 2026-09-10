@@ -1,38 +1,81 @@
 # 🌸 WaifuSpace
 
 > **Your personal anime companion & Google Calendar planner dashboard.**
-
-**WaifuSpace** is an all-in-one personal anime companion web application featuring an interactive Waifu with configurable personality archetypes (Tsundere, Kuudere, Yandere, Deredere, Dandere), appearance/clothing customization, a full Google Calendar-style drag-and-drop schedule and task organizer, Japanese aesthetic wallpapers, and rich interface theming.
+> **Zero dependencies. No Node.js. No npm. Just open `index.html` in your browser!**
 
 ---
 
-## ✨ Features
+## ⚡ How to Run (Instant & Zero Setup)
+
+You **do not** need Node.js, npm, or any terminal commands. 
+
+### Method 1: Just Double-Click (Recommended)
+1. Open this folder in your File Explorer.
+2. Double-click **`index.html`** (or right-click -> Open with Chrome / Edge / Firefox / Brave).
+3. That's it! The application automatically loads all CSS styles, animations, Japanese wallpapers, audio synthesis, personality engine, and the Google Calendar planner.
+
+### Method 2: GitHub Pages (Online)
+1. In your GitHub repository settings, go to **Settings > Pages**.
+2. Under **Build and deployment > Branch**, select `main` and `/ (root)`, then click **Save**.
+3. Your companion dashboard will be live on the web at `https://<username>.github.io/waifu-space/`.
+
+### Method 3: Optional Local HTTP Server (If desired)
+If you prefer running through a local web server:
+```bash
+# Python (built into Windows, macOS, Linux):
+python -m http.server 8080
+```
+Then visit `http://localhost:8080`.
+
+---
+
+## ✨ Features Breakdown
 
 ### 1. 🌸 Interactive Companion Stage (Main Page)
-- **Layered Anime Avatar**: Customizable hairstyles, hair colors, eye colors, outfits (Seifuku, Maid dress, Cozy Hoodie, Kimono/Yukata, Gothic Lolita), and cute accessories (Cat ears, glasses, headphones, ribbons).
-- **Dynamic Emotion & Idle Animations**: Gentle breathing, realistic random blinking, talking mouth movement, and contextual facial expressions (blush, angry tsundere pout, eerie yandere gaze, smiling, surprised).
-- **Click / Poke Reactions**: Tap or click your companion to prompt live reactions and voice lines.
-- **Affection & Bond Progression**: Gain bond EXP as you complete scheduled tasks, chat, and spend time together.
-- **Interactive Chat**: Instant offline conversational NLP tailored to her personality archetype, plus quick action chips ("Review Today's Schedule", "Headpat", "Poke", "Compliment").
-- **Voice Synthesis (Web Speech API)**: Speaks aloud with configurable voice, pitch, and speed.
-- **Custom Avatar Upload**: Upload your own image or animated GIF sprite.
+- **Layered Anime Vector Avatar**:
+  - Modular SVG avatar with switchable hairstyles (*Twintails*, *Long Straight*, *Short Bob*, *Ponytail*, *Wavy Hair*).
+  - Customizable hair and eye color palettes.
+  - Outfits: *🏫 Sailor Seifuku*, *☕ Maid Uniform*, *🛋️ Cozy Hoodie*, *👘 Summer Kimono/Yukata*, *🥀 Gothic Lolita*.
+  - Accessories: *🎀 Ribbon*, *🐱 Nekomimi Cat Ears*, *👓 Red-rim Glasses*, *🎧 Cyber Headphones*.
+  - Reactive facial expressions: *Blush*, *Tsundere Pout*, *Yandere Eyes*, *Sparkling Happy*, *Surprised*, *Neutral*.
+  - Realistic idle animations: gentle breathing, random natural blinking, and mouth-moving speech animation.
+  - Custom Sprite Upload: upload your own character image or animated GIF.
+- **Affection & Progression**:
+  - Earn Bond EXP and level up as you chat (+5 EXP), interact/poke (+8 EXP), and complete tasks (+15 EXP).
+- **Interactive Chat & Poke Stage**:
+  - Tap or click avatar for tactile reactions and bounce animation.
+  - Floating anime speech bubble with pointer tail that updates with her dialogue.
+  - Quick action chips for instant interactions (*Headpat*, *Poke*, *Review Schedule*, *Compliment*).
+- **Voice Synthesis (Web Speech API)**:
+  - Waifu speaks out loud with configurable voice, pitch, and speed.
+
+---
 
 ### 2. 📅 Google Calendar Clone with Companion Integration (Calendar Page)
 - **Google Calendar Experience**:
-  - **Month View**: Complete monthly grid with multi-day layout, event pills, overflow badges, and date switching.
+  - **Month View**: Full monthly grid with multi-day layout, event pills, overflow badges, and date switching.
   - **Week View**: Full 7-day 24-hour time grid with current-time red indicator bar and hourly time slots.
   - **Day View**: Detailed single-day agenda planner with hourly time slots.
+  - Navigation: Previous (`◀`), Next (`▶`), and `Today` quick jumps.
 - **Drag & Drop Rescheduling**:
   - Drag events between days in Month view to reschedule dates.
-  - Drag events between time slots and days in Week view.
+  - Drag events across hours and days in Week view.
   - Drag tasks directly from the To-Do sidebar onto the calendar grid.
-- **Event Types**: Timed Events, Tasks (with interactive checkboxes and completion strikethrough), Birthdays (with special cake icon and waifu celebration), and Reminders.
-- **Waifu Daily Briefing**: Click the "🌸 Waifu Briefing" button to have your companion summarize today's events and tasks in her personality archetype.
-- **Task Nagging & Praise**: Companion reminds you when deadlines approach, scolds you if you procrastinate, and showers you with praise when you check off tasks.
-- **Import & Export**: Export to standard `.ics` (iCalendar) or JSON backups, and import `.ics` files.
+- **Event Types**:
+  - **Events**: Timed appointments with color tags, locations, and descriptions.
+  - **Tasks**: Checkbox items that cross out when marked complete, rewarding bond EXP and triggering companion praise.
+  - **Birthdays**: Annual birthday events with cake icons and waifu celebrations.
+- **Companion Integration**:
+  - **Waifu Briefing Button**: Companion evaluates today's agenda and gives a customized daily briefing in her archetype voice.
+  - **Proactive Reminders**: Companion alerts you when a task deadline is approaching within 15 minutes.
+- **Import & Export**:
+  - Standard `.ics` (iCalendar) export and import.
+  - Full JSON backup export and restore.
+
+---
 
 ### 3. ⚙️ Settings Studio & Customization (Settings Page)
-- **Personality Archetypes**:
+- **5 Personality Archetypes**:
   - **Tsundere**: Feisty, calls you "baka", secretly cares deeply about you and your productivity.
   - **Kuudere**: Cold, robotic, analytical, treats your schedule with mathematical precision.
   - **Yandere**: Devoted, possessive, jealous of calendar events with other people ("Who is this person at 3 PM?!").
@@ -44,12 +87,12 @@
   - Adjustable background blur and darkness/dim overlay sliders.
   - Ambient falling cherry blossom (Sakura) petal particle canvas animation.
 - **Color Palettes**:
-  - *Sakura Blossom* (Soft pink & rose gold)
-  - *Cyberpunk Tokyo* (Neon cyan & hot magenta)
-  - *Midnight Lavender* (Deep violet & indigo)
-  - *Matcha Zen* (Sage green & warm cream)
-  - *Sunset Amber* (Warm coral & orange)
-  - *AMOLED Dark* (Pure deep black)
+  - *🌸 Sakura Blossom* (Soft pink & rose gold)
+  - *⚡ Cyberpunk Tokyo* (Neon cyan & hot magenta)
+  - *🌌 Midnight Lavender* (Deep violet & indigo)
+  - *🍵 Matcha Zen* (Sage green & warm cream)
+  - *🌇 Sunset Amber* (Warm coral & orange)
+  - *🖤 AMOLED Dark* (Pure deep black)
   - Custom accent color picker.
 - **Optional AI LLM Integration**:
   - Built-in instant offline persona dialogue engine by default (zero configuration required).
@@ -60,35 +103,11 @@
 
 ---
 
-## 🚀 Getting Started
-
-### Run Locally
-
-WaifuSpace is built with modern ES6+ standards and requires no build steps or heavy dependencies. You can run it with any static web server:
-
-**Using Python (built into Windows/macOS/Linux):**
-```bash
-# In the project directory:
-python -m http.server 8080
-```
-Then open your browser to [http://localhost:8080](http://localhost:8080).
-
-**Using VS Code Live Server:**
-Right-click `index.html` and select **"Open with Live Server"**.
-
-**Using GitHub Pages:**
-1. Push to GitHub.
-2. Go to **Settings > Pages**.
-3. Set Source to **Deploy from branch** (`main` / `/root`).
-4. Your companion is live online!
-
----
-
-## 📁 Project Architecture
+## 📁 File Structure
 
 ```
-waifuspace/
-├── index.html               # Main single-page application entrypoint
+waifu-space/
+├── index.html               # Main application entrypoint (double-click to run!)
 ├── css/
 │   ├── themes.css           # Color themes, variables, glassmorphism
 │   ├── style.css            # Base layouts, navigation, forms, modals, toasts
@@ -96,24 +115,13 @@ waifuspace/
 │   ├── calendar.css         # Google calendar clone: month, week, day views, tasks
 │   └── settings.css         # Personality studio, wardrobe, wallpaper gallery
 ├── js/
-│   ├── app.js               # Application bootstrap and router
+│   ├── bundle.js            # Standalone browser bundle (no node/npm required)
+│   ├── app.js               # Application bootstrap
 │   ├── state.js             # Global state manager with LocalStorage & bond EXP
-│   ├── waifu/
-│   │   ├── avatar.js        # Layered SVG avatar renderer with clothes & expressions
-│   │   ├── personality.js   # Tsundere, Kuudere, Yandere, Deredere, Dandere profiles
-│   │   ├── dialogue.js      # Context-aware chat processor & schedule intent handler
-│   │   ├── speech.js        # Web Speech API TTS voice engine
-│   │   └── llm.js           # Optional Google Gemini / OpenAI / OpenRouter connector
-│   ├── calendar/
-│   │   ├── calendar.js      # Google Calendar engine (Month, Week, Day views)
-│   │   ├── dragdrop.js      # Drag-and-drop event movement and task rescheduling
-│   │   └── ical.js          # .ics iCalendar import and export
-│   ├── ui/
-│   │   ├── chat.js          # Chat UI, speech bubbles, poking interactions
-│   │   ├── settings.js      # Settings page controller
-│   │   └── particles.js     # Sakura falling petal particle canvas
-│   └── assets/
-│       └── wallpapers.js    # Curated Japanese aesthetic wallpapers
+│   ├── waifu/               # Avatar generator, personalities, dialogue, speech, LLM
+│   ├── calendar/            # Google calendar views, drag-and-drop, iCal import/export
+│   ├── ui/                  # Chat stage, settings controller, sakura particles
+│   └── assets/              # Curated Japanese aesthetic wallpapers
 ├── LICENSE                  # MIT License
 └── README.md                # Project documentation
 ```
