@@ -17,7 +17,7 @@ export interface CalendarEventItem {
   _notified?: boolean;
 }
 
-export function exportToICS(events: CalendarEventItem[]) {
+export function generateICSString(events: CalendarEventItem[]): string {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
@@ -54,7 +54,12 @@ export function exportToICS(events: CalendarEventItem[]) {
   });
 
   lines.push('END:VCALENDAR');
-  const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+  return lines.join('\r\n');
+}
+
+export function exportToICS(events: CalendarEventItem[]) {
+  const ics = generateICSString(events);
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
   downloadBlob(blob, 'waifu-space-calendar.ics');
 }
 

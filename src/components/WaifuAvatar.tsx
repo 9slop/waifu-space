@@ -216,7 +216,7 @@ export function WaifuAvatar() {
             </g>
 
             {/* 3. CLOTHING */}
-            <g id={`${pfx}_outfit`}>
+            <g id={`${pfx}_outfit`} class={`avatar-outfit outfit-${outfit()}`}>
               {outfit() === 'maid' && (
                 <>
                   <ellipse cx="115" cy="335" rx="28" ry="24" fill="#1e1e24" />
@@ -342,8 +342,8 @@ export function WaifuAvatar() {
               {/* Cheeks Blush */}
               {mood() === 'blush' || mood() === 'pout' ? (
                 <>
-                  <ellipse cx="156" cy="204" rx="16" ry="9" fill={blushColor} />
-                  <ellipse cx="244" cy="204" rx="16" ry="9" fill={blushColor} />
+                  <ellipse cx="156" cy="204" rx="16" ry="9" fill={blushColor} class="blush-glow" />
+                  <ellipse cx="244" cy="204" rx="16" ry="9" fill={blushColor} class="blush-glow" />
                   <line x1="148" y1="205" x2="153" y2="199" stroke="#ff4757" stroke-width="1.6" />
                   <line x1="154" y1="206" x2="159" y2="200" stroke="#ff4757" stroke-width="1.6" />
                   <line x1="160" y1="207" x2="165" y2="201" stroke="#ff4757" stroke-width="1.6" />
@@ -495,7 +495,7 @@ export function WaifuAvatar() {
             </g>
 
             {/* 8. ACCESSORIES */}
-            <g id={`${pfx}_accessory`}>
+            <g id={`${pfx}_accessory`} class={`avatar-accessory accessory-${accessory()}`}>
               {accessory() === 'cat_ears' && (
                 <>
                   <path d="M 125,125 L 110,65 L 160,95 Z" fill={`url(#${pfx}_hairGrad)`} />
