@@ -359,6 +359,77 @@ export function pokeAvatar() {
   triggerWaifuResponse(item.text, item.mood);
 }
 
+// Calendar date & recurrence helpers
+export function isSameDay(d1: Date, d2: Date): boolean {
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
+}
+
+export function isEventOnDate(ev: CalendarEventItem, targetDate: Date): boolean {
+  const s = new Date(ev.start);
+  const targetDayStart = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate()).getTime();
+  const eventDayStart = new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime();
+
+  if (targetDayStart < eventDayStart) {
+    return false;
+  }
+
+  if (!ev.recurrence || ev.recurrence === 'none') {
+    return isSameDay(s, targetDate);
+  }
+
+  if (ev.recurrence === 'daily') {
+    return true;
+  }
+
+  if (ev.recurrence === 'weekly') {
+    return targetDate.getDay() === s.getDay();
+  }
+
+  if (ev.recurrence === 'weekdays') {
+    const day = targetDate.getDay();
+    return day >= 1 && day <= 5;
+  }
+
+  if (ev.recurrence === 'monthly') {
+    return targetDate.getDate() === s.getDate();
+  }
+
+  return isSameDay(s, targetDate);
+}
+
+export function getOccurrenceForDate(ev: CalendarEventItem, targetDate: Date): CalendarEventItem {
+  if (isSameDay(new Date(ev.start), targetDate)) {
+    return ev;
+  }
+  const s = new Date(ev.start);
+  const e = new Date(ev.end || ev.start);
+  const durationMs = Math.max(0, e.getTime() - s.getTime());
+
+  const occStart = new Date(targetDate);
+  occStart.setHours(s.getHours(), s.getMinutes(), s.getSeconds(), s.getMilliseconds());
+  const occEnd = new Date(occStart.getTime() + durationMs);
+
+  return {
+    ...ev,
+    start: occStart.toISOString(),
+    end: occEnd.toISOString()
+  };
+}
+
+export function getEventsForDate(events: CalendarEventItem[], targetDate: Date): CalendarEventItem[] {
+  const res: CalendarEventItem[] = [];
+  for (const ev of events) {
+    if (isEventOnDate(ev, targetDate)) {
+      res.push(getOccurrenceForDate(ev, targetDate));
+    }
+  }
+  return res;
+}
+
 // Calendar event operations
 export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEventItem {
   const newEvent: CalendarEventItem = {
@@ -371,7 +442,8 @@ export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEve
     completed: false,
     color: event.color || '#ff6584',
     description: event.description || '',
-    location: event.location || ''
+    location: event.location || '',
+    recurrence: event.recurrence || 'none'
   };
 
   setState('calendar', 'events', events => [newEvent, ...events]);

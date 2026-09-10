@@ -1,6 +1,6 @@
 import { For } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
-import { updateCalendarEvent, toggleTask, showToast } from '../lib/store';
+import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
 
 export function CalendarMonthView(props: {
   currentDate: Date;
@@ -47,11 +47,6 @@ export function CalendarMonthView(props: {
 
     return days;
   };
-
-  const isSameDay = (d1: Date, d2: Date) =>
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate();
 
   const today = new Date();
 
@@ -109,7 +104,7 @@ export function CalendarMonthView(props: {
           {dayObj => {
             const d = dayObj.date;
             const isToday = isSameDay(d, today);
-            const dayEvents = props.events.filter(e => isSameDay(new Date(e.start), d));
+            const dayEvents = getEventsForDate(props.events, d);
 
             return (
               <div
@@ -164,6 +159,9 @@ export function CalendarMonthView(props: {
                           <span class="pill-title">
                             {startTime && <small>{startTime} </small>}
                             {ev.title}
+                            {ev.recurrence && ev.recurrence !== 'none' && (
+                              <span class="pill-repeat-icon" title={`Repeats: ${ev.recurrence}`}> 🔁</span>
+                            )}
                           </span>
                         </div>
                       );

@@ -1,11 +1,12 @@
-import { For, onMount } from 'solid-js';
+import { For, Show, onMount, createSignal } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
-import { updateCalendarEvent, toggleTask, showToast } from '../lib/store';
+import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
 
 export function CalendarDayView(props: {
   currentDate: Date;
   events: CalendarEventItem[];
   onSelectSlot: (d: Date) => void;
+  onSelectRange?: (range: { start: Date; end: Date }) => void;
   onOpenEvent: (ev: CalendarEventItem, anchorRect?: DOMRect) => void;
 }) {
   let scrollContainerRef: HTMLDivElement | undefined;
@@ -16,16 +17,10 @@ export function CalendarDayView(props: {
     }
   });
 
-  const isSameDay = (d1: Date, d2: Date) =>
-    d1.getFullYear() === d2.getFullYear() &&
-    d1.getMonth() === d2.getMonth() &&
-    d1.getDate() === d2.getDate();
-
   const today = new Date();
   const isToday = () => isSameDay(props.currentDate, today);
 
-  const dayEvents = () =>
-    props.events.filter(e => isSameDay(new Date(e.start), props.currentDate));
+  const dayEvents = () => getEventsForDate(props.events, props.currentDate);
 
   const getCurrentTimePercent = () => {
     const now = new Date();
@@ -70,18 +65,112 @@ export function CalendarDayView(props: {
       const oldEnd = new Date(ev.end || ev.start);
       const duration = oldEnd.getTime() - oldStart.getTime();
 
+      // 15-minute precision calculation based on drop point in cell
+      let minute = 0;
+      const targetCell = e.currentTarget as HTMLElement;
+      if (targetCell) {
+        const rect = targetCell.getBoundingClientRect();
+        const relY = Math.max(0, Math.min(rect.height - 1, e.clientY - rect.top));
+        const fraction = relY / rect.height;
+        minute = Math.floor(fraction * 4) * 15; // 0, 15, 30, 45
+      }
+
       const newStart = new Date(props.currentDate);
-      newStart.setHours(hour, 0, 0, 0);
+      newStart.setHours(hour, minute, 0, 0);
       const newEnd = new Date(newStart.getTime() + (duration > 0 ? duration : 3600000));
 
       updateCalendarEvent(ev.id, {
         start: newStart.toISOString(),
         end: newEnd.toISOString()
       });
-      showToast(`Rescheduled "${ev.title}" to ${hour}:00`);
+      const minStr = minute < 10 ? '0' + minute : minute;
+      showToast(`Rescheduled "${ev.title}" to ${hour}:${minStr}`);
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // Click-and-drag to create
+  interface DragCreateState {
+    startMin: number;
+    currentMin: number;
+    hasMoved: boolean;
+  }
+  const [dragCreate, setDragCreate] = createSignal<DragCreateState | null>(null);
+
+  const startDragCreate = (e: MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('.week-event-card') || target.tagName === 'INPUT' || target.tagName === 'BUTTON') {
+      return;
+    }
+
+    const colEl = e.currentTarget as HTMLElement;
+    const rect = colEl.getBoundingClientRect();
+    const relY = Math.max(0, Math.min(rect.height - 1, e.clientY - rect.top));
+    const fraction = relY / rect.height;
+    const exactMin = fraction * 1440;
+    const snappedMin = Math.floor(exactMin / 15) * 15;
+
+    setDragCreate({
+      startMin: snappedMin,
+      currentMin: Math.min(1440, snappedMin + 30),
+      hasMoved: false
+    });
+
+    const onMouseMove = (moveEv: MouseEvent) => {
+      const currRect = colEl.getBoundingClientRect();
+      const currRelY = Math.max(0, Math.min(currRect.height - 1, moveEv.clientY - currRect.top));
+      const currFrac = currRelY / currRect.height;
+      const currExactMin = currFrac * 1440;
+      const currSnappedMin = Math.round(currExactMin / 15) * 15;
+
+      setDragCreate(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          currentMin: Math.max(0, Math.min(1440, currSnappedMin)),
+          hasMoved: true
+        };
+      });
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      const state = dragCreate();
+      if (!state) return;
+
+      const minM = Math.min(state.startMin, state.currentMin);
+      let maxM = Math.max(state.startMin, state.currentMin);
+      if (maxM - minM < 15) maxM = minM + 30;
+
+      const startDate = new Date(props.currentDate);
+      startDate.setHours(Math.floor(minM / 60), minM % 60, 0, 0);
+
+      const endDate = new Date(props.currentDate);
+      endDate.setHours(Math.floor(maxM / 60), maxM % 60, 0, 0);
+
+      setDragCreate(null);
+
+      if (state.hasMoved && props.onSelectRange) {
+        props.onSelectRange({ start: startDate, end: endDate });
+      } else {
+        props.onSelectSlot(startDate);
+      }
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
+  const formatDragTime = (min: number) => {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    const period = h < 12 ? 'AM' : 'PM';
+    const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${displayH}:${m < 10 ? '0' + m : m} ${period}`;
   };
 
   return (
@@ -113,7 +202,11 @@ export function CalendarDayView(props: {
         </div>
 
         <div class="week-columns-wrapper" style={{ flex: 1 }}>
-          <div class={`week-day-column ${isToday() ? 'today-col' : ''}`} style={{ width: '100%' }}>
+          <div
+            class={`week-day-column ${isToday() ? 'today-col' : ''}`}
+            style={{ width: '100%' }}
+            onMouseDown={e => startDragCreate(e)}
+          >
             <For each={Array.from({ length: 24 })}>
               {(_, idx) => {
                 const h = idx();
@@ -122,11 +215,6 @@ export function CalendarDayView(props: {
                     class="week-hour-cell"
                     onDragOver={e => e.preventDefault()}
                     onDrop={e => handleDrop(e, h)}
-                    onClick={() => {
-                      const targetDate = new Date(props.currentDate);
-                      targetDate.setHours(h, 0, 0, 0);
-                      props.onSelectSlot(targetDate);
-                    }}
                   />
                 );
               }}
@@ -138,6 +226,32 @@ export function CalendarDayView(props: {
                 style={{ top: `${getCurrentTimePercent()}%` }}
               />
             )}
+
+            {/* Drag-to-create Ghost Preview Box */}
+            <Show when={dragCreate()}>
+              {() => {
+                const dc = dragCreate()!;
+                const start = Math.min(dc.startMin, dc.currentMin);
+                const end = Math.max(dc.startMin, dc.currentMin, start + 15);
+                const topPct = (start / 1440) * 100;
+                const heightPct = Math.max(1.6, ((end - start) / 1440) * 100);
+
+                return (
+                  <div
+                    class="drag-create-preview"
+                    style={{
+                      top: `${topPct}%`,
+                      height: `${heightPct}%`
+                    }}
+                  >
+                    <span class="drag-create-title">(New Event)</span>
+                    <span class="drag-create-time">
+                      {formatDragTime(start)} – {formatDragTime(end)}
+                    </span>
+                  </div>
+                );
+              }}
+            </Show>
 
             <div class="week-events-layer">
               <For each={dayEvents()}>
@@ -175,6 +289,9 @@ export function CalendarDayView(props: {
                           />
                         )}
                         <span class="card-title">{ev.title}</span>
+                        {ev.recurrence && ev.recurrence !== 'none' && (
+                          <span class="card-repeat-icon" title={`Repeats: ${ev.recurrence}`}>🔁</span>
+                        )}
                       </div>
                       <span class="card-time">{timeStr}</span>
                     </div>
