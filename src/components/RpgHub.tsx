@@ -8,6 +8,7 @@ import {
   isCosmeticUnlocked,
   toggleShowcaseItem,
   getUnlockedCosmeticsCount,
+  getBondExpNeeded,
   showToast,
   RpgCosmeticItem
 } from '../lib/store';
@@ -18,7 +19,7 @@ import { t } from '../lib/i18n';
 
 export function RpgHub() {
   const [activeTab, setActiveTab] = createSignal<'defense' | 'gacha' | 'affection' | 'wardrobe' | 'inventory'>('defense');
-  const [filterCategory, setFilterCategory] = createSignal<'all' | 'outfit' | 'accessory'>('all');
+  const [filterCategory, setFilterCategory] = createSignal<'all' | 'outfit' | 'accessory' | 'hairstyle'>('all');
   const [inventoryRarityFilter, setInventoryRarityFilter] = createSignal<'all' | 'common' | 'rare' | 'epic' | 'legendary' | 'mystical'>('all');
 
   const equipCosmetic = (item: RpgCosmeticItem) => {
@@ -33,6 +34,9 @@ export function RpgHub() {
     } else if (item.category === 'accessory') {
       setState('waifu', 'appearance', 'accessory', item.id);
       showToast(t('rpg.toasts.equippedAccessory', { name: item.name }));
+    } else if (item.category === 'hairstyle') {
+      setState('waifu', 'appearance', 'hairstyle', item.id);
+      showToast(t('rpg.toasts.equippedHairstyle', { name: item.name }));
     }
   };
 
@@ -79,12 +83,12 @@ export function RpgHub() {
               <div class="rpg-bar-item">
                 <div class="bar-header">
                   <span>🌟 {t('rpg.dashboard.bondLevel', { level: state.waifu?.bondLevel || 1 })}</span>
-                  <small>{state.waifu?.bondExp || 0} / {(state.waifu?.bondLevel || 1) * 50} XP</small>
+                  <small>{state.waifu?.bondExp || 0} / {getBondExpNeeded(state.waifu?.bondLevel || 1)} XP</small>
                 </div>
                 <div class="stat-progress-bar">
                   <div
                     class="progress-fill exp-fill"
-                    style={{ width: `${Math.min(100, ((state.waifu?.bondExp || 0) / ((state.waifu?.bondLevel || 1) * 50)) * 100)}%` }}
+                    style={{ width: `${Math.min(100, ((state.waifu?.bondExp || 0) / getBondExpNeeded(state.waifu?.bondLevel || 1)) * 100)}%` }}
                   ></div>
                 </div>
               </div>
@@ -282,6 +286,12 @@ export function RpgHub() {
                   >
                     {t('rpg.wardrobe.accessories')}
                   </button>
+                  <button
+                    class={`filter-btn ${filterCategory() === 'hairstyle' ? 'active' : ''}`}
+                    onClick={() => setFilterCategory('hairstyle')}
+                  >
+                    {t('rpg.wardrobe.hairstyles')}
+                  </button>
                 </div>
 
                 <div class="cosmetics-grid">
@@ -290,7 +300,8 @@ export function RpgHub() {
                       const unlocked = () => isCosmeticUnlocked(item.id);
                       const isEquipped = () =>
                         (item.category === 'outfit' && state.waifu?.appearance?.outfit === item.id) ||
-                        (item.category === 'accessory' && state.waifu?.appearance?.accessory === item.id);
+                        (item.category === 'accessory' && state.waifu?.appearance?.accessory === item.id) ||
+                        (item.category === 'hairstyle' && state.waifu?.appearance?.hairstyle === item.id);
 
                       return (
                         <div class={`cosmetic-card ${getRarityClass(item.rarity)} ${unlocked() ? 'unlocked' : 'locked'}`}>
@@ -337,6 +348,7 @@ export function RpgHub() {
                 <div class="preview-active-specs">
                   <div><strong>{t('rpg.wardrobe.outfitLabel')}</strong> {state.waifu?.appearance?.outfit || 'seifuku'}</div>
                   <div><strong>{t('rpg.wardrobe.accessoryLabel')}</strong> {state.waifu?.appearance?.accessory || 'none'}</div>
+                  <div><strong>{t('rpg.wardrobe.hairstyleLabel')}</strong> {state.waifu?.appearance?.hairstyle || 'twintails'}</div>
                 </div>
               </div>
             </div>
@@ -427,6 +439,12 @@ export function RpgHub() {
                 >
                   {t('rpg.wardrobe.accessories')}
                 </button>
+                <button
+                  class={`filter-btn ${filterCategory() === 'hairstyle' ? 'active' : ''}`}
+                  onClick={() => setFilterCategory('hairstyle')}
+                >
+                  {t('rpg.wardrobe.hairstyles')}
+                </button>
               </div>
 
               <div class="rarity-filter-group">
@@ -456,7 +474,8 @@ export function RpgHub() {
                   const inShowcase = () => (state.rpg?.showcaseItems || []).includes(item.id);
                   const isEquipped = () =>
                     (item.category === 'outfit' && state.waifu?.appearance?.outfit === item.id) ||
-                    (item.category === 'accessory' && state.waifu?.appearance?.accessory === item.id);
+                    (item.category === 'accessory' && state.waifu?.appearance?.accessory === item.id) ||
+                    (item.category === 'hairstyle' && state.waifu?.appearance?.hairstyle === item.id);
 
                   return (
                     <div class={`inventory-item-card ${getRarityClass(item.rarity)}`}>

@@ -15,6 +15,7 @@ export interface CalendarEventItem {
   location?: string;
   recurrence?: RecurrenceRule;
   _notified?: boolean;
+  _rewarded?: boolean;
 }
 
 export function generateICSString(events: CalendarEventItem[]): string {

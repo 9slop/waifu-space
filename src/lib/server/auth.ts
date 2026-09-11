@@ -1,4 +1,5 @@
 ﻿import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 
 export interface UserSession {
   userId: string;
@@ -22,6 +23,16 @@ export interface LocalUserData {
 const localUsers = new Map<string, LocalUserData>();
 const localSessions = new Map<string, UserSession>();
 
+/**
+ * HMAC signing secret for session tokens. Prefer JWT_SECRET from the
+ * environment; when unset we fall back to a per-process random secret so
+ * forged tokens are always rejected (but sessions do not survive a restart).
+ * This prevents a client from crafting a token for an arbitrary user id.
+ */
+const TOKEN_SECRET: string =
+  (typeof process !== 'undefined' && process.env && process.env.JWT_SECRET) ||
+  crypto.randomBytes(32).toString('hex');
+
 // Initialize a default demo user for testing
 const demoPasswordHash = bcrypt.hashSync('waifu123', 8);
 localUsers.set('user_demo_1', {
@@ -34,8 +45,21 @@ localUsers.set('user_demo_1', {
   createdAt: new Date().toISOString()
 });
 
+function signPayload(body: string): string {
+  return crypto.createHmac('sha256', TOKEN_SECRET).update(body).digest('base64url');
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 /**
- * Creates a base64url signed-like session token
+ * Creates an HMAC-signed session token. The token body is a base64url JSON
+ * payload of the session, and it carries an attached signature so clients
+ * cannot tamper with the user id or expiry.
  */
 export function createSessionToken(user: { id: string; username: string; email?: string; avatarUrl?: string }): string {
   const payload: UserSession = {
@@ -46,27 +70,30 @@ export function createSessionToken(user: { id: string; username: string; email?:
     exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
   };
 
-  const str = JSON.stringify(payload);
-  const token = 'ws_' + Buffer.from(str).toString('base64url');
+  const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const token = `ws_${body}.${signPayload(body)}`;
   localSessions.set(token, payload);
   return token;
 }
 
 /**
- * Validates session token and returns UserSession or null
+ * Validates session token and returns UserSession or null.
+ * Both the cryptographic signature AND the expiry are checked, so a stale or
+ * hand-crafted token (even one carrying a valid-looking user id) is rejected.
  */
 export function verifySessionToken(token: string | null | undefined): UserSession | null {
   if (!token || !token.startsWith('ws_')) return null;
 
-  // Check local cache
-  const cached = localSessions.get(token);
-  if (cached && cached.exp > Date.now()) {
-    return cached;
-  }
+  const dot = token.indexOf('.');
+  if (dot === -1) return null;
+  const body = token.slice(3, dot);
+  const sig = token.slice(dot + 1);
+  if (!body || !sig) return null;
+
+  if (!safeEqual(sig, signPayload(body))) return null;
 
   try {
-    const raw = Buffer.from(token.slice(3), 'base64url').toString('utf8');
-    const parsed = JSON.parse(raw) as UserSession;
+    const parsed = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as UserSession;
     if (parsed.exp && parsed.exp > Date.now()) {
       localSessions.set(token, parsed);
       return parsed;
@@ -96,7 +123,7 @@ export function getLocalUserById(id: string): LocalUserData | undefined {
   return localUsers.get(id);
 }
 
-export function registerLocalUser(username: string, email: string, password: string):LocalUserData {
+export function registerLocalUser(username: string, email: string, password: string): LocalUserData {
   const id = 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   const passwordHash = bcrypt.hashSync(password, 8);
   const user: LocalUserData = {

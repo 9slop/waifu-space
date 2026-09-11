@@ -87,7 +87,9 @@
     "poke": "Poke",
     "reviewSchedule": "Review Today's Schedule",
     "cute": "You look cute!",
-    "stageLabel": "Interactive avatar stage. Press Enter or click to interact with {name}."
+    "stageLabel": "Interactive avatar stage. Press Enter or click to interact with {name}.",
+    "pokeCooldown": "{name} is still flustered from that! Try again in {time}.",
+    "headpatCooldown": "{name} is already happy from that! Try again in {time}."
   },
   "chat": {
     "headerTitle": "Chat with {name}",
@@ -257,12 +259,14 @@
       "allItems": "All Items",
       "outfits": "Outfits",
       "accessories": "Accessories",
+      "hairstyles": "Hairstyles",
       "equipped": "Equipped ✨",
       "equip": "Equip",
       "locked": "Locked",
       "livePreview": "Live Preview",
       "outfitLabel": "Outfit:",
-      "accessoryLabel": "Accessory:"
+      "accessoryLabel": "Accessory:",
+      "hairstyleLabel": "Hairstyle:"
     },
     "inventory": {
       "title": "Cosmetics Inventory ({count})",
@@ -281,6 +285,7 @@
       "lockedItem": "This item is locked! Unlock it via Lootboxes or Affection milestones.",
       "equippedOutfit": "Equipped outfit: {name}! ✨",
       "equippedAccessory": "Equipped accessory: {name}! ✨",
+      "equippedHairstyle": "Equipped hairstyle: {name}! ✨",
       "claimedReward": "Claimed {label} for reaching Affection Lv. {level}!",
       "unlockedReward": "Unlocked {label} for reaching Affection Lv. {level}!"
     }
@@ -293,11 +298,11 @@
     "highRarityGuaranteed": "High Rarity Guaranteed",
     "silverChest": "Silver Blossom Chest",
     "royalChest": "Celestial Royal Chest",
-    "silverRates": "Common: 50% | Rare: 35% | Epic: 12% | Legendary: 3%",
-    "royalRates": "Rare: 45% | Epic: 38% | Legendary: 17%",
+    "silverRates": "Common: 46% | Rare: 33% | Epic: 15% | Legendary: 5% | Mystical: 1%",
+    "royalRates": "Rare: 45% | Epic: 35% | Legendary: 16% | Mystical: 4%",
     "price": "Price:",
-    "openSilver": "Open Silver Chest (100🪙)",
-    "openRoyal": "Open Celestial Chest (250🪙)",
+    "openSilver": "Open Silver Chest (120🪙)",
+    "openRoyal": "Open Celestial Chest (300🪙)",
     "unlocking": "Unlocking Mystery Wardrobe...",
     "animationText": "Gathering starlight & magical fibers...",
     "alreadyOwned": "Already owned! Converted to +{coins} Coins!",
@@ -326,6 +331,7 @@
     "upgrade": "Upgrade Lv{level} ({cost} ⚡)",
     "sell": "Sell ({cost} ⚡)",
     "waveClearedToast": "Wave {wave} Cleared! (+{coins} 🪙, +{exp} EXP)",
+    "waveWithheldToast": "⚠️ Wave reward withheld: verification failed. Try replaying the wave.",
     "tags": {
       "attack": "Attack",
       "support": "Support"
@@ -400,7 +406,8 @@
       "expressionPreviewDesc": "Test reactive expressions",
       "customSpriteUpdated": "Custom sprite updated!",
       "lockedOutfitToast": "🔒 This outfit is locked! Unlock it from a Lootbox or Affection Road.",
-      "lockedAccessoryToast": "🔒 This accessory is locked! Unlock it from a Lootbox or Affection Road."
+      "lockedAccessoryToast": "🔒 This accessory is locked! Unlock it from a Lootbox or Affection Road.",
+      "lockedHairstyleToast": "🔒 This hairstyle is locked! Unlock it from a Lootbox or Affection Road."
     },
     "wallpapers": {
       "title": "Japanese Aesthetic Wallpapers",

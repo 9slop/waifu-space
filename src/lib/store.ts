@@ -6,6 +6,7 @@ import { callLLM } from './llm';
 import { parseIntent, hasIntent, DialogIntent } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
 import { sanitizeRawState } from './validate';
+import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
 
@@ -36,6 +37,7 @@ export const COSMETIC_CATALOG: RpgCosmeticItem[] = [
   { id: 'miko', name: 'Shrine Maiden (Miko)', category: 'outfit', rarity: 'epic', description: 'Sacred red hakama and white robe blessed by shrine spirits.', icon: '⛩️' },
   { id: 'magical', name: 'Magical Girl', category: 'outfit', rarity: 'legendary', description: 'Sparkling cosmic dress imbued with pure starlight.', icon: '✨' },
   { id: 'armor', name: 'Guardian Knight Armor', category: 'outfit', rarity: 'legendary', description: 'Polished silver breastplate & pauldrons forged for battle.', icon: '🛡️' },
+  { id: 'celestial_dress', name: 'Celestial Gown', category: 'outfit', rarity: 'mystical', description: 'Transcendent flowing gown forged from living stardust.', icon: '🌌' },
 
   // Accessories
   { id: 'none', name: 'None', category: 'accessory', rarity: 'common', description: 'No accessory equipped.', icon: '✖️' },
@@ -58,7 +60,9 @@ export const COSMETIC_CATALOG: RpgCosmeticItem[] = [
   { id: 'long', name: 'Long Straight', category: 'hairstyle', rarity: 'common', description: 'Flowing silky hair reaching down past her shoulders.', icon: '💇‍♀️' },
   { id: 'short_bob', name: 'Short Bob', category: 'hairstyle', rarity: 'rare', description: 'Cute, sporty chin-length bob cut.', icon: '💁‍♀️' },
   { id: 'ponytail', name: 'High Ponytail', category: 'hairstyle', rarity: 'rare', description: 'Energetic ponytail fastened with a ribbon.', icon: '👱‍♀️' },
-  { id: 'wavy', name: 'Wavy Curls', category: 'hairstyle', rarity: 'epic', description: 'Romantic flowing waves with gentle volume.', icon: '👩‍🦱' }
+  { id: 'wavy', name: 'Wavy Curls', category: 'hairstyle', rarity: 'epic', description: 'Romantic flowing waves with gentle volume.', icon: '👩‍🦱' },
+  { id: 'space_bun', name: 'Space Buns', category: 'hairstyle', rarity: 'legendary', description: 'Adorable twin buns with holographic shimmer ribbons.', icon: '🪐' },
+  { id: 'celestial_wave', name: 'Celestial Waves', category: 'hairstyle', rarity: 'mystical', description: 'Infinity-length cosmic hair woven from nebula and starlight.', icon: '🌌' },
 ];
 
 export interface AffectionMilestone {
@@ -629,17 +633,76 @@ export function loadState() {
 }
 
 // Bond progression
+export function getBondExpNeeded(level: number): number {
+  return Math.max(1, Math.floor(level)) * 60;
+}
+
+const INTERACTION_COOLDOWNS_MS: Record<string, number> = {
+  poke: 3 * 60 * 1000,
+  headpat: 5 * 60 * 1000,
+  chat: 60 * 1000
+};
+
+const INTERACTION_REWARDS: Record<string, { bondExp: number; coins: number }> = {
+  poke: { bondExp: 4, coins: 2 },
+  headpat: { bondExp: 6, coins: 3 },
+  chat: { bondExp: 2, coins: 1 }
+};
+
+const COOLDOWN_STORAGE_KEY = 'waifu_space_cooldowns_v1';
+
+function readCooldowns(): Record<string, number> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(COOLDOWN_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function getCooldownRemainingMs(action: string): number {
+  const until = readCooldowns()[action] || 0;
+  return Math.max(0, until - Date.now());
+}
+
+export function formatCooldown(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0m';
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds > 0 ? seconds + 's' : ''}`.trim() : `${seconds}s`;
+}
+
+export function tryClaimInteraction(action: string): boolean {
+  const remaining = getCooldownRemainingMs(action);
+  return !(remaining > 0);
+}
+
+function setInteractionCooldown(action: string) {
+  if (typeof window === 'undefined') return;
+  const windowMs = INTERACTION_COOLDOWNS_MS[action];
+  if (!windowMs) return;
+  const cd = readCooldowns();
+  cd[action] = Date.now() + windowMs;
+  try {
+    localStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cd));
+  } catch {
+    // ignore
+  }
+}
+
 export function gainBondExp(amount: number) {
   const safeAmount = Number.isFinite(amount) ? Math.max(0, amount) : 0;
   setState(
     produce(s => {
       let exp = Math.max(0, s.waifu.bondExp || 0) + safeAmount;
       let level = Math.max(1, s.waifu.bondLevel || 1);
-      const needed = level * 50;
+      const needed = getBondExpNeeded(level);
       if (exp >= needed) {
         exp -= needed;
         level += 1;
-        const bonusCoins = level * 25;
+        const bonusCoins = level * 20;
         s.rpg.coins = Math.max(0, (s.rpg.coins || 0) + bonusCoins);
         showToast(`🌸 Bond Level Up! ${s.waifu.name} reached Lv. ${level}! (+${bonusCoins} 🪙)`);
       }
@@ -732,9 +795,35 @@ export function pokeAvatar() {
   const persona = getPersonality(state.waifu.personality);
   const pokes = persona.poke;
   const item = pokes[Math.floor(Math.random() * pokes.length)];
-  gainBondExp(8);
-  addCoins(5);
+
+  if (tryClaimInteraction('poke')) {
+    setInteractionCooldown('poke');
+    gainBondExp(INTERACTION_REWARDS.poke.bondExp);
+    addCoins(INTERACTION_REWARDS.poke.coins);
+  } else {
+    const remaining = formatCooldown(getCooldownRemainingMs('poke'));
+    showToast(`🌸 ${state.waifu.name} is still flustered from that! Try again in ${remaining}.`);
+  }
+
   triggerWaifuResponse(item.text, item.mood);
+}
+
+// Headpat action (affection reward with its own cooldown)
+export function headpatWaifu() {
+  const persona = getPersonality(state.waifu.personality);
+  const pats = persona.poke;
+  const pat = pats[Math.floor(Math.random() * pats.length)];
+
+  if (tryClaimInteraction('headpat')) {
+    setInteractionCooldown('headpat');
+    gainBondExp(INTERACTION_REWARDS.headpat.bondExp);
+    addCoins(INTERACTION_REWARDS.headpat.coins);
+  } else {
+    const remaining = formatCooldown(getCooldownRemainingMs('headpat'));
+    showToast(`🌸 ${state.waifu.name} is already happy from that! Try again in ${remaining}.`);
+  }
+
+  triggerWaifuResponse(pat.text, pat.mood);
 }
 
 // Economy & RPG Operations
@@ -874,27 +963,13 @@ export function updateSettings(partial: Record<string, unknown>) {
 }
 
 export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null {
-  const cost = boxType === 'standard' ? 100 : 250;
+  const cost = getLootboxCost(boxType);
   if (!spendCoins(cost)) {
     showToast('Not enough coins to open this chest!');
     return null;
   }
 
-  const rand = Math.random() * 100;
-  let targetRarity: 'common' | 'rare' | 'epic' | 'legendary' | 'mystical';
-
-  if (boxType === 'standard') {
-    if (rand < 50) targetRarity = 'common';
-    else if (rand < 83) targetRarity = 'rare';
-    else if (rand < 96) targetRarity = 'epic';
-    else if (rand < 99.5) targetRarity = 'legendary';
-    else targetRarity = 'mystical';
-  } else {
-    if (rand < 40) targetRarity = 'rare';
-    else if (rand < 80) targetRarity = 'epic';
-    else if (rand < 97) targetRarity = 'legendary';
-    else targetRarity = 'mystical';
-  }
+  const targetRarity = rollLootRarity(boxType);
 
   let candidates = COSMETIC_CATALOG.filter(c => c.id !== 'none' && c.rarity === targetRarity);
   if (candidates.length === 0) candidates = COSMETIC_CATALOG.filter(c => c.id !== 'none');
@@ -908,11 +983,9 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
   let duplicateExp = 0;
 
   if (isDuplicate) {
-    if (picked.rarity === 'common') { duplicateCoins = 40; duplicateExp = 25; }
-    else if (picked.rarity === 'rare') { duplicateCoins = 80; duplicateExp = 50; }
-    else if (picked.rarity === 'epic') { duplicateCoins = 160; duplicateExp = 100; }
-    else if (picked.rarity === 'legendary') { duplicateCoins = 300; duplicateExp = 200; }
-    else { duplicateCoins = 600; duplicateExp = 400; }
+    const comp = DUPLICATE_COMPENSATION[picked.rarity];
+    duplicateCoins = comp.coins;
+    duplicateExp = comp.exp;
 
     addCoins(duplicateCoins);
     gainBondExp(duplicateExp);
@@ -930,20 +1003,22 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
 }
 
 export function recordDefenseWaveVictory(wave: number, coinsWon?: number, expWon?: number, goblinsKilled = 10) {
-  const coinsReward = coinsWon ?? (wave * 75 + 50);
-  const expReward = expWon ?? (wave * 50 + 40);
+  const safeWave = Math.max(1, Math.min(200, Math.floor(wave || 1)));
+  const safeGoblins = Math.max(0, Math.min(100000, Math.floor(goblinsKilled || 0)));
+  const coinsReward = coinsWon !== undefined ? Math.max(0, Math.floor(coinsWon)) : getDefenseCoinsReward(safeWave);
+  const expReward = expWon !== undefined ? Math.max(0, Math.floor(expWon)) : getDefenseExpReward(safeWave);
 
   addCoins(coinsReward);
   gainBondExp(expReward);
 
   setState('rpg', produce(r => {
     if (!r) return;
-    if (wave > (r.defenseHighWave || 0)) r.defenseHighWave = wave;
+    if (safeWave > (r.defenseHighWave || 0)) r.defenseHighWave = safeWave;
     if (!r.defenseStats) {
       r.defenseStats = { totalVictories: 0, goblinsDefeated: 0 };
     }
     r.defenseStats.totalVictories = (r.defenseStats.totalVictories || 0) + 1;
-    r.defenseStats.goblinsDefeated = (r.defenseStats.goblinsDefeated || 0) + goblinsKilled;
+    r.defenseStats.goblinsDefeated = (r.defenseStats.goblinsDefeated || 0) + safeGoblins;
   }));
 
   saveState();
@@ -1052,8 +1127,8 @@ export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEve
   };
 
   setState('calendar', 'events', events => [newEvent, ...events]);
-  gainBondExp(15);
-  addCoins(20);
+  gainBondExp(8);
+  addCoins(10);
   saveState();
   return newEvent;
 }
@@ -1089,8 +1164,11 @@ export function toggleTask(id: string) {
   updateCalendarEvent(id, { completed: isNowCompleted });
 
   if (isNowCompleted) {
-    gainBondExp(25);
-    addCoins(35);
+    if (!target._rewarded) {
+      updateCalendarEvent(id, { _rewarded: true });
+      gainBondExp(12);
+      addCoins(15);
+    }
     const persona = getPersonality(state.waifu.personality);
     const praises = persona.taskComplete;
     const praise = praises[Math.floor(Math.random() * praises.length)];
@@ -1110,8 +1188,11 @@ export async function sendUserMessage(rawText: string) {
     timestamp: new Date().toISOString()
   };
   setState('chat', 'messages', msgs => [...msgs, userMsg]);
-  gainBondExp(5);
-  addCoins(5);
+  if (tryClaimInteraction('chat')) {
+    setInteractionCooldown('chat');
+    gainBondExp(INTERACTION_REWARDS.chat.bondExp);
+    addCoins(INTERACTION_REWARDS.chat.coins);
+  }
   saveState();
 
   setState('chat', 'isTyping', true);

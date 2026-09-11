@@ -286,15 +286,23 @@ export function SettingsStudio() {
                         style={{ width: '170px' }}
                         value={state.waifu.appearance.hairstyle}
                         onChange={e => {
-                          setState('waifu', 'appearance', 'hairstyle', e.currentTarget.value);
+                          const val = e.currentTarget.value;
+                          if (!isCosmeticUnlocked('hairstyles', val)) {
+                            showToast(t('settings.appearance.lockedHairstyleToast'));
+                            e.currentTarget.value = state.waifu.appearance.hairstyle;
+                            return;
+                          }
+                          setState('waifu', 'appearance', 'hairstyle', val);
                           saveState();
                         }}
                       >
-                        <option value="twintails">Twintails</option>
-                        <option value="long">Long Straight</option>
-                        <option value="short_bob">Short Bob</option>
-                        <option value="ponytail">Ponytail</option>
-                        <option value="wavy">Wavy Hair</option>
+                        <option value="twintails">{isCosmeticUnlocked('hairstyles', 'twintails') ? '👧 Twintails' : '🔒 👧 Twintails'}</option>
+                        <option value="long">{isCosmeticUnlocked('hairstyles', 'long') ? '💇‍♀️ Long Straight' : '🔒 💇‍♀️ Long Straight'}</option>
+                        <option value="short_bob">{isCosmeticUnlocked('hairstyles', 'short_bob') ? '💁‍♀️ Short Bob' : '🔒 💁‍♀️ Short Bob'}</option>
+                        <option value="ponytail">{isCosmeticUnlocked('hairstyles', 'ponytail') ? '👱‍♀️ Ponytail' : '🔒 🤦‍♀️ Ponytail'}</option>
+                        <option value="wavy">{isCosmeticUnlocked('hairstyles', 'wavy') ? '👩‍🦱 Wavy Curls' : '🔒 👩‍🦱 Wavy Curls'}</option>
+                        <option value="space_bun">{isCosmeticUnlocked('hairstyles', 'space_bun') ? '🪐 Space Buns' : '🔒 🪐 Space Buns'}</option>
+                        <option value="celestial_wave">{isCosmeticUnlocked('hairstyles', 'celestial_wave') ? '🌌 Celestial Waves' : '🔒 🌌 Celestial Waves'}</option>
                       </select>
                     </div>
 
@@ -327,6 +335,7 @@ export function SettingsStudio() {
                         <option value="miko">{isCosmeticUnlocked('outfits', 'miko') ? '⛩️ Shrine Maiden (Miko)' : '🔒 ⛩️ Shrine Maiden'}</option>
                         <option value="magical">{isCosmeticUnlocked('outfits', 'magical') ? '✨ Magical Girl' : '🔒 ✨ Magical Girl'}</option>
                         <option value="armor">{isCosmeticUnlocked('outfits', 'armor') ? '🛡️ Guardian Armor' : '🔒 🛡️ Guardian Armor'}</option>
+                        <option value="celestial_dress">{isCosmeticUnlocked('outfits', 'celestial_dress') ? '🌌 Celestial Gown' : '🔒 🌌 Celestial Gown'}</option>
                       </select>
                     </div>
 

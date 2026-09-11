@@ -87,7 +87,9 @@
     "poke": "つつく",
     "reviewSchedule": "今日の予定を確認",
     "cute": "今日も可愛いね！",
-    "stageLabel": "インタラクティブなアバターステージ。Enter キーかクリックで {name} と交流できます。"
+    "stageLabel": "インタラクティブなアバターステージ。Enter キーかクリックで {name} と交流できます。",
+    "pokeCooldown": "{name} はまだ照れています！{time} 後にまた試してください。",
+    "headpatCooldown": "{name} はもう満足しているみたい！{time} 後にまた試してください。"
   },
   "chat": {
     "headerTitle": "{name}とのチャット",
@@ -257,12 +259,14 @@
       "allItems": "全アイテム",
       "outfits": "衣装",
       "accessories": "アクセサリー",
+      "hairstyles": "ヘアスタイル",
       "equipped": "装備中 ✨",
       "equip": "装備",
       "locked": "ロック中",
       "livePreview": "リアルタイムプレビュー",
       "outfitLabel": "衣装:",
-      "accessoryLabel": "アクセサリー:"
+      "accessoryLabel": "アクセサリー:",
+      "hairstyleLabel": "ヘアスタイル:"
     },
     "inventory": {
       "title": "所持品・衣装インベントリ ({count})",
@@ -281,6 +285,7 @@
       "lockedItem": "このアイテムはロックされています！宝箱や親密度報酬で解放しましょう。",
       "equippedOutfit": "衣装「{name}」を装備しました！✨",
       "equippedAccessory": "アクセ「{name}」を装備しました！✨",
+      "equippedHairstyle": "ヘア「{name}」を装備しました！✨",
       "claimedReward": "親密度Lv. {level}達成！{label}を受け取りました！",
       "unlockedReward": "親密度Lv. {level}達成！{label}を解放しました！"
     }
@@ -293,11 +298,11 @@
     "highRarityGuaranteed": "高レアリティ確定",
     "silverChest": "銀桜の宝箱",
     "royalChest": "星天の王族宝箱",
-    "silverRates": "コモン: 50% | レア: 35% | エピック: 12% | レジェンド: 3%",
-    "royalRates": "レア: 45% | エピック: 38% | レジェンド: 17%",
+    "silverRates": "コモン: 46% | レア: 33% | エピック: 15% | レジェンド: 5% | ミスティカル: 1%",
+    "royalRates": "レア: 45% | エピック: 35% | レジェンド: 16% | ミスティカル: 4%",
     "price": "価格:",
-    "openSilver": "銀桜の宝箱を開ける (100🪙)",
-    "openRoyal": "星天の王族宝箱を開ける (250🪙)",
+    "openSilver": "銀桜の宝箱を開ける (120🪙)",
+    "openRoyal": "星天の王族宝箱を開ける (300🪙)",
     "unlocking": "宝箱を開封中...",
     "animationText": "星の光と魔法の糸を集めています...",
     "alreadyOwned": "所持済み！+{coins} コインに変換されました！",
@@ -326,6 +331,7 @@
     "upgrade": "強化 Lv{level} ({cost} ⚡)",
     "sell": "売却 ({cost} ⚡)",
     "waveClearedToast": "ウェーブ {wave} クリア！ (+{coins} 🪙, +{exp} EXP)",
+    "waveWithheldToast": "⚠️ ウェーブ報酬が見送られました：検証に失敗しました。もう一度挑戦してください。",
     "tags": {
       "attack": "攻撃",
       "support": "支援"
@@ -400,7 +406,8 @@
       "expressionPreviewDesc": "感情リアクションの表情テスト",
       "customSpriteUpdated": "カスタム画像を更新しました！",
       "lockedOutfitToast": "🔒 この衣装はロックされています！宝箱や親密度で解放してください。",
-      "lockedAccessoryToast": "🔒 このアクセサリーはロックされています！宝箱や親密度で解放してください。"
+      "lockedAccessoryToast": "🔒 このアクセサリーはロックされています！宝箱や親密度で解放してください。",
+      "lockedHairstyleToast": "🔒 このヘアスタイルはロックされています！宝箱や親密度で解放してください。"
     },
     "wallpapers": {
       "title": "和風・アニメ壁紙",

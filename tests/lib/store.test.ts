@@ -17,6 +17,8 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
   toggleTask,
+  pokeAvatar,
+  headpatWaifu,
   loadCloudProgress,
   resetAccountProgress,
   DEFAULT_STATE,
@@ -59,12 +61,12 @@ describe('Global Store & RPG State (store.ts)', () => {
       setState('waifu', 'bondExp', 0);
       const initialCoins = state.rpg.coins;
 
-      // Level 1 threshold is 1 * 50 = 50 XP
+      // Level 1 threshold is 1 * 60 = 60 XP
       gainBondExp(60);
 
       expect(state.waifu.bondLevel).toBe(2);
-      expect(state.waifu.bondExp).toBe(10); // 60 - 50 = 10
-      expect(state.rpg.coins).toBeGreaterThan(initialCoins); // Level up coin reward
+      expect(state.waifu.bondExp).toBe(0);
+      expect(state.rpg.coins).toBe(initialCoins + 2 * 20); // Level 2 level-up bonus: 40 coins
     });
   });
 
@@ -150,10 +152,52 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.defenseHighWave).toBe(3);
       expect(state.rpg.defenseStats.totalVictories).toBe(1);
       expect(state.rpg.defenseStats.goblinsDefeated).toBe(15);
-      // Startup from a fresh level 1: wave reward (100) + bond level-up bonus (2 * 25)
-      expect(state.rpg.coins).toBe(initialCoins + 150);
+      // Startup from a fresh level 1: wave reward (100) + bond level-up bonus (2 * 20)
+      expect(state.rpg.coins).toBe(initialCoins + 140);
       expect(state.waifu.bondLevel).toBe(2);
-      expect(state.waifu.bondExp).toBe(30);
+      expect(state.waifu.bondExp).toBe(20);
+    });
+
+    it('uses the shared defense formula by default and clamps out-of-range waves', () => {
+      setState('waifu', 'bondLevel', 100);
+      setState('waifu', 'bondExp', 0);
+      setState('rpg', 'coins', 0);
+
+      recordDefenseWaveVictory(500); // wave clamps to 200
+      expect(state.rpg.defenseHighWave).toBe(200);
+      expect(state.rpg.coins).toBe(15 + 200 * 8); // getDefenseCoinsReward(200)
+    });
+  });
+
+  describe('Interaction Cooldowns & Rewards', () => {
+    it('rewards poke but blocks another poke while on cooldown', () => {
+      setState('rpg', 'coins', 100);
+      setState('waifu', 'bondExp', 0);
+      setState('waifu', 'bondLevel', 1);
+
+      pokeAvatar();
+      const expAfterFirst = state.waifu.bondExp;
+      const coinsAfterFirst = state.rpg.coins;
+      expect(coinsAfterFirst).toBe(100 + 2);
+      expect(expAfterFirst).toBe(4);
+
+      // Immediate second poke is on cooldown -> no additional rewards
+      pokeAvatar();
+      expect(state.waifu.bondExp).toBe(expAfterFirst);
+      expect(state.rpg.coins).toBe(coinsAfterFirst);
+    });
+
+    it('rewards headpat independently of the poke cooldown', () => {
+      setState('rpg', 'coins', 100);
+      setState('waifu', 'bondExp', 0);
+
+      pokeAvatar(); // consumes poke cooldown
+      setState('rpg', 'coins', 100);
+      setState('waifu', 'bondExp', 0);
+
+      headpatWaifu();
+      expect(state.rpg.coins).toBe(100 + 3);
+      expect(state.waifu.bondExp).toBe(6);
     });
   });
 
@@ -177,6 +221,23 @@ describe('Global Store & RPG State (store.ts)', () => {
 
       deleteCalendarEvent(newEv.id);
       expect(state.calendar.events.some(e => e.id === newEv.id)).toBe(false);
+    });
+
+    it('only rewards the first completion of a task, not toggle farming', () => {
+      const task = addCalendarEvent({
+        title: 'Gym Session',
+        type: 'task',
+        start: new Date().toISOString()
+      });
+      const initialCoins = state.rpg.coins;
+
+      toggleTask(task.id); // first completion -> reward
+      expect(state.rpg.coins).toBe(initialCoins + 15);
+
+      const coinsAfterFirst = state.rpg.coins;
+      toggleTask(task.id); // un-complete
+      toggleTask(task.id); // complete again -> no second reward
+      expect(state.rpg.coins).toBe(coinsAfterFirst);
     });
   });
 

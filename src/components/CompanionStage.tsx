@@ -2,11 +2,13 @@ import { createMemo } from 'solid-js';
 import {
   state,
   pokeAvatar,
+  headpatWaifu,
   avatarBounced,
   speechBubble,
   speechBubbleVisible,
   sendUserMessage,
-  triggerWaifuResponse
+  getBondExpNeeded,
+  getCooldownRemainingMs
 } from '../lib/store';
 import { getPersonality } from '../lib/personality';
 import { onActivateKey } from '../lib/accessibility';
@@ -18,15 +20,16 @@ export function CompanionStage() {
   const persona = createMemo(() => getPersonality(state.waifu.personality));
 
   const bondProgress = createMemo(() => {
-    const needed = state.waifu.bondLevel * 50;
+    const needed = getBondExpNeeded(state.waifu.bondLevel);
     return Math.min(100, Math.round((state.waifu.bondExp / needed) * 100));
   });
 
   const handleHeadpat = () => {
-    const list = persona().poke;
-    const pat = list[Math.floor(Math.random() * list.length)];
-    triggerWaifuResponse(pat.text, pat.mood);
+    headpatWaifu();
   };
+
+  const pokeOnCooldown = () => getCooldownRemainingMs('poke') > 0;
+  const headpatOnCooldown = () => getCooldownRemainingMs('headpat') > 0;
 
   return (
     <div class="main-stage-layout">
@@ -81,6 +84,7 @@ export function CompanionStage() {
           <button
             type="button"
             class="stage-action-chip"
+            disabled={headpatOnCooldown()}
             onClick={handleHeadpat}
           >
             🌸 {t('companion.headpat')}
@@ -88,6 +92,7 @@ export function CompanionStage() {
           <button
             type="button"
             class="stage-action-chip"
+            disabled={pokeOnCooldown()}
             onClick={pokeAvatar}
           >
             👉 {t('companion.poke')}

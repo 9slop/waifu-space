@@ -109,7 +109,8 @@ function sanitizeEvent(raw: unknown): CalendarEventItem | null {
     description: typeof raw.description === 'string' ? raw.description : undefined,
     location: typeof raw.location === 'string' ? raw.location : undefined,
     recurrence,
-    ...(typeof raw._notified === 'boolean' ? { _notified: raw._notified } : {})
+    ...(typeof raw._notified === 'boolean' ? { _notified: raw._notified } : {}),
+    ...(typeof raw._rewarded === 'boolean' ? { _rewarded: raw._rewarded } : {})
   };
 }
 
