@@ -192,6 +192,12 @@ body {
   scroll-behavior: smooth;
 }
 
+/* Pages that manage their own internal scrolling (e.g. the calendar) should
+   never make the whole document scroll and reveal an empty gutter below. */
+.app-content:has(.gcal-wrapper) {
+  overflow: hidden;
+}
+
 .app-content::-webkit-scrollbar {
   width: 8px;
 }
