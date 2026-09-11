@@ -46,6 +46,7 @@ export async function POST(event: { request: Request }) {
     const payload = await event.request.json();
 
     // Security Audit: Reject any request attempting to submit client-defined reward or progression values
+    // Covers top-level, nested objects, tasks/calendar items, and milestone reward tampering.
     const hasClientRewards =
       payload.coins !== undefined ||
       payload.currentCoins !== undefined ||
@@ -63,8 +64,17 @@ export async function POST(event: { request: Request }) {
       payload.bondLevel !== undefined ||
       payload.waifu?.bondLevel !== undefined ||
       payload.xp !== undefined ||
+      payload.exp !== undefined ||
       payload.reward !== undefined ||
-      payload.trust !== undefined;
+      payload.rewards !== undefined ||
+      payload.trust !== undefined ||
+      (Array.isArray(payload.calendar) && payload.calendar.some((e: any) =>
+        e && (e.xp !== undefined || e.coins !== undefined || e.reward !== undefined || e.bondExp !== undefined)
+      )) ||
+      (Array.isArray(payload.tasks) && payload.tasks.some((t: any) =>
+        t && (t.xp !== undefined || t.coins !== undefined || t.reward !== undefined || t.bondExp !== undefined)
+      )) ||
+      (payload.milestoneRewards !== undefined || payload.rpg?.milestoneRewards !== undefined);
 
     if (hasClientRewards) {
       return json(

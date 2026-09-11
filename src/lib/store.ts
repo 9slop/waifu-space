@@ -13,7 +13,7 @@ import {
   PersonalityArchetype
 } from './personality';
 import { callLLM } from './llm';
-import { parseIntent, hasIntent, DialogIntent } from './intents';
+import { parseIntent, hasIntent, DialogIntent, matchesKeywordOrPhrase } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
 import { sanitizeRawState, sanitizeEvent, sanitizeOccurrenceOverride } from './validate';
 import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
@@ -1526,14 +1526,13 @@ export async function sendUserMessage(rawText: string) {
 }
 
 function inferMoodFromText(text: string, personaId: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes('baka') || lower.includes('hmph') || lower.includes('idiot')) return 'pout';
-  if (lower.includes('love') || lower.includes('darling') || lower.includes('mine') || lower.includes('forever')) {
+  if (matchesKeywordOrPhrase(text, ['baka', 'hmph', 'idiot', 'dummy'])) return 'pout';
+  if (matchesKeywordOrPhrase(text, ['love', 'darling', 'mine', 'forever', 'marry me'])) {
     return personaId === 'yandere' ? 'yandere' : 'blush';
   }
-  if (lower.includes('blush') || lower.includes('shy') || lower.includes('embarrass')) return 'blush';
-  if (lower.includes('yay') || lower.includes('happy') || lower.includes('awesome') || lower.includes('congrat')) return 'happy';
-  if (lower.includes('what?!') || lower.includes('whoa') || lower.includes('really?')) return 'surprised';
+  if (matchesKeywordOrPhrase(text, ['blush', 'shy', 'embarrass', 'embarrassed'])) return 'blush';
+  if (matchesKeywordOrPhrase(text, ['yay', 'happy', 'awesome', 'congrat', 'congrats', 'celebrate'])) return 'happy';
+  if (matchesKeywordOrPhrase(text, ['what', 'whoa', 'really', 'seriously', 'no way'])) return 'surprised';
   return 'neutral';
 }
 

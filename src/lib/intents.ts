@@ -233,7 +233,7 @@ function tokenize(text: string): string[] {
   return text.split(/\s+/).filter(Boolean);
 }
 
-function matchesPhrase(text: string, tokens: string[], phrase: string): boolean {
+export function matchesPhrase(text: string, tokens: string[], phrase: string): boolean {
   const p = normalizePhrase(phrase);
   const words = p.split(' ');
   if (words.length === 1) {
@@ -243,6 +243,17 @@ function matchesPhrase(text: string, tokens: string[], phrase: string): boolean 
   if (text.includes(p)) return true;
   // ...or if every word of the phrase has a fuzzy match somewhere in the input.
   return words.every(w => tokens.some(t => isFuzzyMatch(t, w)));
+}
+
+/**
+ * Fuzzy matches user input text against one or more custom keyword or phrase triggers.
+ * Returns true if any trigger keyword/phrase fuzzy matches the user input.
+ */
+export function matchesKeywordOrPhrase(text: string, triggers: string[] | string): boolean {
+  const normalized = normalizeText(text);
+  const tokens = tokenize(normalized);
+  const list = Array.isArray(triggers) ? triggers : [triggers];
+  return list.some(trigger => matchesPhrase(normalized, tokens, trigger));
 }
 
 function phraseWeight(phrase: string): number {

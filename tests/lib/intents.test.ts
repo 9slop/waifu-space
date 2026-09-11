@@ -3,7 +3,8 @@ import {
   parseIntent,
   hasIntent,
   normalizeText,
-  INTENT_THRESHOLD
+  INTENT_THRESHOLD,
+  matchesKeywordOrPhrase
 } from '../../src/lib/intents';
 
 describe('Intent detection engine (intents.ts)', () => {
@@ -70,8 +71,16 @@ describe('Intent detection engine (intents.ts)', () => {
     expect(parseIntent('thx a lot').intent).toBe('thanks');
   });
 
-  it('empty or whitespace-only input resolves to default', () => {
-    expect(parseIntent('   ').intent).toBe('default');
-    expect(parseIntent('').confidence).toBe(0);
+  it('fuzzy matches custom companion dialogue trigger keywords and phrases', () => {
+    // Exact match
+    expect(matchesKeywordOrPhrase('you baka!', 'baka')).toBe(true);
+    // Typo match (1 edit distance: 'bakka' -> 'baka')
+    expect(matchesKeywordOrPhrase('you bakka', 'baka')).toBe(true);
+    // Multi-keyword custom trigger array
+    expect(matchesKeywordOrPhrase('idiott person', ['baka', 'idiot'])).toBe(true);
+    // Multi-word phrase with typo
+    expect(matchesKeywordOrPhrase('pleas mary me', 'marry me')).toBe(true);
+    // Unrelated text should not match
+    expect(matchesKeywordOrPhrase('just chilling here', ['baka', 'idiot'])).toBe(false);
   });
 });

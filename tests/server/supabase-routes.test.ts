@@ -327,6 +327,34 @@ describe('Supabase-backed API routes (regression guard)', () => {
           body: JSON.stringify({ waifu: { bondLevel: 10 } })
         })
       );
+      // Test calendar item with xp injection
+      res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ calendar: [{ id: 'hack-1', title: 'Task', xp: 500, start: '2026-09-10T10:00:00Z' }] })
+        })
+      );
+      expect(res.status).toBe(400);
+
+      // Test tasks array with coin rewards injection
+      res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ tasks: [{ id: 'task-1', title: 'Free Coins', coins: 999 }] })
+        })
+      );
+      expect(res.status).toBe(400);
+
+      // Test milestone rewards injection
+      res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ milestoneRewards: [1000] })
+        })
+      );
       expect(res.status).toBe(400);
     });
 
