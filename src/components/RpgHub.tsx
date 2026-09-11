@@ -16,11 +16,31 @@ import { WaifuDefenseGame } from './WaifuDefenseGame';
 import { LootboxModal } from './LootboxModal';
 import { WaifuAvatar } from './WaifuAvatar';
 import { t } from '../lib/i18n';
+import { defenseGameActive, pendingDefenseTab, setPendingDefenseTab } from '../lib/defense-bridge';
 
 export function RpgHub() {
   const [activeTab, setActiveTab] = createSignal<'defense' | 'gacha' | 'affection' | 'wardrobe' | 'inventory'>('defense');
   const [filterCategory, setFilterCategory] = createSignal<'all' | 'outfit' | 'accessory' | 'hairstyle'>('all');
   const [inventoryRarityFilter, setInventoryRarityFilter] = createSignal<'all' | 'common' | 'rare' | 'epic' | 'legendary' | 'mystical'>('all');
+
+  // Intercept tab switches while a defense run is in progress so the game
+  // (and the player's progress) is never silently discarded.
+  const handleTabSwitch = (next: 'defense' | 'gacha' | 'affection' | 'wardrobe' | 'inventory') => {
+    if (next === activeTab()) return;
+    if (next !== 'defense' && activeTab() === 'defense' && defenseGameActive()) {
+      setPendingDefenseTab(next);
+      return;
+    }
+    setActiveTab(next);
+  };
+
+  const confirmLeaveDefense = () => {
+    const next = pendingDefenseTab();
+    if (next) {
+      setActiveTab(next as any);
+      setPendingDefenseTab(null);
+    }
+  };
 
   const equipCosmetic = (item: RpgCosmeticItem) => {
     if (!isCosmeticUnlocked(item.id)) {
@@ -140,7 +160,7 @@ export function RpgHub() {
       <div class="rpg-navigation-tabs">
         <button
           class={`rpg-tab-btn ${activeTab() === 'defense' ? 'active' : ''}`}
-          onClick={() => setActiveTab('defense')}
+          onClick={() => handleTabSwitch('defense')}
         >
           <span>⚔️</span>
           <span>{t('rpg.tabs.defense')}</span>
@@ -148,7 +168,7 @@ export function RpgHub() {
 
         <button
           class={`rpg-tab-btn ${activeTab() === 'gacha' ? 'active' : ''}`}
-          onClick={() => setActiveTab('gacha')}
+          onClick={() => handleTabSwitch('gacha')}
         >
           <span>🎁</span>
           <span>{t('rpg.tabs.gacha')}</span>
@@ -156,7 +176,7 @@ export function RpgHub() {
 
         <button
           class={`rpg-tab-btn ${activeTab() === 'affection' ? 'active' : ''}`}
-          onClick={() => setActiveTab('affection')}
+          onClick={() => handleTabSwitch('affection')}
         >
           <span>💖</span>
           <span>{t('rpg.tabs.affection')}</span>
@@ -164,7 +184,7 @@ export function RpgHub() {
 
         <button
           class={`rpg-tab-btn ${activeTab() === 'wardrobe' ? 'active' : ''}`}
-          onClick={() => setActiveTab('wardrobe')}
+          onClick={() => handleTabSwitch('wardrobe')}
         >
           <span>👗</span>
           <span>{t('rpg.tabs.wardrobe')}</span>
@@ -173,7 +193,7 @@ export function RpgHub() {
         <button
           class={`rpg-tab-btn ${activeTab() === 'inventory' ? 'active' : ''}`}
           data-testid="rpg-tab-inventory"
-          onClick={() => setActiveTab('inventory')}
+          onClick={() => handleTabSwitch('inventory')}
         >
           <span>🎒</span>
           <span>{t('rpg.tabs.inventory')}</span>
@@ -514,6 +534,24 @@ export function RpgHub() {
           </div>
         </Show>
       </div>
+
+      {/* TAB-SWITCH WARNING: an active defense run would be lost */}
+      <Show when={pendingDefenseTab()}>
+        <div class="defense-leave-overlay" data-testid="defense-leave-modal">
+          <div class="defense-leave-modal">
+            <h3>⚠️ {t('defense.confirmLeaveTitle')}</h3>
+            <p>{t('defense.confirmLeaveDesc')}</p>
+            <div class="defense-leave-actions">
+              <button class="btn-stay" onClick={() => setPendingDefenseTab(null)}>
+                🎮 {t('defense.stayInGame')}
+              </button>
+              <button class="btn-leave" onClick={confirmLeaveDefense}>
+                🏃 {t('defense.leaveAnyway')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
     </div>
   );
 }
