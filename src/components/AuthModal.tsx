@@ -3,7 +3,7 @@ import { setUserAccount, resetAccountProgress, showToast, loadCloudProgress } fr
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
 
-export function AuthModal(props: { isOpen: boolean; onClose: () => void; initialMode?: 'login' | 'register' }) {
+export function AuthModal(props: { isOpen: boolean; onClose: () => void; initialMode?: 'login' | 'register'; canClose?: boolean }) {
   const [mode, setMode] = createSignal<'login' | 'register'>(props.initialMode || 'login');
   const [username, setUsername] = createSignal('');
   const [email, setEmail] = createSignal('');
@@ -11,6 +11,14 @@ export function AuthModal(props: { isOpen: boolean; onClose: () => void; initial
   const [confirmPassword, setConfirmPassword] = createSignal('');
   const [isLoading, setIsLoading] = createSignal(false);
   const [errorMessage, setErrorMessage] = createSignal('');
+
+  const canDismiss = () => props.canClose !== false;
+
+  const handleBackdropClick = () => {
+    if (canDismiss()) {
+      props.onClose();
+    }
+  };
 
   const handleSubmit = async (e: Event) => {
     e.preventDefault();
@@ -84,16 +92,18 @@ export function AuthModal(props: { isOpen: boolean; onClose: () => void; initial
   return (
     <Show when={props.isOpen}>
       <div
-        ref={useFocusTrap(() => props.isOpen, props.onClose)}
+        ref={useFocusTrap(() => props.isOpen, canDismiss() ? props.onClose : undefined)}
         class="auth-modal-backdrop"
-        onClick={props.onClose}
+        onClick={handleBackdropClick}
         role="dialog"
         aria-modal="true"
         aria-labelledby="auth-modal-title"
         data-testid="auth-modal"
       >
         <div class="auth-modal-card" onClick={e => e.stopPropagation()}>
-          <button class="modal-close-btn" onClick={props.onClose} aria-label={t('common.close')}>✕</button>
+          <Show when={canDismiss()}>
+            <button class="modal-close-btn" onClick={props.onClose} aria-label={t('common.close')}>✕</button>
+          </Show>
 
           <div class="auth-modal-header">
             <span class="auth-logo">🌸</span>

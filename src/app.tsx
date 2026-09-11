@@ -1,7 +1,16 @@
-import { createSignal, onMount, onCleanup, createEffect, Suspense } from 'solid-js';
-import { Router, A, useLocation } from '@solidjs/router';
+import { createSignal, onMount, onCleanup, createEffect, Suspense, Show } from 'solid-js';
+import { Router, A } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { state, loadState, loadCloudProgress, showToast, triggerWaifuResponse, setUserAccount } from './lib/store';
+import {
+  state,
+  loadState,
+  loadCloudProgress,
+  showToast,
+  triggerWaifuResponse,
+  setUserAccount,
+  isLeaderboardOpen,
+  closeLeaderboard
+} from './lib/store';
 import { t } from './lib/i18n';
 import { WallpaperBackground } from './components/WallpaperBackground';
 import { SakuraCanvas } from './components/SakuraCanvas';
@@ -18,10 +27,7 @@ import './styles/settings.css';
 import './styles/rpg.css';
 
 function AppLayout(props: { children: any }) {
-  const [clockTime, setClockTime] = createSignal('');
   const [showAuthModal, setShowAuthModal] = createSignal(false);
-  const [showLeaderboardModal, setShowLeaderboardModal] = createSignal(false);
-  let clockInterval: any = null;
   let deadlineInterval: any = null;
 
   onMount(() => {
@@ -31,15 +37,6 @@ function AppLayout(props: { children: any }) {
     if (state.user?.token) {
       loadCloudProgress(state.user.token);
     }
-
-    // Clock
-    const updateClock = () => {
-      setClockTime(
-        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      );
-    };
-    updateClock();
-    clockInterval = setInterval(updateClock, 1000);
 
     // Apply theme
     document.documentElement.setAttribute('data-theme', state.settings.theme || 'sakura');
@@ -70,7 +67,6 @@ function AppLayout(props: { children: any }) {
     }, 60000);
 
     onCleanup(() => {
-      clearInterval(clockInterval);
       clearInterval(deadlineInterval);
     });
   });
@@ -83,6 +79,9 @@ function AppLayout(props: { children: any }) {
       }
     }
   });
+
+  const authModalOpen = () => !state.user || showAuthModal();
+  const canDismissAuth = () => !!state.user;
 
   return (
     <div class="app-shell">
@@ -98,23 +97,15 @@ function AppLayout(props: { children: any }) {
           <span class="brand-tag">v2.0.0</span>
         </A>
 
-        {/* 3 PRIMARY TABS */}
+        {/* PRIMARY TABS */}
         <nav class="nav-tabs">
-          <A href="/" class="nav-tab-btn" activeClass="active" end={true}>
-            <span>🌸</span>
-            <span>{t('nav.companion')}</span>
-          </A>
           <A href="/calendar" class="nav-tab-btn" activeClass="active">
             <span>📅</span>
             <span>{t('nav.calendar')}</span>
           </A>
-          <A href="/rpg" class="nav-tab-btn" activeClass="active">
-            <span>⚔️</span>
-            <span>{t('nav.rpg')}</span>
-          </A>
-          <A href="/settings" class="nav-tab-btn" activeClass="active">
-            <span>⚙️</span>
-            <span>{t('nav.settings')}</span>
+          <A href="/minigames" class="nav-tab-btn" activeClass="active">
+            <span>🎮</span>
+            <span>{t('nav.minigames')}</span>
           </A>
           <A href="/profile" class="nav-tab-btn" activeClass="active">
             <span>👤</span>
@@ -124,17 +115,7 @@ function AppLayout(props: { children: any }) {
 
         {/* RIGHT HEADER META */}
         <div class="header-right">
-          <button
-            class="header-action-pill btn-leaderboard"
-            data-testid="header-btn-leaderboard"
-            title={t('nav.leaderboard')}
-            onClick={() => setShowLeaderboardModal(true)}
-          >
-            <span>🏆</span>
-            <span class="pill-text">{t('nav.leaderboard')}</span>
-          </button>
-
-          <A href="/rpg" class="header-coin-pill" title={t('nav.coinTooltip')}>
+          <A href="/minigames" class="header-coin-pill" title={t('nav.coinTooltip')}>
             <span>🪙</span>
             <span>{state.rpg ? state.rpg.coins : 0}</span>
           </A>
@@ -166,8 +147,6 @@ function AppLayout(props: { children: any }) {
               </button>
             </div>
           </Show>
-
-          <div class="header-clock">{clockTime() || '12:00 PM'}</div>
         </div>
       </header>
 
@@ -178,13 +157,14 @@ function AppLayout(props: { children: any }) {
 
       {/* MODALS */}
       <AuthModal
-        isOpen={showAuthModal()}
+        isOpen={authModalOpen()}
+        canClose={canDismissAuth()}
         onClose={() => setShowAuthModal(false)}
       />
 
       <LeaderboardModal
-        isOpen={showLeaderboardModal()}
-        onClose={() => setShowLeaderboardModal(false)}
+        isOpen={isLeaderboardOpen()}
+        onClose={closeLeaderboard}
       />
 
       {/* GLOBAL TOAST NOTIFICATION */}
