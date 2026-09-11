@@ -7,6 +7,7 @@
 
 import type { AppState, ChatMessage, RpgState, UserAccount } from './store';
 import type { CalendarEventItem, CalendarOccurrenceOverride } from './ical';
+export type { CalendarOccurrenceOverride } from './ical';
 import { PERSONALITIES } from './personality';
 import {
   sanitizeSettings,

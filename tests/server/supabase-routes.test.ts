@@ -535,6 +535,46 @@ describe('Supabase-backed API routes (regression guard)', () => {
       const res = await syncGET(req('http://localhost/api/sync/progress', {}));
       expect(res.status).toBe(401);
     });
+
+    it('persists calendar occurrence overrides on POST and sanitizes them', async () => {
+      const res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            waifu: { name: 'Neo', personality: 'kuudere', bondExp: 0, bondLevel: 1, appearance: {} },
+            rpg: { coins: 200, claimedAffectionMilestones: [], defenseStats: {}, showcaseItems: [] },
+            settings: {},
+            calendar: [],
+            calendarOverrides: [
+              { id: 'ov1', parentId: 'evt-9', dateKey: '2026-09-15', deleted: true, updatedAt: '2026-09-15T00:00:00Z' },
+              { id: 'ov2', parentId: 'evt-9', dateKey: 'bad-date', completed: true },
+              { id: 'ov3', parentId: 'bad-parent', dateKey: '2026-09-16' }
+            ]
+          })
+        })
+      );
+      expect(res.status).toBe(200);
+
+      const progress = mocks.state.db.user_progress.find(p => p.user_id === userId);
+      expect(progress).toBeDefined();
+      expect(Array.isArray(progress.calendar_overrides)).toBe(true);
+      // Both ov1 (valid) and ov3 (valid shape, unknown parentId) survive;
+      // only ov2 is dropped (invalid dateKey).
+      expect(progress.calendar_overrides).toHaveLength(2);
+      expect(progress.calendar_overrides[0]).toMatchObject({ id: 'ov1', parentId: 'evt-9', dateKey: '2026-09-15', deleted: true });
+      expect(progress.calendar_overrides[1]).toMatchObject({ id: 'ov3', parentId: 'bad-parent', dateKey: '2026-09-16' });
+    });
+
+    it('returns calendarOverrides array on GET (defaulting to empty when no data)', async () => {
+      const res = await syncGET(
+        req('http://localhost/api/sync/progress', { headers: { Authorization: `Bearer ${token}` } })
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(Array.isArray(data.calendarOverrides)).toBe(true);
+      expect(data.calendarOverrides).toHaveLength(0);
+    });
   });
 
   describe('gacha/roll (server-authoritative)', () => {

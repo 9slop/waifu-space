@@ -4,6 +4,7 @@ import { getSupabaseServerClient, isSupabaseConfigured } from '../../../lib/serv
 import { COSMETIC_CATALOG } from '../../../lib/store';
 import { MAX_COINS } from '../../../lib/economy';
 import { EVENT_TYPES, RECURRENCE_RULES, isHexColor } from '../../../lib/validation';
+import { sanitizeOccurrenceOverride, type CalendarOccurrenceOverride } from '../../../lib/validate';
 
 const itemRarity = (itemId: string): string =>
   COSMETIC_CATALOG.find(c => c.id === itemId)?.rarity || 'common';
@@ -149,6 +150,22 @@ export async function POST(event: { request: Request }) {
           await supabase.from('calendar_items').insert(rows);
         }
       }
+
+      // Persist occurrence overrides (per-occurrence edits / deletions for
+      // repeating events). The client sends the full current overrides list;
+      // we store it as a clamped JSONB blob on the user_progress row.
+      if (Array.isArray(payload.calendarOverrides)) {
+        const rawOverrides: unknown[] = Array.isArray(payload.calendarOverrides) ? payload.calendarOverrides : [];
+      const sanitizedOverrides: CalendarOccurrenceOverride[] = rawOverrides
+        .map(o => sanitizeOccurrenceOverride(o))
+        .filter((o): o is CalendarOccurrenceOverride => o !== null)
+        .slice(0, 2000);
+
+        await supabase.from('user_progress').upsert({
+          user_id: session.userId,
+          calendar_overrides: sanitizedOverrides
+        });
+      }
     }
 
     return json({ success: true, syncedAt: new Date().toISOString() });
@@ -191,9 +208,10 @@ export async function GET(event: { request: Request }) {
         description: r.description || undefined,
         location: r.location || undefined,
         recurrence: r.recurrence
-      }))
+      })),
+      calendarOverrides: progress?.calendar_overrides ?? []
     });
   }
 
-  return json({ success: true, progress: null, showcaseItems: [], calendarItems: [] });
+  return json({ success: true, progress: null, showcaseItems: [], inventory: [], calendarItems: [], calendarOverrides: [] });
 }

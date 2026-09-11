@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS public.user_progress (
   defense_high_wave INT DEFAULT 0 NOT NULL,
   defense_victories INT DEFAULT 0 NOT NULL,
   goblins_defeated INT DEFAULT 0 NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  calendar_overrides JSONB DEFAULT '[]'::jsonb NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_progress_defense_wave ON public.user_progress(defense_high_wave DESC);
