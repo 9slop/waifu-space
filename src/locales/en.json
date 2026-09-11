@@ -173,6 +173,15 @@
       "close": "Close",
       "completed": "COMPLETED"
     },
+    "repeatScope": {
+      "title": "Change repeating event",
+      "subtitle": "What should be changed?",
+      "thisEvent": "This event",
+      "thisEventDesc": "Only this occurrence on {date}",
+      "allEvents": "All events",
+      "allEventsDesc": "This and every occurrence of the series",
+      "cancel": "Cancel"
+    },
     "weekdays": {
       "sun": "SUN",
       "mon": "MON",

@@ -173,6 +173,15 @@
       "close": "閉じる",
       "completed": "完了済み"
     },
+    "repeatScope": {
+      "title": "繰り返し予定の変更",
+      "subtitle": "変更する範囲を選択してください",
+      "thisEvent": "この予定のみ",
+      "thisEventDesc": "{date} のこの1回だけ変更",
+      "allEvents": "すべての予定",
+      "allEventsDesc": "この予定を含む全シリーズを変更",
+      "cancel": "キャンセル"
+    },
     "weekdays": {
       "sun": "日",
       "mon": "月",

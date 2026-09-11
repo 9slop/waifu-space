@@ -10,6 +10,7 @@ export function CalendarDayView(props: {
   onSelectSlot: (d: Date) => void;
   onSelectRange?: (range: { start: Date; end: Date }) => void;
   onOpenEvent: (ev: CalendarEventItem, anchorRect?: DOMRect) => void;
+  onRequestMove?: (ev: CalendarEventItem, start: Date, end: Date, dateKey?: string) => void;
 }) {
   let scrollContainerRef: HTMLDivElement | undefined;
 
@@ -48,7 +49,7 @@ export function CalendarDayView(props: {
 
   const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
     if (!e.dataTransfer) return;
-    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'calendar-event', id: ev.id }));
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'calendar-event', id: ev.id, dateKey: ev.dateKey }));
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -81,11 +82,18 @@ export function CalendarDayView(props: {
       newStart.setHours(hour, minute, 0, 0);
       const newEnd = new Date(newStart.getTime() + (duration > 0 ? duration : 3600000));
 
+      const minStr = minute < 10 ? '0' + minute : minute;
+
+      if (data.dateKey && ev.recurrence && ev.recurrence !== 'none' && props.onRequestMove) {
+        props.onRequestMove(ev, newStart, newEnd, data.dateKey);
+        showToast(t('calendar.toasts.rescheduled', { title: ev.title, date: `${hour}:${minStr}` }));
+        return;
+      }
+
       updateCalendarEvent(ev.id, {
         start: newStart.toISOString(),
         end: newEnd.toISOString()
       });
-      const minStr = minute < 10 ? '0' + minute : minute;
       showToast(t('calendar.toasts.rescheduled', {
         title: ev.title,
         date: `${hour}:${minStr}`
@@ -297,7 +305,7 @@ export function CalendarDayView(props: {
                             checked={ev.completed}
                             onClick={e => {
                               e.stopPropagation();
-                              toggleTask(ev.id);
+                              toggleTask(ev.id, ev.dateKey);
                             }}
                           />
                         )}
