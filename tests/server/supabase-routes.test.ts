@@ -108,6 +108,22 @@ function buildFakeClient() {
           db[table] = (db[table] || []).concat(list.map(r => ({ ...r })));
           return Promise.resolve({ data: list, error: null });
         },
+        update(patch: any) {
+          const qUpdate = {
+            eq(col: string, val: any) {
+              const src = db[table] || [];
+              let matched = 0;
+              for (let i = 0; i < src.length; i++) {
+                if (src[i] && src[i][col] === val) {
+                  src[i] = { ...src[i], ...patch };
+                  matched++;
+                }
+              }
+              return Promise.resolve({ data: matched > 0 ? patch : null, error: null });
+            }
+          };
+          return qUpdate;
+        },
         upsert(rows: any | any[]) {
           const list = Array.isArray(rows) ? rows : [rows];
           const src = db[table] || (db[table] = []);

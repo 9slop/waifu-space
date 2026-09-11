@@ -273,6 +273,7 @@
       "cosmeticsUnlocked": "Cosmetics Unlocked"
     },
     "tabs": {
+      "games": "Games",
       "defense": "Waifu Defense",
       "gacha": "Gacha Chests",
       "affection": "Affection Road",
@@ -394,6 +395,7 @@
   },
   "settings": {
     "tabs": {
+      "profile": "Profile & Account",
       "personality": "Personality",
       "appearance": "Appearance & Clothes",
       "wallpapers": "Wallpapers",

@@ -98,4 +98,20 @@ describe('Procedural Defense Map Generation (defense-map.ts)', () => {
     expect(getTileAtPixel(map, -10, 50)).toBeNull();
     expect(getTileAtPixel(map, 850, 200)).toBeNull();
   });
+
+  it('generates multiple distinct winding paths across seeds with tile (2,4) never on road', () => {
+    const uniqueFirstTurns = new Set<string>();
+    for (let i = 0; i < 50; i++) {
+      const map = generateDefenseMap(i * 17 + 3);
+      // tile (2, 4) must never be a road tile
+      expect(map.roadKeySet.has('2,4')).toBe(false);
+      expect(map.tiles[4][2].type).not.toBe('road');
+
+      // Check path variation by recording waypoint hashes
+      const wpKey = map.waypoints.map(w => `${w.x},${w.y}`).join(';');
+      uniqueFirstTurns.add(wpKey);
+    }
+    // We have 12 preset path variations, so 50 random seeds should sample at least 8 unique topologies
+    expect(uniqueFirstTurns.size).toBeGreaterThanOrEqual(8);
+  });
 });

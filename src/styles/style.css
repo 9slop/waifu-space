@@ -785,10 +785,36 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn-share-profile:hover {
   background: rgba(255, 255, 255, 0.16);
+}
+
+.btn-settings-profile {
+  background: rgba(255, 105, 180, 0.12);
+  border: 1px solid rgba(255, 105, 180, 0.35);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-settings-profile:hover {
+  background: rgba(255, 105, 180, 0.24);
+  transform: translateY(-1px);
+  box-shadow: 0 0 10px var(--primary-glow);
 }
 
 .profile-bio {

@@ -5,6 +5,8 @@ import {
   setState,
   saveState,
   COSMETIC_CATALOG,
+  AFFECTION_MILESTONES,
+  getBondExpNeeded,
   RpgCosmeticItem,
   showToast,
   isCosmeticUnlocked,
@@ -13,7 +15,6 @@ import {
 } from '../lib/store';
 import { t } from '../lib/i18n';
 import { WaifuAvatar } from './WaifuAvatar';
-import { SettingsStudio } from './SettingsStudio';
 
 interface PublicProfileData {
   id: string;
@@ -89,7 +90,6 @@ export function ProfileShowcase() {
   // Settings tab form state
   const [editBio, setEditBio] = createSignal('');
   const [editAvatarUrl, setEditAvatarUrl] = createSignal('');
-  const [showFullSettings, setShowFullSettings] = createSignal(false);
 
   const isViewingPublic = () => {
     const target = targetUser();
@@ -324,6 +324,12 @@ export function ProfileShowcase() {
               <button class="btn-share-profile" onClick={shareProfile}>
                 {copiedLink() ? '✓ ' + t('common.done') : '🔗 ' + t('profile.share')}
               </button>
+              <Show when={!isViewingPublic()}>
+                <a href="/settings" class="btn-settings-profile" title={t('nav.settings')}>
+                  <span>⚙️</span>
+                  <span>{t('nav.settings')}</span>
+                </a>
+              </Show>
             </div>
             <p class="profile-bio">{currentUser().bio || t('profile.defaultBio')}</p>
 
@@ -758,7 +764,7 @@ export function ProfileShowcase() {
                 <span class="stats-card-icon">💖</span>
                 <div class="stats-card-info">
                   <h3>Lv. {statsInfo().bondLevel}</h3>
-                  <p>{t('companion.affectionLevel')}</p>
+                  <p>{t('companion.affectionLevel')} ({state.waifu?.bondExp || 0} / {getBondExpNeeded(state.waifu?.bondLevel || 1)} XP)</p>
                 </div>
               </div>
               <div class="stats-card">
@@ -766,6 +772,13 @@ export function ProfileShowcase() {
                 <div class="stats-card-info">
                   <h3>{statsInfo().cosmeticsUnlocked} / {COSMETIC_CATALOG.length}</h3>
                   <p>{t('rpg.dashboard.cosmeticsUnlocked')}</p>
+                </div>
+              </div>
+              <div class="stats-card">
+                <span class="stats-card-icon">🏆</span>
+                <div class="stats-card-info">
+                  <h3>{state.rpg?.claimedAffectionMilestones?.length || 0} / {AFFECTION_MILESTONES.length}</h3>
+                  <p>Affection Milestones Claimed</p>
                 </div>
               </div>
             </div>
@@ -831,21 +844,11 @@ export function ProfileShowcase() {
                 <button class="btn-save-profile" onClick={handleSaveProfileSettings}>
                   💾 Save Profile Changes
                 </button>
-                <button
-                  class="btn-toggle-app-settings"
-                  onClick={() => setShowFullSettings(!showFullSettings())}
-                >
-                  {showFullSettings() ? '▲ Hide Full App Settings' : '▼ Open App Settings (Theme, Wallpaper, Voice)'}
-                </button>
+                <a href="/settings" class="btn-toggle-app-settings">
+                  ⚙️ Open App & Theme Settings ➡️
+                </a>
               </div>
             </div>
-
-            {/* EXPANDABLE FULL APP SETTINGS */}
-            <Show when={showFullSettings()}>
-              <div class="embedded-settings-studio">
-                <SettingsStudio />
-              </div>
-            </Show>
           </div>
         </Show>
       </Show>

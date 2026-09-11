@@ -17,8 +17,11 @@ import { t, SUPPORTED_LANGUAGES, setLanguage, SupportedLanguage } from '../lib/i
 
 export function SettingsStudio() {
   const [activeTab, setActiveTab] = createSignal<
-    'personality' | 'appearance' | 'wallpapers' | 'themes' | 'voice' | 'data' | 'language'
-  >('personality');
+    'profile' | 'personality' | 'appearance' | 'wallpapers' | 'themes' | 'voice' | 'data' | 'language'
+  >('profile');
+
+  const [editBio, setEditBio] = createSignal(state.user?.bio || '');
+  const [editAvatarUrl, setEditAvatarUrl] = createSignal(state.user?.avatarUrl || '');
 
   const [availableVoices, setAvailableVoices] = createSignal<SpeechSynthesisVoice[]>([]);
 
@@ -80,6 +83,36 @@ export function SettingsStudio() {
     input.value = '';
   };
 
+  const handleSaveProfileSettings = () => {
+    if (state.user) {
+      setState('user', 'bio', editBio());
+      setState('user', 'avatarUrl', editAvatarUrl());
+      saveState();
+      showToast(t('settings.appearance.customSpriteUpdated') || 'Profile updated successfully!');
+    } else {
+      showToast('Profile updated locally.');
+    }
+  };
+
+  const handleCustomProfileAvatarUpload = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const dataUrl = evt.target?.result as string;
+      if (dataUrl) {
+        setEditAvatarUrl(dataUrl);
+        if (state.user) {
+          setState('user', 'avatarUrl', dataUrl);
+          saveState();
+        }
+        showToast(t('settings.appearance.customSpriteUpdated') || 'Avatar sprite updated!');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const hairColorPresets = ['#ff7597', '#4f86f7', '#6c5ce7', '#ffeaa7', '#2d3436', '#d63031', '#00cec9', '#a29bfe'];
   const eyeColorPresets = ['#4f86f7', '#ff7597', '#fdcb6e', '#00cec9', '#6c5ce7', '#e17055', '#2d3436', '#ff4757'];
 
@@ -87,6 +120,13 @@ export function SettingsStudio() {
     <div class="settings-layout">
       {/* SETTINGS TABS NAV */}
       <nav class="settings-nav">
+        <button
+          type="button"
+          class={`settings-tab-btn ${activeTab() === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          👤 {t('settings.tabs.profile')}
+        </button>
         <button
           type="button"
           class={`settings-tab-btn ${activeTab() === 'personality' ? 'active' : ''}`}
@@ -140,6 +180,75 @@ export function SettingsStudio() {
 
       {/* SETTINGS SECTIONS WRAPPER */}
       <div class="settings-content">
+        {/* 0. PROFILE & ACCOUNT TAB */}
+        <Show when={activeTab() === 'profile'}>
+          <div class="settings-section active">
+            <div class="section-card">
+              <h3 class="section-title">👤 {t('profile.editProfile')}</h3>
+              <p class="section-subtitle">
+                Customize your commander public profile, bio, and avatar.
+              </p>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <label>{t('profile.displayName')}</label>
+                  <small class="setting-desc">Your unique commander identity</small>
+                </div>
+                <input
+                  type="text"
+                  class="profile-input modal-input"
+                  style={{ 'max-width': '380px' }}
+                  value={state.user?.username || 'Guest'}
+                  disabled={true}
+                  title="Username is permanent"
+                />
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <label>{t('profile.bio')}</label>
+                  <small class="setting-desc">Displayed to other commanders on your profile</small>
+                </div>
+                <textarea
+                  class="profile-textarea modal-input"
+                  style={{ 'max-width': '450px', 'min-height': '80px' }}
+                  value={editBio()}
+                  onInput={e => setEditBio(e.currentTarget.value)}
+                  placeholder={t('profile.defaultBio')}
+                  rows={3}
+                />
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <label>{t('profile.avatar')}</label>
+                  <small class="setting-desc">Upload a custom profile image or provide an image link</small>
+                </div>
+                <div class="avatar-upload-group" style={{ display: 'flex', 'flex-direction': 'column', gap: '8px', 'max-width': '450px' }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCustomProfileAvatarUpload}
+                  />
+                  <input
+                    type="text"
+                    class="profile-input modal-input"
+                    placeholder="https://..."
+                    value={editAvatarUrl()}
+                    onInput={e => setEditAvatarUrl(e.currentTarget.value)}
+                  />
+                </div>
+              </div>
+
+              <div class="profile-edit-actions" style={{ 'margin-top': '24px' }}>
+                <button class="btn-save-profile" onClick={handleSaveProfileSettings}>
+                  💾 Save Profile Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
         {/* 1. PERSONALITY TAB */}
         <Show when={activeTab() === 'personality'}>
           <div class="settings-section active">

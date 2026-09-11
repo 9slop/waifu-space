@@ -47,10 +47,12 @@ const OBSTACLE_ICONS: Record<ObstacleType, string> = {
  * or falls back to Math.random.
  */
 function createPrng(seed?: number) {
-  let s = seed !== undefined ? Math.floor(Math.abs(seed)) + 1 : Math.floor(Math.random() * 100000) + 1;
+  let s = seed !== undefined ? Math.floor(Math.abs(seed)) + 1 : Math.floor(Math.random() * 1000000) + 1;
+  s = (s ^ 0x6D2B79F5) >>> 0;
   return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
+    s = Math.imul(s ^ (s >>> 15), 1 | s);
+    s = (s + Math.imul(s ^ (s >>> 7), 61 | s)) ^ s;
+    return ((s ^ (s >>> 14)) >>> 0) / 4294967296;
   };
 }
 
@@ -61,35 +63,46 @@ function createPrng(seed?: number) {
  * - Scattered obstacles on non-road tiles.
  * - All other tiles available for free tower placement.
  */
+export const PRESET_ROAD_PATHS: Array<Array<[number, number]>> = [
+  // 1. Classic S-Curve (High then Low)
+  [[0, 6], [4, 6], [4, 1], [9, 1], [9, 9], [14, 9], [14, 5], [18, 5]],
+  // 2. Inverted S-Curve (Low then High)
+  [[0, 7], [4, 7], [4, 10], [10, 10], [10, 2], [14, 2], [14, 6], [18, 6]],
+  // 3. Double High Crest
+  [[0, 6], [3, 6], [3, 2], [7, 2], [7, 7], [12, 7], [12, 3], [15, 3], [15, 6], [18, 6]],
+  // 4. Double Low Valley
+  [[0, 8], [4, 8], [4, 10], [8, 10], [8, 3], [12, 3], [12, 9], [15, 9], [15, 5], [18, 5]],
+  // 5. Serpentine Zig-Zag
+  [[0, 5], [3, 5], [3, 8], [6, 8], [6, 2], [10, 2], [10, 8], [14, 8], [14, 5], [18, 5]],
+  // 6. Northern Loop
+  [[0, 7], [5, 7], [5, 1], [12, 1], [12, 8], [16, 8], [16, 6], [18, 6]],
+  // 7. Southern Perimeter Run
+  [[0, 5], [5, 5], [5, 10], [13, 10], [13, 3], [16, 3], [16, 5], [18, 5]],
+  // 8. Castle Battlements (Alternate high/low battlements)
+  [[0, 6], [4, 6], [4, 2], [8, 2], [8, 6], [11, 6], [11, 1], [15, 1], [15, 6], [18, 6]],
+  // 9. Central Meander
+  [[0, 7], [4, 7], [4, 4], [8, 4], [8, 8], [12, 8], [12, 4], [15, 4], [15, 6], [18, 6]],
+  // 10. Long Coastal sweep
+  [[0, 6], [3, 6], [3, 9], [9, 9], [9, 2], [13, 2], [13, 7], [18, 7]],
+  // 11. Highland Ascent & Valley Plunge
+  [[0, 5], [4, 5], [4, 1], [8, 1], [8, 9], [13, 9], [13, 2], [16, 2], [16, 5], [18, 5]],
+  // 12. Gentle River Curve
+  [[0, 7], [5, 7], [5, 3], [9, 3], [9, 7], [13, 7], [13, 5], [18, 5]]
+];
+
 export function generateDefenseMap(seed?: number): DefenseMap {
   const rand = createPrng(seed);
 
-  // Pick start and end rows with comfortable margins (avoiding tile 2,4)
-  const startRow = 6;
-  const shrineRow = 5 + Math.floor(rand() * 2); // 5..6
-  const shrineCol = 18;
+  // Pick one of the 12 preset path topologies
+  const pathIndex = Math.floor(rand() * PRESET_ROAD_PATHS.length);
+  const baseCorners = PRESET_ROAD_PATHS[pathIndex];
 
-  // Turn columns (spaced evenly across 20 columns)
-  const col1 = 4;
-  const row1 = 1 + Math.floor(rand() * 2); // 1..2
-
-  const col2 = 8 + Math.floor(rand() * 3); // 8..10
-  const row2 = 8 + Math.floor(rand() * 2); // alternate height
-
-  const col3 = 13 + Math.floor(rand() * 2); // 13..14
-  const row3 = shrineRow;
-
-  // Key turning points in grid (col, row)
-  const gridCorners: Array<[number, number]> = [
-    [0, startRow],
-    [col1, startRow],
-    [col1, row1],
-    [col2, row1],
-    [col2, row2],
-    [col3, row2],
-    [col3, row3],
-    [shrineCol, row3]
-  ];
+  // Clone path corners and ensure (2, 4) is never crossed
+  const gridCorners: Array<[number, number]> = baseCorners.map(([c, r]) => [c, r]);
+  const lastCorner = gridCorners[gridCorners.length - 1];
+  const shrineCol = lastCorner[0];
+  const shrineRow = lastCorner[1];
+  const startRow = gridCorners[0][1];
 
   // Rasterize all tiles along the straight lines between corners
   const roadKeySet = new Set<string>();

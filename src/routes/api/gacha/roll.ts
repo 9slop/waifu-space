@@ -71,11 +71,36 @@ export async function POST(event: { request: Request }) {
       const originalCoins = dbCoins;
 
       // Update coin balance first
-      const { error: coinErr } = await supabase.from('user_progress').upsert({
-        user_id: session.userId,
-        coins: rollResult.newCoins!,
-        updated_at: new Date().toISOString()
-      });
+      let coinErr: any = null;
+      if (progress) {
+        const { error } = await supabase
+          .from('user_progress')
+          .update({
+            coins: rollResult.newCoins!,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', session.userId);
+        coinErr = error;
+      } else {
+        const { error } = await supabase
+          .from('user_progress')
+          .insert({
+            user_id: session.userId,
+            coins: rollResult.newCoins!,
+            bond_exp: 0,
+            bond_level: 1,
+            waifu_name: 'Akari',
+            waifu_personality: 'tsundere',
+            worn_outfit: 'seifuku',
+            worn_accessory: 'none',
+            worn_hairstyle: 'twintails',
+            appearance_data: {},
+            settings_data: {},
+            claimed_milestones: [],
+            updated_at: new Date().toISOString()
+          });
+        coinErr = error;
+      }
 
       if (coinErr) {
         return json({ success: false, error: 'Failed to update coin balance' }, { status: 500 });
@@ -94,11 +119,13 @@ export async function POST(event: { request: Request }) {
 
         if (insertErr) {
           // Transaction rollback: restore coins so user is not debited when item grant fails
-          await supabase.from('user_progress').upsert({
-            user_id: session.userId,
-            coins: originalCoins,
-            updated_at: new Date().toISOString()
-          });
+          await supabase
+            .from('user_progress')
+            .update({
+              coins: originalCoins,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', session.userId);
           return json({ success: false, error: 'Failed to grant item to inventory' }, { status: 500 });
         }
       }

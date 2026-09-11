@@ -164,5 +164,5 @@ export function getWaveClearSilver(wave: number): number {
 /** Minimum plausible duration for a wave clear, used by anti-cheat validation. */
 export function getMinPlausibleWaveMs(wave: number): number {
   const safeWave = Math.max(1, Math.min(MAX_DEFENSE_WAVE, Math.floor(wave || 1)));
-  return Math.max(2500, safeWave * 800);
+  return Math.max(1000, safeWave * 600);
 }

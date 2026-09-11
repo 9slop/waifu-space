@@ -1550,7 +1550,7 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
   // Task done
   if (strong('taskComplete')) {
     const reaction = getRandomTaskCompleteResponse(personaId);
-    return { text: reaction.text, mood: reaction.mood, suggestions: ["Give me praise!", "What's next on calendar?", "Headpat", "Thanks Akari!"] };
+    return { text: reaction.text, mood: reaction.mood, suggestions: ["Give me praise!", "What's next on calendar?", "Headpat", `Thanks ${state.waifu.name || 'Akari'}!`] };
   }
 
   // Greetings (time-of-day aware)

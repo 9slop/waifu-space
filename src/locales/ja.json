@@ -273,6 +273,7 @@
       "cosmeticsUnlocked": "衣装・アクセ解放数"
     },
     "tabs": {
+      "games": "ゲーム一覧",
       "defense": "防衛戦",
       "gacha": "ガチャ宝箱",
       "affection": "好感度ロード",
@@ -394,12 +395,13 @@
   },
   "settings": {
     "tabs": {
-      "personality": "性格",
+      "profile": "プロフィール設定",
+      "personality": "性格設定",
       "appearance": "外見・衣装",
       "wallpapers": "壁紙",
       "themes": "テーマカラー",
-      "voice": "音声・AI",
-      "data": "データ管理",
+      "voice": "音声・AI設定",
+      "data": "データ・バックアップ",
       "language": "言語"
     },
     "a11y": {

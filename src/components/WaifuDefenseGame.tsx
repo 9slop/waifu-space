@@ -189,12 +189,16 @@ export function WaifuDefenseGame() {
   // starter amount on the server (never passively regenerated).
   const ensureSession = async () => {
     try {
-      const token = localStorage.getItem('ws_auth_token');
+      const token = state.user?.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('ws_auth_token') : null);
+      if (!token) {
+        setSilver(SILVER_STARTER);
+        return;
+      }
       const res = await fetch('/api/defense/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          Authorization: `Bearer ${token}`
         }
       });
       if (res.ok) {
@@ -560,6 +564,7 @@ export function WaifuDefenseGame() {
         const applyVictory = (coinsWon: number, expWon: number, silverEarned: number, goblins = 10) => {
           recordDefenseWaveVictory(curWave, coinsWon, expWon, goblins);
           setLastWaveReward({ coins: coinsWon, exp: expWon, silverEarned });
+          setWave(curWave + 1);
           showToast(t('defense.waveClearedToast', { wave: curWave, coins: coinsWon, exp: expWon }));
         };
 
@@ -574,13 +579,13 @@ export function WaifuDefenseGame() {
 
         (async () => {
           try {
-            const token = localStorage.getItem('ws_auth_token');
+            const token = state.user?.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('ws_auth_token') : null);
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const res = await fetch('/api/defense/complete-wave', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
-              },
+              headers,
               body: JSON.stringify({ wave: curWave, durationMs, spends: spendSnapshot })
             });
 
@@ -977,7 +982,7 @@ export function WaifuDefenseGame() {
         <div class="hud-stat">
           <Show when={!waveInProgress() && gameStatus() !== 'gameover'}>
             <button class="btn-start-wave" onClick={startWave}>
-              ⚔️ {t('defense.startWave', { wave: gameStatus() === 'victory' ? wave() + 1 : wave() })}
+              ⚔️ {t('defense.startWave', { wave: wave() })}
             </button>
           </Show>
           <Show when={gameStatus() === 'gameover'}>
@@ -1031,11 +1036,10 @@ export function WaifuDefenseGame() {
             <button
               class="btn-primary"
               onClick={() => {
-                setWave(prev => prev + 1);
                 startWave();
               }}
             >
-              {t('defense.startWave', { wave: wave() + 1 })} ➡️
+              {t('defense.startWave', { wave: wave() })} ➡️
             </button>
           </div>
         </Show>

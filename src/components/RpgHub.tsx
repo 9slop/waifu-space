@@ -13,13 +13,14 @@ import { t } from '../lib/i18n';
 import { defenseGameActive, pendingDefenseTab, setPendingDefenseTab } from '../lib/defense-bridge';
 
 export function RpgHub() {
-  const [activeTab, setActiveTab] = createSignal<'defense' | 'gacha' | 'affection'>('defense');
+  const [activeTab, setActiveTab] = createSignal<'games' | 'gacha' | 'affection'>('games');
+  const [selectedGame, setSelectedGame] = createSignal<'defense' | 'future'>('defense');
 
   // Intercept tab switches while a defense run is in progress so the game
   // (and the player's progress) is never silently discarded.
-  const handleTabSwitch = (next: 'defense' | 'gacha' | 'affection') => {
+  const handleTabSwitch = (next: 'games' | 'gacha' | 'affection') => {
     if (next === activeTab()) return;
-    if (next !== 'defense' && activeTab() === 'defense' && defenseGameActive()) {
+    if (next !== 'games' && activeTab() === 'games' && selectedGame() === 'defense' && defenseGameActive()) {
       setPendingDefenseTab(next);
       return;
     }
@@ -33,85 +34,17 @@ export function RpgHub() {
       setPendingDefenseTab(null);
     }
   };
-  const currentCoins = () => state.rpg?.coins ?? 0;
-  const currentHighWave = () => state.rpg?.defenseHighWave ?? 0;
-  const unlockedCount = () => getUnlockedCosmeticsCount();
 
   return (
     <div class="rpg-hub-container">
-      {/* RPG TOP STATS DASHBOARD */}
-      <div class="rpg-dashboard-header">
-        <div class="rpg-profile-card">
-          <div class="rpg-avatar-small">
-            <span class="avatar-ring-icon">🌸</span>
-          </div>
-          <div class="rpg-profile-info">
-            <h3>{state.waifu?.name || 'Companion'}</h3>
-            <div class="rpg-bars-group">
-              <div class="rpg-bar-item">
-                <div class="bar-header">
-                  <span>🌟 {t('rpg.dashboard.bondLevel', { level: state.waifu?.bondLevel || 1 })}</span>
-                  <small>{state.waifu?.bondExp || 0} / {getBondExpNeeded(state.waifu?.bondLevel || 1)} XP</small>
-                </div>
-                <div class="stat-progress-bar">
-                  <div
-                    class="progress-fill exp-fill"
-                    style={{ width: `${Math.min(100, ((state.waifu?.bondExp || 0) / getBondExpNeeded(state.waifu?.bondLevel || 1)) * 100)}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <div class="rpg-bar-item">
-                <div class="bar-header">
-                  <span>💖 {t('rpg.dashboard.affectionLevel', { level: state.waifu?.bondLevel || 1 })}</span>
-                  <small>{t('rpg.dashboard.unlockedTier', { current: state.rpg?.claimedAffectionMilestones?.length || 0, total: AFFECTION_MILESTONES.length })}</small>
-                </div>
-                <div class="stat-progress-bar">
-                  <div
-                    class="progress-fill affection-fill"
-                    style={{ width: `${Math.min(100, ((state.rpg?.claimedAffectionMilestones?.length || 0) / AFFECTION_MILESTONES.length) * 100)}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="rpg-stats-grid">
-          <div class="rpg-stat-chip">
-            <span class="chip-icon">🪙</span>
-            <div class="chip-content">
-              <span class="chip-label">{t('rpg.dashboard.goldCoins')}</span>
-              <strong class="chip-val">{currentCoins()}</strong>
-            </div>
-          </div>
-
-          <div class="rpg-stat-chip">
-            <span class="chip-icon">🛡️</span>
-            <div class="chip-content">
-              <span class="chip-label">{t('rpg.dashboard.defenseHighScore')}</span>
-              <strong class="chip-val">{t('rpg.dashboard.defenseScoreWave', { wave: currentHighWave() })}</strong>
-            </div>
-          </div>
-
-          <div class="rpg-stat-chip">
-            <span class="chip-icon">👗</span>
-            <div class="chip-content">
-              <span class="chip-label">{t('rpg.dashboard.cosmeticsUnlocked')}</span>
-              <strong class="chip-val">{unlockedCount()} / {COSMETIC_CATALOG.length}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* RPG NAVIGATION TABS */}
       <div class="rpg-navigation-tabs">
         <button
-          class={`rpg-tab-btn ${activeTab() === 'defense' ? 'active' : ''}`}
-          onClick={() => handleTabSwitch('defense')}
+          class={`rpg-tab-btn ${activeTab() === 'games' ? 'active' : ''}`}
+          onClick={() => handleTabSwitch('games')}
         >
-          <span>⚔️</span>
-          <span>{t('rpg.tabs.defense')}</span>
+          <span>🎮</span>
+          <span>{t('rpg.tabs.games')}</span>
         </button>
 
         <button
@@ -133,10 +66,45 @@ export function RpgHub() {
 
       {/* TAB CONTENT */}
       <div class="rpg-content-body">
-        {/* 1. TOWER DEFENSE GAMEMODE */}
-        <Show when={activeTab() === 'defense'}>
-          <div class="tab-pane">
-            <WaifuDefenseGame />
+        {/* 1. GAMES TAB */}
+        <Show when={activeTab() === 'games'}>
+          <div class="tab-pane games-mode-pane">
+            {/* Gamemode Submenu Selector */}
+            <div class="gamemode-selector-bar">
+              <button
+                class={`gamemode-chip-btn ${selectedGame() === 'defense' ? 'active' : ''}`}
+                onClick={() => setSelectedGame('defense')}
+              >
+                <span>⚔️</span>
+                <span>{t('rpg.tabs.defense')}</span>
+                <span class="gamemode-badge">Live</span>
+              </button>
+
+              <button
+                class={`gamemode-chip-btn coming-soon ${selectedGame() === 'future' ? 'active' : ''}`}
+                onClick={() => setSelectedGame('future')}
+              >
+                <span>✨</span>
+                <span>More Modes</span>
+                <span class="gamemode-badge soon">Soon</span>
+              </button>
+            </div>
+
+            {/* Selected Gamemode View */}
+            <Show when={selectedGame() === 'defense'}>
+              <WaifuDefenseGame />
+            </Show>
+
+            <Show when={selectedGame() === 'future'}>
+              <div class="future-games-card">
+                <div class="future-icon">🎲</div>
+                <h3>New Gamemodes Coming Soon</h3>
+                <p>Exciting new minigames including Waifu Card Battles, Rhythm Tap, and Shrine Dungeon Expeditions are in active development!</p>
+                <button class="btn-primary" onClick={() => setSelectedGame('defense')}>
+                  ⚔️ Play Waifu Defense
+                </button>
+              </div>
+            </Show>
           </div>
         </Show>
 
