@@ -12,22 +12,21 @@ describe('Inventory & Showcase Features (Issue #16)', () => {
     setState(JSON.parse(JSON.stringify(DEFAULT_STATE)));
   });
 
-  describe('RpgHub Inventory Tab', () => {
-    it('renders the Inventory & Showcase tab button and switches to it', () => {
-      render(() => <RpgHub />);
+  describe('ProfileShowcase Inventory Tab (Relocated from Minigames)', () => {
+    it('renders the Inventory tab button on ProfileShowcase and switches to it', () => {
+      render(() => <ProfileShowcase />);
 
-      const tabBtn = screen.getByRole('button', { name: /inventory & showcase/i });
+      const tabBtn = screen.getByTestId('profile-tab-inventory');
       expect(tabBtn).toBeInTheDocument();
 
       fireEvent.click(tabBtn);
-      expect(screen.getByText(/profile showcase case/i)).toBeInTheDocument();
-      expect(screen.getByText(/cosmetics inventory/i)).toBeInTheDocument();
+      expect(screen.getByTestId('inventory-pane')).toBeInTheDocument();
     });
 
-    it('displays 6 showcase pedestals in the showcase area', () => {
-      render(() => <RpgHub />);
+    it('displays 6 showcase pedestals in the showcase area of inventory', () => {
+      render(() => <ProfileShowcase />);
 
-      const tabBtn = screen.getByRole('button', { name: /inventory & showcase/i });
+      const tabBtn = screen.getByTestId('profile-tab-inventory');
       fireEvent.click(tabBtn);
 
       const pedestals = screen.getAllByTestId(/^showcase-pedestal-/);
@@ -36,17 +35,17 @@ describe('Inventory & Showcase Features (Issue #16)', () => {
 
     it('allows toggling items into showcase pedestals up to maximum of 6', () => {
       // Unlock cosmetics first
-      unlockCosmetic('maid_headband');
-      unlockCosmetic('succubus_horns');
-      unlockCosmetic('phoenix_pin');
+      unlockCosmetic('accessories', 'maid_headband');
+      unlockCosmetic('accessories', 'succubus_horns');
+      unlockCosmetic('accessories', 'phoenix_pin');
 
-      render(() => <RpgHub />);
+      render(() => <ProfileShowcase />);
 
-      const tabBtn = screen.getByRole('button', { name: /inventory & showcase/i });
+      const tabBtn = screen.getByTestId('profile-tab-inventory');
       fireEvent.click(tabBtn);
 
-      // Find toggle button for maid_headband
-      const toggleBtns = screen.getAllByTitle(/add to showcase|remove from showcase/i);
+      // Find toggle button for items
+      const toggleBtns = screen.getAllByTitle(/feature in showcase|remove from showcase/i);
       expect(toggleBtns.length).toBeGreaterThan(0);
 
       // Click first toggle button
@@ -59,9 +58,9 @@ describe('Inventory & Showcase Features (Issue #16)', () => {
     });
 
     it('filters items by category and rarity in the inventory view', () => {
-      render(() => <RpgHub />);
+      render(() => <ProfileShowcase />);
 
-      const tabBtn = screen.getByRole('button', { name: /inventory & showcase/i });
+      const tabBtn = screen.getByTestId('profile-tab-inventory');
       fireEvent.click(tabBtn);
 
       // Category filter
