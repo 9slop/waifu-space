@@ -153,6 +153,16 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.defenseStats.goblinsDefeated).toBe(15);
       expect(state.rpg.coins).toBe(initialCoins + 100);
     });
+
+    it('uses the shared defense formula by default and clamps out-of-range waves', () => {
+      setState('waifu', 'bondLevel', 100);
+      setState('waifu', 'bondExp', 0);
+      setState('rpg', 'coins', 0);
+
+      recordDefenseWaveVictory(500); // wave clamps to 200
+      expect(state.rpg.defenseHighWave).toBe(200);
+      expect(state.rpg.coins).toBe(15 + 200 * 8); // getDefenseCoinsReward(200)
+    });
   });
 
   describe('Interaction Cooldowns & Rewards', () => {

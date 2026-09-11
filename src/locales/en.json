@@ -328,6 +328,7 @@
     "upgrade": "Upgrade Lv{level} ({cost} ⚡)",
     "sell": "Sell ({cost} ⚡)",
     "waveClearedToast": "Wave {wave} Cleared! (+{coins} 🪙, +{exp} EXP)",
+    "waveWithheldToast": "⚠️ Wave reward withheld: verification failed. Try replaying the wave.",
     "tags": {
       "attack": "Attack",
       "support": "Support"

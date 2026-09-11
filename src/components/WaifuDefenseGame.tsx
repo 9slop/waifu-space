@@ -1,5 +1,6 @@
 import { createSignal, onMount, onCleanup, Show, For } from 'solid-js';
 import { state, recordDefenseWaveVictory, showToast } from '../lib/store';
+import { getDefenseCoinsReward, getDefenseExpReward } from '../lib/economy';
 import { t } from '../lib/i18n';
 
 interface TowerPlot {
@@ -522,10 +523,15 @@ export function WaifuDefenseGame() {
         const curWave = wave();
         const durationMs = Math.max(1000, Date.now() - waveStartTime);
 
-        (async () => {
-          let coinsWon = 30 + curWave * 15;
-          let expWon = 45 + curWave * 20;
+        const recordLocalVictory = () => {
+          const coinsWon = getDefenseCoinsReward(curWave);
+          const expWon = getDefenseExpReward(curWave);
+          recordDefenseWaveVictory(curWave, coinsWon, expWon);
+          setLastWaveReward({ coins: coinsWon, exp: expWon });
+          showToast(t('defense.waveClearedToast', { wave: curWave, coins: coinsWon, exp: expWon }));
+        };
 
+        (async () => {
           try {
             const token = localStorage.getItem('ws_auth_token');
             const res = await fetch('/api/defense/verify-wave', {
@@ -540,17 +546,21 @@ export function WaifuDefenseGame() {
             if (res.ok) {
               const data = await res.json();
               if (data.verified) {
-                coinsWon = data.coinsReward ?? coinsWon;
-                expWon = data.expReward ?? expWon;
+                recordDefenseWaveVictory(curWave, data.coinsReward, data.expReward);
+                setLastWaveReward({ coins: data.coinsReward, exp: data.expReward });
+                showToast(t('defense.waveClearedToast', { wave: curWave, coins: data.coinsReward, exp: data.expReward }));
+                return;
               }
+              // Server rejected the wave -> do NOT grant rewards locally (anti-cheat)
+              showToast(t('defense.waveWithheldToast'));
+              setLastWaveReward({ coins: 0, exp: 0 });
+              return;
             }
           } catch {
-            // Local fallback if offline or API unavailable
+            // Server offline / not deployed: fall back to local validation for offline play
           }
 
-          recordDefenseWaveVictory(curWave, coinsWon, expWon);
-          setLastWaveReward({ coins: coinsWon, exp: expWon });
-          showToast(t('defense.waveClearedToast', { wave: curWave, coins: coinsWon, exp: expWon }));
+          recordLocalVictory();
         })();
       }
 

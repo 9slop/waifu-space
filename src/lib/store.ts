@@ -6,7 +6,7 @@ import { callLLM } from './llm';
 import { parseIntent, hasIntent, DialogIntent } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
 import { sanitizeRawState } from './validate';
-import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION } from './economy';
+import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
 
@@ -988,20 +988,22 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
 }
 
 export function recordDefenseWaveVictory(wave: number, coinsWon?: number, expWon?: number, goblinsKilled = 10) {
-  const coinsReward = coinsWon ?? (wave * 75 + 50);
-  const expReward = expWon ?? (wave * 50 + 40);
+  const safeWave = Math.max(1, Math.min(200, Math.floor(wave || 1)));
+  const safeGoblins = Math.max(0, Math.min(100000, Math.floor(goblinsKilled || 0)));
+  const coinsReward = coinsWon !== undefined ? Math.max(0, Math.floor(coinsWon)) : getDefenseCoinsReward(safeWave);
+  const expReward = expWon !== undefined ? Math.max(0, Math.floor(expWon)) : getDefenseExpReward(safeWave);
 
   addCoins(coinsReward);
   gainBondExp(expReward);
 
   setState('rpg', produce(r => {
     if (!r) return;
-    if (wave > (r.defenseHighWave || 0)) r.defenseHighWave = wave;
+    if (safeWave > (r.defenseHighWave || 0)) r.defenseHighWave = safeWave;
     if (!r.defenseStats) {
       r.defenseStats = { totalVictories: 0, goblinsDefeated: 0 };
     }
     r.defenseStats.totalVictories = (r.defenseStats.totalVictories || 0) + 1;
-    r.defenseStats.goblinsDefeated = (r.defenseStats.goblinsDefeated || 0) + goblinsKilled;
+    r.defenseStats.goblinsDefeated = (r.defenseStats.goblinsDefeated || 0) + safeGoblins;
   }));
 
   saveState();
