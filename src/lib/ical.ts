@@ -70,15 +70,18 @@ export function generateICSString(events: CalendarEventItem[]): string {
       lines.push(`DTEND:${formatICSDate(new Date(ev.end || ev.start))}`);
     }
 
-    if (ev.recurrence && ev.recurrence !== 'none') {
-      if (ev.recurrence === 'daily') lines.push('RRULE:FREQ=DAILY');
-      else if (ev.recurrence === 'weekly') lines.push('RRULE:FREQ=WEEKLY');
-      else if (ev.recurrence === 'monthly') lines.push('RRULE:FREQ=MONTHLY');
-      else if (ev.recurrence === 'weekdays') lines.push('RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
-    }
+    if (ev.recurrence && ev.recurrence !== 'none') {
+      if (ev.recurrence === 'daily') lines.push('RRULE:FREQ=DAILY');
+      else if (ev.recurrence === 'weekly') lines.push('RRULE:FREQ=WEEKLY');
+      else if (ev.recurrence === 'monthly') lines.push('RRULE:FREQ=MONTHLY');
+      else if (ev.recurrence === 'weekdays') lines.push('RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
+    }
 
-    lines.push(`STATUS:${ev.completed ? 'COMPLETED' : 'CONFIRMED'}`);
-    lines.push('END:VEVENT');
+    lines.push(`STATUS:${ev.completed ? 'COMPLETED' : 'CONFIRMED'}`);
+    if (ev.type === 'task') {
+      lines.push('X-Task: TRUE'); // Custom property for tasks
+    }
+    lines.push('END:VEVENT');
   });
 
   lines.push('END:VCALENDAR');
