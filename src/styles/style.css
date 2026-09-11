@@ -143,6 +143,8 @@ body {
   padding: 8px 18px;
   border: none;
   background: transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
   color: var(--text-secondary);
   font-family: inherit;
   font-size: 14px;
