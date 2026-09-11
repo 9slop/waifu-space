@@ -1,4 +1,4 @@
-﻿import bcrypt from 'bcryptjs';
+import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 
 export interface UserSession {
@@ -107,6 +107,48 @@ export function verifySessionToken(token: string | null | undefined): UserSessio
 
 export function invalidateSessionToken(token: string) {
   localSessions.delete(token);
+}
+
+export const SESSION_COOKIE_NAME = 'ws_session';
+
+/**
+ * Formats a Set-Cookie header string for the session token.
+ * Max-Age: 7 days (604800 seconds), Path: /, SameSite: Lax.
+ */
+export function createSessionCookie(token: string, maxAgeSeconds = 7 * 24 * 60 * 60): string {
+  return `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAgeSeconds}; SameSite=Lax`;
+}
+
+/**
+ * Formats a Set-Cookie header string that immediately clears the session cookie.
+ */
+export function createClearSessionCookie(): string {
+  return `${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+}
+
+/**
+ * Extracts a session token from either Authorization Bearer header OR ws_session cookie.
+ */
+export function getSessionTokenFromRequest(request: Request): string | null {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+    const raw = authHeader.slice(7).trim();
+    if (raw) return raw;
+  }
+
+  const cookieHeader = request.headers.get('cookie');
+  if (cookieHeader) {
+    const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE_NAME}=([^;]+)`));
+    if (match && match[1]) {
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return match[1];
+      }
+    }
+  }
+
+  return null;
 }
 
 // Helper methods for local auth mock / fallback

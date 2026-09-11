@@ -99,3 +99,51 @@ if (typeof window !== 'undefined') {
     destination = {};
   };
 }
+
+// Preserve Cookie & Set-Cookie headers in happy-dom test runner
+const OrigRequest = globalThis.Request;
+const OrigResponse = globalThis.Response;
+
+if (OrigRequest) {
+  globalThis.Request = class extends OrigRequest {
+    constructor(input: RequestInfo | URL, init?: RequestInit) {
+      super(input, init);
+      if (init?.headers) {
+        if (typeof (init.headers as any).forEach === 'function') {
+          (init.headers as any).forEach((v: string, k: string) => {
+            if (k.toLowerCase() === 'cookie') this.headers.set(k, v);
+          });
+        } else if (typeof init.headers === 'object') {
+          for (const [k, v] of Object.entries(init.headers)) {
+            if (k.toLowerCase() === 'cookie' && typeof v === 'string') {
+              this.headers.set(k, v);
+            }
+          }
+        }
+      }
+    }
+  } as typeof Request;
+}
+
+if (OrigResponse) {
+  globalThis.Response = class extends OrigResponse {
+    constructor(body?: BodyInit | null, init?: ResponseInit) {
+      super(body, init);
+      if (init?.headers) {
+        if (typeof (init.headers as any).forEach === 'function') {
+          (init.headers as any).forEach((v: string, k: string) => {
+            if (k.toLowerCase() === 'set-cookie' || k.toLowerCase() === 'cookie') {
+              this.headers.set(k, v);
+            }
+          });
+        } else if (typeof init.headers === 'object') {
+          for (const [k, v] of Object.entries(init.headers)) {
+            if ((k.toLowerCase() === 'set-cookie' || k.toLowerCase() === 'cookie') && typeof v === 'string') {
+              this.headers.set(k, v);
+            }
+          }
+        }
+      }
+    }
+  } as typeof Response;
+}

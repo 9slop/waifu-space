@@ -416,7 +416,10 @@ function buildSyncSnapshot() {
     settings: state.settings,
     calendar: state.calendar.events.map(e => ({ ...e })),
     calendarOverrides: state.calendar.occurrenceOverrides.map(o => ({ ...o })),
-    showcaseItems: state.rpg.showcaseItems
+    showcaseItems: state.rpg.showcaseItems,
+    rpg: {
+      claimedAffectionMilestones: state.rpg?.claimedAffectionMilestones || []
+    }
   };
 }
 
@@ -538,7 +541,7 @@ if (typeof window !== 'undefined') {
  * local state. Cloud data wins for RPG/waifu save fields, except that a richer
  * local save is never clobbered by the default 200-coin registration snapshot.
  */
-export async function loadCloudProgress(token?: string): Promise<void> {
+export async function loadCloudProgress(token?: string, scope?: 'all' | 'profile' | 'calendar' | 'rpg'): Promise<void> {
   const authToken = token || state.user?.token;
   if (!authToken) return;
 
@@ -549,7 +552,8 @@ export async function loadCloudProgress(token?: string): Promise<void> {
   }
 
   try {
-    const res = await fetch('/api/sync/progress', {
+    const url = scope ? `/api/sync/progress?scope=${scope}` : '/api/sync/progress';
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${authToken}` }
     });
     if (res.status === 401) {
@@ -569,16 +573,6 @@ export async function loadCloudProgress(token?: string): Promise<void> {
     }
 
     setCloudSyncStatus('synced');
-
-    const p = data.progress;
-    if (!p) {
-      // Nothing saved in the cloud yet -> upload the current local state.
-      scheduleCloudSync();
-      return;
-    }
-
-    const inventory: Array<{ item_id: string; category: string }> = Array.isArray(data.inventory) ? data.inventory : [];
-    const showcaseItems: string[] = Array.isArray(data.showcaseItems) ? data.showcaseItems : [];
 
     // The server calendar is authoritative when it holds items (a brand-new
     // account has none, in which case the local - equally empty - list stays).
@@ -601,6 +595,18 @@ export async function loadCloudProgress(token?: string): Promise<void> {
         setState('calendar', 'occurrenceOverrides', sanitized);
       }
     }
+
+    const p = data.progress;
+    if (!p) {
+      if (!scope || scope === 'all') {
+        // Nothing saved in the cloud yet -> upload the current local state.
+        scheduleCloudSync();
+      }
+      return;
+    }
+
+    const inventory: Array<{ item_id: string; category: string }> = Array.isArray(data.inventory) ? data.inventory : [];
+    const showcaseItems: string[] = Array.isArray(data.showcaseItems) ? data.showcaseItems : [];
 
     // Never lose currency: the cloud can hold a stale snapshot (e.g. an older
     // session), so the merge always keeps the larger balance on both sides.

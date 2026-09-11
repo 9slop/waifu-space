@@ -55,6 +55,13 @@
     "publicProfileOf": "Public Profile of {name}",
     "backToMyProfile": "Back to My Profile",
     "userNotFound": "User not found",
+    "defenseVictories": "Defense Victories",
+    "milestonesClaimed": "Affection Milestones Claimed",
+    "handleHint": "Your unique commander identity",
+    "bioHint": "A brief description displayed to other players",
+    "avatarHint": "Upload a custom profile image or provide an image link",
+    "saveChanges": "Save Profile Changes",
+    "openAppSettings": "Open App & Theme Settings",
     "tabs": {
       "showcase": "Showcase",
       "wardrobe": "Wardrobe & Catalog",
@@ -275,10 +282,18 @@
     "tabs": {
       "games": "Games",
       "defense": "Waifu Defense",
+      "moreModes": "More Modes",
       "gacha": "Gacha Chests",
       "affection": "Affection Road",
       "wardrobe": "Wardrobe & Catalog",
       "inventory": "Inventory & Showcase"
+    },
+    "gamemodes": {
+      "live": "Live",
+      "soon": "Soon",
+      "newModesTitle": "New Gamemodes Coming Soon",
+      "newModesDesc": "Exciting new minigames including Waifu Card Battles, Rhythm Tap, and Shrine Dungeon Expeditions are in active development!",
+      "playDefense": "Play Waifu Defense"
     },
     "affectionRoad": {
       "title": "Affection Road Milestones",

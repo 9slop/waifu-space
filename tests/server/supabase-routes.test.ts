@@ -26,10 +26,12 @@ vi.mock('../../src/lib/server/supabase', () => ({
 
 import { POST as registerPOST } from '../../src/routes/api/auth/register';
 import { POST as loginPOST } from '../../src/routes/api/auth/login';
+import { GET as meGET, POST as mePOST } from '../../src/routes/api/auth/me';
+import { POST as uploadAvatarPOST } from '../../src/routes/api/upload/avatar';
 import { POST as syncPOST, GET as syncGET } from '../../src/routes/api/sync/progress';
 import { POST as rollPOST } from '../../src/routes/api/gacha/roll';
 import { GET as leaderboardGET } from '../../src/routes/api/leaderboard';
-import { createSessionToken } from '../../src/lib/server/auth';
+import { createSessionToken, SESSION_COOKIE_NAME } from '../../src/lib/server/auth';
 import { COSMETIC_CATALOG } from '../../src/lib/store';
 
 function randomId(): string {
@@ -128,8 +130,13 @@ function buildFakeClient() {
           const list = Array.isArray(rows) ? rows : [rows];
           const src = db[table] || (db[table] = []);
           for (const row of list) {
-            const keyCol = table === 'user_progress' ? 'user_id' : 'id';
-            const idx = src.findIndex(r => r[keyCol] === row[keyCol]);
+            let idx = -1;
+            if (table === 'user_inventory') {
+              idx = src.findIndex(r => r.user_id === row.user_id && r.item_id === row.item_id);
+            } else {
+              const keyCol = table === 'user_progress' ? 'user_id' : 'id';
+              idx = src.findIndex(r => r[keyCol] === row[keyCol]);
+            }
             if (idx >= 0) src[idx] = { ...src[idx], ...row };
             else src.push({ ...row });
           }
@@ -169,8 +176,20 @@ function buildFakeClient() {
     })
   };
 
+  const storage = {
+    from: vi.fn((bucket: string) => ({
+      upload: vi.fn(async (filePath: string, _buffer: any, _options: any) => {
+        return { data: { path: filePath }, error: null };
+      }),
+      getPublicUrl: vi.fn((filePath: string) => ({
+        data: { publicUrl: `https://fake-supabase.co/storage/v1/object/public/${bucket}/${filePath}` }
+      }))
+    }))
+  };
+
   return {
     auth,
+    storage,
     from: (table: string) => chains[table]?.() ?? chains[table]
   } as unknown as SupabaseClient;
 }
@@ -758,6 +777,201 @@ describe('Supabase-backed API routes (regression guard)', () => {
       expect(data.success).toBe(true);
       expect(data.entries.length).toBeGreaterThan(0);
       expect(data.entries.map((e: any) => e.username)).toContain('SakuraEmpress');
+    });
+  });
+
+  describe('auth/me and cookie session lifecycle', () => {
+    it('sets ws_session cookie on successful registration and login', async () => {
+      const reg = await registerPOST(
+        req('http://localhost/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'CookieUser', email: 'cookie@waifuspace.moe', password: 'Passw0rd!123' })
+        })
+      );
+      expect(reg.status).toBe(200);
+      const regCookie = reg.headers.get('set-cookie');
+      expect(regCookie).toContain(`${SESSION_COOKIE_NAME}=`);
+      expect(regCookie).toContain('Path=/');
+
+      const login = await loginPOST(
+        req('http://localhost/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'CookieUser', password: 'Passw0rd!123' })
+        })
+      );
+      expect(login.status).toBe(200);
+      const loginCookie = login.headers.get('set-cookie');
+      expect(loginCookie).toContain(`${SESSION_COOKIE_NAME}=`);
+    });
+
+    it('validates session and returns profile via GET /api/auth/me from cookie', async () => {
+      const userId = randomId();
+      const token = createSessionToken({ id: userId, username: 'MeTester', email: 'me@waifuspace.moe' });
+      mocks.state.db.profiles.push({
+        id: userId,
+        username: 'MeTester',
+        email: 'me@waifuspace.moe',
+        avatar_url: 'https://example.com/avatar.png',
+        bio: 'Hello world'
+      });
+
+      const res = await meGET(
+        req('http://localhost/api/auth/me', {
+          headers: { Cookie: `${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}` }
+        })
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.user.id).toBe(userId);
+      expect(data.user.username).toBe('MeTester');
+      expect(data.user.avatarUrl).toBe('https://example.com/avatar.png');
+    });
+
+    it('returns 401 and clears cookie when GET /api/auth/me has invalid or missing session', async () => {
+      const res = await meGET(req('http://localhost/api/auth/me'));
+      expect(res.status).toBe(401);
+      const cookie = res.headers.get('set-cookie');
+      expect(cookie).toContain(`${SESSION_COOKIE_NAME}=;`);
+      expect(cookie).toContain('Max-Age=0');
+    });
+
+    it('clears session cookie on POST /api/auth/me (logout)', async () => {
+      const res = await mePOST(req('http://localhost/api/auth/me', { method: 'POST' }));
+      expect(res.status).toBe(200);
+      const cookie = res.headers.get('set-cookie');
+      expect(cookie).toContain(`${SESSION_COOKIE_NAME}=;`);
+      expect(cookie).toContain('Max-Age=0');
+    });
+  });
+
+  describe('scoped progress API and milestone rewards', () => {
+    const userId = randomId();
+    const token = createSessionToken({ id: userId, username: 'ScopedUser' });
+
+    beforeEach(() => {
+      mocks.state.db.user_progress.push({
+        user_id: userId,
+        coins: 888,
+        bond_level: 10,
+        bond_exp: 15,
+        claimed_milestones: [5],
+        defense_high_wave: 15,
+        defense_victories: 4,
+        goblins_defeated: 60
+      });
+      mocks.state.db.calendar_items.push({
+        user_id: userId,
+        item_id: 'cal-1',
+        title: 'Scoped Task',
+        start_at: '2026-09-12T10:00:00Z',
+        end_at: '2026-09-12T11:00:00Z',
+        all_day: false,
+        type: 'task',
+        completed: false,
+        color: '#00cec9',
+        recurrence: 'none'
+      });
+      mocks.state.db.user_inventory.push({ user_id: userId, item_id: 'sakura-shrine', category: 'wallpaper', rarity: 'rare' });
+      mocks.state.db.user_showcase.push({ user_id: userId, slot_index: 0, item_id: 'sakura-shrine' });
+    });
+
+    it('returns only calendar items when scope=calendar', async () => {
+      const res = await syncGET(
+        req('http://localhost/api/sync/progress?scope=calendar', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.calendarItems).toHaveLength(1);
+      expect(data.calendarItems[0].id).toBe('cal-1');
+      expect(data.progress).toBeNull();
+      expect(data.inventory).toHaveLength(0);
+      expect(data.showcaseItems).toHaveLength(0);
+    });
+
+    it('returns only rpg and inventory when scope=rpg', async () => {
+      const res = await syncGET(
+        req('http://localhost/api/sync/progress?scope=rpg', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.progress.coins).toBe(888);
+      expect(data.inventory).toHaveLength(1);
+      expect(data.calendarItems).toHaveLength(0);
+    });
+
+    it('persists claimed milestones and grants milestone cosmetic items into user_inventory on sync', async () => {
+      const res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            waifu: { name: 'Akari', personality: 'tsundere', appearance: {} },
+            settings: {},
+            rpg: {
+              claimedAffectionMilestones: [5, 8]
+            }
+          })
+        })
+      );
+      expect(res.status).toBe(200);
+
+      // Milestone 5 awards 'maid', Milestone 8 awards 'kimono'
+      const userInv = mocks.state.db.user_inventory.filter(i => i.user_id === userId);
+      expect(userInv.some(i => i.item_id === 'maid')).toBe(true);
+      expect(userInv.some(i => i.item_id === 'kimono')).toBe(true);
+
+      const progress = mocks.state.db.user_progress.find(p => p.user_id === userId);
+      expect(progress.claimed_milestones).toContain(5);
+      expect(progress.claimed_milestones).toContain(8);
+    });
+  });
+
+  describe('avatar upload route (/api/upload/avatar)', () => {
+    it('rejects unauthenticated requests with 401', async () => {
+      const res = await uploadAvatarPOST(
+        req('http://localhost/api/upload/avatar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' })
+        })
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('uploads valid base64 image to Supabase avatars bucket and returns public URL', async () => {
+      const userId = randomId();
+      const token = createSessionToken({ id: userId, username: 'AvatarArtist' });
+      mocks.state.db.profiles.push({ id: userId, username: 'AvatarArtist', avatar_url: '' });
+
+      const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+
+      const res = await uploadAvatarPOST(
+        req('http://localhost/api/upload/avatar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ dataUrl: tinyPng })
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.avatarUrl).toContain('fake-supabase.co/storage/v1/object/public/avatars');
+
+      const profile = mocks.state.db.profiles.find(p => p.id === userId);
+      expect(profile.avatar_url).toBe(data.avatarUrl);
     });
   });
 });

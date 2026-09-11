@@ -14,6 +14,7 @@ import {
   getUnlockedCosmeticsCount
 } from '../lib/store';
 import { t } from '../lib/i18n';
+import { compressImage } from '../lib/image-compress';
 import { WaifuAvatar } from './WaifuAvatar';
 
 interface PublicProfileData {
@@ -225,23 +226,41 @@ export function ProfileShowcase() {
     }
   };
 
-  const handleCustomAvatarUpload = (e: Event) => {
+  const handleCustomAvatarUpload = async (e: Event) => {
     const input = e.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const dataUrl = evt.target?.result as string;
-      if (dataUrl) {
-        setEditAvatarUrl(dataUrl);
-        if (state.user) {
-          setState('user', 'avatarUrl', dataUrl);
-          saveState();
+    try {
+      const compressed = await compressImage(file, 512, 512, 0.82);
+      const token = state.user?.token;
+      let finalUrl = compressed.dataUrl;
+
+      const res = await fetch('/api/upload/avatar', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ dataUrl: compressed.dataUrl })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.avatarUrl) {
+          finalUrl = data.avatarUrl;
         }
-        showToast(t('settings.appearance.customSpriteUpdated') || 'Avatar sprite updated!');
       }
-    };
-    reader.readAsDataURL(file);
+
+      setEditAvatarUrl(finalUrl);
+      if (state.user) {
+        setState('user', 'avatarUrl', finalUrl);
+        saveState();
+      }
+      showToast(t('settings.appearance.customSpriteUpdated') || 'Avatar updated successfully!');
+    } catch {
+      showToast('Failed to process avatar upload');
+    } finally {
+      input.value = '';
+    }
   };
 
   const waifuInfo = () => {
@@ -757,7 +776,7 @@ export function ProfileShowcase() {
                 <span class="stats-card-icon">⚔️</span>
                 <div class="stats-card-info">
                   <h3>{statsInfo().totalVictories}</h3>
-                  <p>Defense Victories</p>
+                  <p>{t('profile.defenseVictories')}</p>
                 </div>
               </div>
               <div class="stats-card">
@@ -778,7 +797,7 @@ export function ProfileShowcase() {
                 <span class="stats-card-icon">🏆</span>
                 <div class="stats-card-info">
                   <h3>{state.rpg?.claimedAffectionMilestones?.length || 0} / {AFFECTION_MILESTONES.length}</h3>
-                  <p>Affection Milestones Claimed</p>
+                  <p>{t('profile.milestonesClaimed')}</p>
                 </div>
               </div>
             </div>
@@ -794,7 +813,7 @@ export function ProfileShowcase() {
               <div class="setting-row">
                 <div class="setting-label">
                   <label>{t('profile.displayName')}</label>
-                  <small>Your public commander handle</small>
+                  <small>{t('profile.handleHint')}</small>
                 </div>
                 <input
                   type="text"
@@ -808,7 +827,7 @@ export function ProfileShowcase() {
               <div class="setting-row">
                 <div class="setting-label">
                   <label>{t('profile.bio')}</label>
-                  <small>A brief description displayed to other players</small>
+                  <small>{t('profile.bioHint')}</small>
                 </div>
                 <textarea
                   class="profile-textarea"
@@ -822,7 +841,7 @@ export function ProfileShowcase() {
               <div class="setting-row">
                 <div class="setting-label">
                   <label>{t('profile.avatar')}</label>
-                  <small>Custom avatar image file or web URL</small>
+                  <small>{t('profile.avatarHint')}</small>
                 </div>
                 <div class="avatar-upload-group">
                   <input
@@ -842,10 +861,10 @@ export function ProfileShowcase() {
 
               <div class="profile-edit-actions">
                 <button class="btn-save-profile" onClick={handleSaveProfileSettings}>
-                  💾 Save Profile Changes
+                  💾 {t('profile.saveChanges')}
                 </button>
                 <a href="/settings" class="btn-toggle-app-settings">
-                  ⚙️ Open App & Theme Settings ➡️
+                  ⚙️ {t('profile.openAppSettings')} ➡️
                 </a>
               </div>
             </div>

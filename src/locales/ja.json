@@ -55,6 +55,13 @@
     "publicProfileOf": "{name} の公開プロフィール",
     "backToMyProfile": "マイプロフィールに戻る",
     "userNotFound": "ユーザーが見つかりませんでした",
+    "defenseVictories": "防衛勝利数",
+    "milestonesClaimed": "好感度マイルストーン達成数",
+    "handleHint": "あなたの固有コマンダー識別名",
+    "bioHint": "他のプレイヤーに表示される簡単な自己紹介",
+    "avatarHint": "カスタムプロフィール画像のアップロードまたは画像URL",
+    "saveChanges": "プロフィール変更を保存",
+    "openAppSettings": "アプリ・テーマ設定を開く",
     "tabs": {
       "showcase": "ショーケース",
       "wardrobe": "ワードローブ＆カタログ",
@@ -275,10 +282,18 @@
     "tabs": {
       "games": "ゲーム一覧",
       "defense": "防衛戦",
+      "moreModes": "他のゲーム",
       "gacha": "ガチャ宝箱",
       "affection": "好感度ロード",
       "wardrobe": "ワードローブ",
       "inventory": "所持品・ショーケース"
+    },
+    "gamemodes": {
+      "live": "プレイ可能",
+      "soon": "近日登場",
+      "newModesTitle": "新ゲームモード近日公開予定",
+      "newModesDesc": "ワイフカードバトル、リズムタップ、神社ダンジョン遠征など、魅力的な新ミニゲームを鋭意開発中です！",
+      "playDefense": "防衛戦をプレイ"
     },
     "affectionRoad": {
       "title": "親密度の道 マイルストーン",

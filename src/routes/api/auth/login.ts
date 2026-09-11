@@ -1,7 +1,7 @@
 import { json } from '@solidjs/router';
 import bcrypt from 'bcryptjs';
 import { checkRateLimit } from '../../../lib/server/rate-limit';
-import { getLocalUserByUsername, createSessionToken } from '../../../lib/server/auth';
+import { getLocalUserByUsername, createSessionToken, createSessionCookie } from '../../../lib/server/auth';
 import { getSupabaseServerClient, isSupabaseConfigured } from '../../../lib/server/supabase';
 
 export async function POST(event: { request: Request }) {
@@ -54,17 +54,24 @@ export async function POST(event: { request: Request }) {
         avatarUrl: profile?.avatar_url
       });
 
-      return json({
-        success: true,
-        token,
-        user: {
-          id: userId,
-          username: profile?.username || cleanUsername,
-          email: data.user.email,
-          avatarUrl: profile?.avatar_url,
-          bio: profile?.bio
+      return json(
+        {
+          success: true,
+          token,
+          user: {
+            id: userId,
+            username: profile?.username || cleanUsername,
+            email: data.user.email,
+            avatarUrl: profile?.avatar_url,
+            bio: profile?.bio
+          }
+        },
+        {
+          headers: {
+            'Set-Cookie': createSessionCookie(token)
+          }
         }
-      });
+      );
     }
 
     // Local / offline fallback
@@ -85,17 +92,24 @@ export async function POST(event: { request: Request }) {
       avatarUrl: user.avatarUrl
     });
 
-    return json({
-      success: true,
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        avatarUrl: user.avatarUrl,
-        bio: user.bio
+    return json(
+      {
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          avatarUrl: user.avatarUrl,
+          bio: user.bio
+        }
+      },
+      {
+        headers: {
+          'Set-Cookie': createSessionCookie(token)
+        }
       }
-    });
+    );
   } catch (err: any) {
     return json({ success: false, error: err.message || 'Server error during login.' }, { status: 500 });
   }

@@ -15,6 +15,8 @@ import { exportToICS, importFromICS } from '../lib/ical';
 import { WaifuAvatar } from './WaifuAvatar';
 import { t, SUPPORTED_LANGUAGES, setLanguage, SupportedLanguage } from '../lib/i18n';
 
+import { compressImage } from '../lib/image-compress';
+
 export function SettingsStudio() {
   const [activeTab, setActiveTab] = createSignal<
     'profile' | 'personality' | 'appearance' | 'wallpapers' | 'themes' | 'voice' | 'data' | 'language'
@@ -22,11 +24,12 @@ export function SettingsStudio() {
 
   const [editBio, setEditBio] = createSignal(state.user?.bio || '');
   const [editAvatarUrl, setEditAvatarUrl] = createSignal(state.user?.avatarUrl || '');
+  const [uploadingAvatar, setUploadingAvatar] = createSignal(false);
 
   const [availableVoices, setAvailableVoices] = createSignal<SpeechSynthesisVoice[]>([]);
 
   onMount(() => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       const load = () => {
         setAvailableVoices(window.speechSynthesis.getVoices());
       };
@@ -39,26 +42,55 @@ export function SettingsStudio() {
     speakText(t('settings.voice.testVoiceMessage', { name: state.waifu.name }));
   };
 
-  const handleCustomAvatarFile = (e: Event) => {
+  const uploadAvatarImage = async (file: File): Promise<string> => {
+    const compressed = await compressImage(file, 512, 512, 0.82);
+    const token = state.user?.token;
+    const res = await fetch('/api/upload/avatar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ dataUrl: compressed.dataUrl })
+    });
+    const data = await res.json();
+    if (data.success && data.avatarUrl) {
+      return data.avatarUrl;
+    }
+    return compressed.dataUrl;
+  };
+
+  const handleCustomAvatarFile = async (e: Event) => {
     const input = e.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const dataUrl = evt.target?.result as string;
-      if (dataUrl) {
-        setState('waifu', 'appearance', 'customAvatarUrl', dataUrl);
-        setState('waifu', 'appearance', 'avatarMode', 'custom');
-        saveState();
-        showToast(t('settings.appearance.customSpriteUpdated'));
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      setUploadingAvatar(true);
+      const url = await uploadAvatarImage(file);
+      setState('waifu', 'appearance', 'customAvatarUrl', url);
+      setState('waifu', 'appearance', 'avatarMode', 'custom');
+      saveState();
+      showToast(t('settings.appearance.customSpriteUpdated'));
+    } catch {
+      showToast('Failed to process avatar image');
+    } finally {
+      setUploadingAvatar(false);
+      input.value = '';
+    }
   };
 
   const handleExportCalendar = () => {
     if (typeof window === 'undefined') return;
-    exportToICS(state.calendar.events);
+    const icsContent = exportToICS(state.calendar.events);
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `waifu_calendar_${new Date().toISOString().slice(0, 10)}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     showToast(t('settings.data.exportCalendarSuccess'));
   };
 
@@ -94,23 +126,25 @@ export function SettingsStudio() {
     }
   };
 
-  const handleCustomProfileAvatarUpload = (e: Event) => {
+  const handleCustomProfileAvatarUpload = async (e: Event) => {
     const input = e.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const dataUrl = evt.target?.result as string;
-      if (dataUrl) {
-        setEditAvatarUrl(dataUrl);
-        if (state.user) {
-          setState('user', 'avatarUrl', dataUrl);
-          saveState();
-        }
-        showToast(t('settings.appearance.customSpriteUpdated') || 'Avatar sprite updated!');
+    try {
+      setUploadingAvatar(true);
+      const url = await uploadAvatarImage(file);
+      setEditAvatarUrl(url);
+      if (state.user) {
+        setState('user', 'avatarUrl', url);
+        saveState();
       }
-    };
-    reader.readAsDataURL(file);
+      showToast(t('settings.appearance.customSpriteUpdated') || 'Avatar sprite updated!');
+    } catch {
+      showToast('Failed to process avatar image');
+    } finally {
+      setUploadingAvatar(false);
+      input.value = '';
+    }
   };
 
   const hairColorPresets = ['#ff7597', '#4f86f7', '#6c5ce7', '#ffeaa7', '#2d3436', '#d63031', '#00cec9', '#a29bfe'];
@@ -192,7 +226,7 @@ export function SettingsStudio() {
               <div class="setting-row">
                 <div class="setting-label">
                   <label>{t('profile.displayName')}</label>
-                  <small class="setting-desc">Your unique commander identity</small>
+                  <small class="setting-desc">{t('profile.handleHint')}</small>
                 </div>
                 <input
                   type="text"
@@ -207,7 +241,7 @@ export function SettingsStudio() {
               <div class="setting-row">
                 <div class="setting-label">
                   <label>{t('profile.bio')}</label>
-                  <small class="setting-desc">Displayed to other commanders on your profile</small>
+                  <small class="setting-desc">{t('profile.bioHint')}</small>
                 </div>
                 <textarea
                   class="profile-textarea modal-input"
@@ -222,7 +256,7 @@ export function SettingsStudio() {
               <div class="setting-row">
                 <div class="setting-label">
                   <label>{t('profile.avatar')}</label>
-                  <small class="setting-desc">Upload a custom profile image or provide an image link</small>
+                  <small class="setting-desc">{t('profile.avatarHint')}</small>
                 </div>
                 <div class="avatar-upload-group" style={{ display: 'flex', 'flex-direction': 'column', gap: '8px', 'max-width': '450px' }}>
                   <input
@@ -242,7 +276,7 @@ export function SettingsStudio() {
 
               <div class="profile-edit-actions" style={{ 'margin-top': '24px' }}>
                 <button class="btn-save-profile" onClick={handleSaveProfileSettings}>
-                  💾 Save Profile Changes
+                  💾 {t('profile.saveChanges')}
                 </button>
               </div>
             </div>

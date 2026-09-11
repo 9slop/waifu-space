@@ -60,10 +60,32 @@ function AppLayout(props: { children: any }) {
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
 
-    // Restore cloud progress for a returning user with a saved session
-    if (state.user?.token) {
-      loadCloudProgress(state.user.token);
-    }
+    // Restore session via cookie or token
+    const restoreSession = async () => {
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: state.user?.token ? { Authorization: `Bearer ${state.user.token}` } : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user && data.token) {
+            setUserAccount({
+              ...data.user,
+              token: data.token
+            });
+            await loadCloudProgress(data.token);
+            return;
+          }
+        }
+      } catch {
+        // Offline or network error: keep offline state
+      }
+
+      if (state.user?.token) {
+        loadCloudProgress(state.user.token);
+      }
+    };
+    void restoreSession();
 
     // Apply theme
     document.documentElement.setAttribute('data-theme', state.settings.theme || 'sakura');
@@ -167,6 +189,7 @@ function AppLayout(props: { children: any }) {
                 class="btn-header-logout"
                 title={t('nav.logout')}
                 onClick={() => {
+                  void fetch('/api/auth/me', { method: 'POST' }).catch(() => {});
                   setUserAccount(null);
                   showToast(t('auth.logoutSuccess'));
                 }}

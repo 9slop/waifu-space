@@ -1,7 +1,7 @@
 import { json } from '@solidjs/router';
-import { verifySessionToken } from '../../../lib/server/auth';
+import { verifySessionToken, getSessionTokenFromRequest } from '../../../lib/server/auth';
 import { getSupabaseServerClient, isSupabaseConfigured } from '../../../lib/server/supabase';
-import { COSMETIC_CATALOG } from '../../../lib/store';
+import { COSMETIC_CATALOG, AFFECTION_MILESTONES } from '../../../lib/store';
 import { MAX_COINS } from '../../../lib/economy';
 import { EVENT_TYPES, RECURRENCE_RULES, isHexColor } from '../../../lib/validation';
 import { sanitizeOccurrenceOverride, type CalendarOccurrenceOverride } from '../../../lib/validate';
@@ -34,8 +34,7 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
 
 // Sync progress to cloud database
 export async function POST(event: { request: Request }) {
-  const authHeader = event.request.headers.get('authorization');
-  const token = authHeader?.replace(/^Bearer\s+/i, '');
+  const token = getSessionTokenFromRequest(event.request);
   const session = verifySessionToken(token);
 
   if (!session) {
@@ -117,6 +116,28 @@ export async function POST(event: { request: Request }) {
         updated_at: new Date().toISOString()
       });
 
+      // Grant unlocked milestone cosmetics to user_inventory so they are permanent across devices/reloads
+      if (incomingMilestones.length > 0) {
+        const cosmeticInserts: Array<{ user_id: string; item_id: string; category: string; rarity: string }> = [];
+        for (const level of incomingMilestones) {
+          const ms = AFFECTION_MILESTONES.find(m => m.level === level);
+          if (ms && ms.rewardType === 'cosmetic' && typeof ms.rewardValue === 'string') {
+            const item = COSMETIC_CATALOG.find(c => c.id === ms.rewardValue);
+            if (item) {
+              cosmeticInserts.push({
+                user_id: session.userId,
+                item_id: item.id,
+                category: item.category,
+                rarity: item.rarity
+              });
+            }
+          }
+        }
+        if (cosmeticInserts.length > 0) {
+          await supabase.from('user_inventory').upsert(cosmeticInserts, { onConflict: 'user_id,item_id', ignoreDuplicates: true });
+        }
+      }
+
       // Update showcase slots from validated inventory items
       const rawShowcase = Array.isArray(showcaseItems) ? showcaseItems : Array.isArray(payload.rpg?.showcaseItems) ? payload.rpg.showcaseItems : null;
       if (Array.isArray(rawShowcase)) {
@@ -193,29 +214,33 @@ export async function POST(event: { request: Request }) {
   }
 }
 
-// Fetch progress from cloud database
+// Fetch progress from cloud database with optional scope support (?scope=all|profile|calendar|rpg)
 export async function GET(event: { request: Request }) {
-  const authHeader = event.request.headers.get('authorization');
-  const token = authHeader?.replace(/^Bearer\s+/i, '');
+  const token = getSessionTokenFromRequest(event.request);
   const session = verifySessionToken(token);
 
   if (!session) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  const url = new URL(event.request.url);
+  const scope = url.searchParams.get('scope') || 'all';
+
   if (isSupabaseConfigured()) {
     const supabase = getSupabaseServerClient()!;
-    const { data: progress } = await supabase.from('user_progress').select('*').eq('user_id', session.userId).single();
-    const { data: showcase } = await supabase.from('user_showcase').select('*').eq('user_id', session.userId).order('slot_index');
-    const { data: inventory } = await supabase.from('user_inventory').select('item_id, category, rarity').eq('user_id', session.userId);
-    const { data: calendarItems } = await supabase.from('calendar_items').select('*').eq('user_id', session.userId).order('start_at');
 
-    return json({
-      success: true,
-      progress,
-      showcaseItems: showcase ? showcase.map((s: any) => s.item_id) : [],
-      inventory: inventory || [],
-      calendarItems: (calendarItems || []).map((r: any) => ({
+    let progress: any = null;
+    let showcaseItems: string[] = [];
+    let inventory: any[] = [];
+    let calendarItems: any[] = [];
+    let calendarOverrides: any[] = [];
+
+    if (scope === 'calendar') {
+      const [{ data: cal }, { data: p }] = await Promise.all([
+        supabase.from('calendar_items').select('*').eq('user_id', session.userId).order('start_at'),
+        supabase.from('user_progress').select('calendar_overrides').eq('user_id', session.userId).maybeSingle()
+      ]);
+      calendarItems = (cal || []).map((r: any) => ({
         id: r.item_id,
         title: r.title,
         start: r.start_at,
@@ -227,8 +252,71 @@ export async function GET(event: { request: Request }) {
         description: r.description || undefined,
         location: r.location || undefined,
         recurrence: r.recurrence
-      })),
-      calendarOverrides: progress?.calendar_overrides ?? []
+      }));
+      calendarOverrides = p?.calendar_overrides ?? [];
+
+      return json({
+        success: true,
+        progress: null,
+        showcaseItems: [],
+        inventory: [],
+        calendarItems,
+        calendarOverrides
+      });
+    }
+
+    if (scope === 'rpg') {
+      const [{ data: p }, { data: inv }, { data: sc }] = await Promise.all([
+        supabase.from('user_progress').select('coins, bond_level, bond_exp, claimed_milestones, defense_high_wave, defense_victories, goblins_defeated').eq('user_id', session.userId).maybeSingle(),
+        supabase.from('user_inventory').select('item_id, category, rarity').eq('user_id', session.userId),
+        supabase.from('user_showcase').select('item_id').eq('user_id', session.userId).order('slot_index')
+      ]);
+
+      return json({
+        success: true,
+        progress: p || null,
+        showcaseItems: sc ? sc.map((s: any) => s.item_id) : [],
+        inventory: inv || [],
+        calendarItems: [],
+        calendarOverrides: []
+      });
+    }
+
+    // Default: 'all' or 'profile'
+    const [progressRes, showcaseRes, inventoryRes, calendarRes] = await Promise.all([
+      supabase.from('user_progress').select('*').eq('user_id', session.userId).maybeSingle(),
+      supabase.from('user_showcase').select('*').eq('user_id', session.userId).order('slot_index'),
+      supabase.from('user_inventory').select('item_id, category, rarity').eq('user_id', session.userId),
+      scope === 'profile'
+        ? Promise.resolve({ data: [] })
+        : supabase.from('calendar_items').select('*').eq('user_id', session.userId).order('start_at')
+    ]);
+
+    progress = progressRes.data;
+    showcaseItems = showcaseRes.data ? showcaseRes.data.map((s: any) => s.item_id) : [];
+    inventory = inventoryRes.data || [];
+    calendarItems = (calendarRes.data || []).map((r: any) => ({
+      id: r.item_id,
+      title: r.title,
+      start: r.start_at,
+      end: r.end_at,
+      allDay: r.all_day,
+      type: r.type,
+      completed: r.completed,
+      color: r.color,
+      description: r.description || undefined,
+      location: r.location || undefined,
+      recurrence: r.recurrence
+    }));
+    calendarOverrides = progress?.calendar_overrides ?? [];
+
+    return json({
+      success: true,
+      progress,
+      showcaseItems,
+      inventory,
+      calendarItems,
+      calendarOverrides
     });
   }
 

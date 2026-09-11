@@ -85,8 +85,8 @@ export function RpgHub() {
                 onClick={() => setSelectedGame('future')}
               >
                 <span>✨</span>
-                <span>More Modes</span>
-                <span class="gamemode-badge soon">Soon</span>
+                <span>{t('rpg.tabs.moreModes')}</span>
+                <span class="gamemode-badge soon">{t('rpg.gamemodes.soon')}</span>
               </button>
             </div>
 
@@ -98,10 +98,10 @@ export function RpgHub() {
             <Show when={selectedGame() === 'future'}>
               <div class="future-games-card">
                 <div class="future-icon">🎲</div>
-                <h3>New Gamemodes Coming Soon</h3>
-                <p>Exciting new minigames including Waifu Card Battles, Rhythm Tap, and Shrine Dungeon Expeditions are in active development!</p>
+                <h3>{t('rpg.gamemodes.newModesTitle')}</h3>
+                <p>{t('rpg.gamemodes.newModesDesc')}</p>
                 <button class="btn-primary" onClick={() => setSelectedGame('defense')}>
-                  ⚔️ Play Waifu Defense
+                  ⚔️ {t('rpg.gamemodes.playDefense')}
                 </button>
               </div>
             </Show>
