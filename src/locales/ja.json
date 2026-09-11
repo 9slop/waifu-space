@@ -24,13 +24,14 @@
   "nav": {
     "companion": "パートナー",
     "calendar": "カレンダー",
-    "rpg": "RPG拠点",
+    "minigames": "ミニゲーム",
+    "rpg": "ミニゲーム",
     "settings": "設定",
     "profile": "プロフィール",
     "leaderboard": "ランキング",
     "login": "ログイン",
     "logout": "ログアウト",
-    "coinTooltip": "RPGゴールドコイン - クリックしてRPG拠点へ"
+    "coinTooltip": "ゴールドコイン - クリックしてミニゲームへ"
   },
   "profile": {
     "title": "コマンダープロフィール",
@@ -38,7 +39,29 @@
     "share": "共有",
     "goblinsKilled": "討伐ゴブリン数",
     "showcaseTitle": "トロフィーショーケース",
-    "showcaseDesc": "獲得した自慢の衣装やアクセサリーを他プレイヤーに公開展示できます。"
+    "showcaseDesc": "獲得した自慢の衣装やアクセサリーを他プレイヤーに公開展示できます。",
+    "companionTitle": "パートナー",
+    "currentOutfit": "現在の衣装",
+    "currentAccessory": "現在のアクセサリー",
+    "currentHairstyle": "現在の髪型",
+    "emptyShowcaseSlot": "空のショーケーススロット",
+    "shareToast": "プロフィールリンクをクリップボードにコピーしました！",
+    "openSettings": "設定を開く",
+    "editProfile": "プロフィール編集",
+    "displayName": "表示名",
+    "bio": "自己紹介",
+    "avatar": "アバター",
+    "customAvatar": "カスタムアバターURL",
+    "publicProfileOf": "{name} の公開プロフィール",
+    "backToMyProfile": "マイプロフィールに戻る",
+    "userNotFound": "ユーザーが見つかりませんでした",
+    "tabs": {
+      "showcase": "ショーケース",
+      "wardrobe": "衣装部屋",
+      "inventory": "インベントリ",
+      "statistics": "統計",
+      "settings": "設定"
+    }
   },
   "auth": {
     "loginTitle": "おかえりなさい、コマンダー",
@@ -54,8 +77,6 @@
     "loginBtn": "ログイン",
     "registerBtn": "アカウント作成",
     "processing": "処理中...",
-    "or": "または",
-    "continueAsGuest": "ゲストとして続ける",
     "usernameTooShort": "ユーザー名は3文字以上必要です。",
     "passwordTooShort": "パスワードは6文字以上必要です。",
     "passwordMismatch": "パスワードが一致しません。",

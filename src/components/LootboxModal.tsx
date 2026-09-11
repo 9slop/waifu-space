@@ -32,71 +32,49 @@ export function LootboxModal() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const allUnlocked = [
-        ...(state.rpg?.unlockedOutfits || []),
-        ...(state.rpg?.unlockedAccessories || []),
-        ...(state.rpg?.unlockedHairstyles || [])
-      ];
-
       const res = await fetch('/api/gacha/roll', {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          boxType: selectedChest(),
-          currentCoins: userCoins(),
-          unlockedItemIds: allUnlocked
+          boxType: selectedChest()
         })
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.result) {
-          const item = data.result.item;
-          setRevealedItem(item);
+      const data = await res.json().catch(() => null);
 
-          if (data.result.isDuplicate) {
-            setDuplicateCompensation(data.result.duplicateCoins);
-          }
+      if (res.ok && data?.success && data?.result) {
+        const item = data.result.item;
+        setRevealedItem(item);
 
-          // Apply state update from verified server outcome
-          if (typeof data.newCoins === 'number') {
-            setState('rpg', 'coins', data.newCoins);
-          }
-          if (data.result.duplicateExp) {
-            gainBondExp(data.result.duplicateExp);
-          }
-          if (!data.result.isDuplicate) {
-            const cat = item.category === 'outfit' ? 'outfits' : item.category === 'accessory' ? 'accessories' : 'hairstyles';
-            unlockCosmetic(cat, item.id);
-          }
-
-          setHistory(prev => [
-            { item, wasDup: data.result.isDuplicate, date: new Date().toLocaleTimeString() },
-            ...prev.slice(0, 7)
-          ]);
-          setIsOpening(false);
-          return;
+        if (data.result.isDuplicate) {
+          setDuplicateCompensation(data.result.duplicateCoins);
         }
-      }
-    } catch {
-      // Local fallback in case server endpoint is unreachable in client tests
-    }
 
-    // Fallback locally
-    setTimeout(() => {
-      const result = openLootbox(selectedChest());
-      if (result) {
-        setRevealedItem(result.item);
-        if (result.isDuplicate) {
-          setDuplicateCompensation(result.duplicateCoins);
+        // Apply state update from verified server outcome
+        if (typeof data.newCoins === 'number') {
+          setState('rpg', 'coins', data.newCoins);
         }
+        if (data.result.duplicateExp) {
+          gainBondExp(data.result.duplicateExp);
+        }
+        if (!data.result.isDuplicate) {
+          const cat = item.category === 'outfit' ? 'outfits' : item.category === 'accessory' ? 'accessories' : 'hairstyles';
+          unlockCosmetic(cat, item.id);
+        }
+
         setHistory(prev => [
-          { item: result.item, wasDup: result.isDuplicate, date: new Date().toLocaleTimeString() },
+          { item, wasDup: data.result.isDuplicate, date: new Date().toLocaleTimeString() },
           ...prev.slice(0, 7)
         ]);
+      } else {
+        // Never grant item if server returns an error or 500!
+        showToast(data?.error || t('gacha.rollFailed') || 'Failed to open chest. Please try again.');
       }
+    } catch {
+      showToast('Network error while opening chest.');
+    } finally {
       setIsOpening(false);
-    }, 800);
+    }
   };
 
   const equipItem = (item: RpgCosmeticItem) => {

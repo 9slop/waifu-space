@@ -75,31 +75,10 @@ export function AuthModal(props: { isOpen: boolean; onClose: () => void; initial
 
       showToast(mode() === 'register' ? t('auth.welcomeToast', { name: data.user.username }) : t('auth.loginSuccess'));
       props.onClose();
-    } catch {
-      // Fallback for offline / demo mode
-      setUserAccount({
-        id: 'usr_' + Date.now(),
-        username: username().trim(),
-        email: email().trim() || `${username().trim().toLowerCase()}@waifuspace.moe`,
-        bio: 'Local companion commander.',
-        token: 'ws_demo_token'
-      });
-      showToast(t('auth.loginSuccess'));
-      props.onClose();
+      setErrorMessage(t('auth.loginFailed') || 'Authentication failed. Please check your credentials and try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleGuestLogin = () => {
-    setUserAccount({
-      id: 'guest_' + Math.floor(Math.random() * 10000),
-      username: 'GuestCommander',
-      bio: 'Exploring WaifuSpace as a guest.',
-      token: 'ws_guest_token'
-    });
-    showToast(t('auth.guestSuccess'));
-    props.onClose();
   };
 
   return (
@@ -202,14 +181,6 @@ export function AuthModal(props: { isOpen: boolean; onClose: () => void; initial
               }
             </button>
           </form>
-
-          <div class="auth-divider">
-            <span>{t('auth.or')}</span>
-          </div>
-
-          <button type="button" class="btn-guest-login" onClick={handleGuestLogin}>
-            ✨ {t('auth.continueAsGuest')}
-          </button>
         </div>
       </div>
     </Show>

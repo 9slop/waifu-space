@@ -1,4 +1,4 @@
-﻿import { json } from '@solidjs/router';
+import { json } from '@solidjs/router';
 import { verifySessionToken } from '../../../lib/server/auth';
 import { getSupabaseServerClient, isSupabaseConfigured } from '../../../lib/server/supabase';
 import { COSMETIC_CATALOG } from '../../../lib/store';
@@ -15,6 +15,23 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
   return Math.max(min, Math.min(max, n));
 }
 
+/**
+ * ARCHITECTURAL NOTE: 401 responses on /api/sync/progress
+ * 401 Unauthorized is INTENTIONAL when an unauthenticated request is received,
+ * because progress synchronization is an authenticated-only endpoint.
+ *
+ * The previous issue with unexpected 401s was caused by:
+ * 1. Clients attempting to sync progress using fake guest tokens (e.g. 'ws_guest_token')
+ *    or mock demo tokens (e.g. 'ws_demo_token') which lack valid cryptographic signatures.
+ * 2. Stale or expired session tokens where the client did not handle 401 by clearing the
+ *    session and prompting for login.
+ *
+ * Resolution:
+ * - Guest accounts are completely removed;
+ * - The client only syncs when authenticated with a cryptographically verified token;
+ * - On 401, the client immediately invalidates the stale session and redirects to login.
+ */
+
 // Sync progress to cloud database
 export async function POST(event: { request: Request }) {
   const authHeader = event.request.headers.get('authorization');
@@ -27,40 +44,58 @@ export async function POST(event: { request: Request }) {
 
   try {
     const payload = await event.request.json();
-    const { waifu, rpg, settings } = payload;
+
+    // Security Audit: Reject any request attempting to submit client-defined reward or progression values
+    const hasClientRewards =
+      payload.coins !== undefined ||
+      payload.currentCoins !== undefined ||
+      payload.rpg?.coins !== undefined ||
+      payload.rpg?.defenseHighWave !== undefined ||
+      payload.defenseHighWave !== undefined ||
+      payload.unlockedOutfits !== undefined ||
+      payload.rpg?.unlockedOutfits !== undefined ||
+      payload.unlockedAccessories !== undefined ||
+      payload.rpg?.unlockedAccessories !== undefined ||
+      payload.unlockedHairstyles !== undefined ||
+      payload.rpg?.unlockedHairstyles !== undefined ||
+      payload.bondExp !== undefined ||
+      payload.waifu?.bondExp !== undefined ||
+      payload.bondLevel !== undefined ||
+      payload.waifu?.bondLevel !== undefined ||
+      payload.xp !== undefined ||
+      payload.reward !== undefined ||
+      payload.trust !== undefined;
+
+    if (hasClientRewards) {
+      return json(
+        { success: false, error: 'Client-defined reward, balance, and progression values are strictly forbidden.' },
+        { status: 400 }
+      );
+    }
+
+    const { waifu, settings, showcaseItems } = payload;
 
     if (isSupabaseConfigured()) {
       const supabase = getSupabaseServerClient()!;
 
-      // Fetch current server-side progress so we can reconcile monotonic fields
+      // Fetch existing bond level to securely validate any claimed milestones
       const { data: existing } = await supabase
-        .from('user_progress').select('coins, defense_high_wave, bond_level').eq('user_id', session.userId).single();
+        .from('user_progress')
+        .select('bond_level, claimed_milestones')
+        .eq('user_id', session.userId)
+        .single();
+      const dbBondLevel = existing?.bond_level ?? 1;
 
-      const incomingCoins = clampInt(rpg?.coins, 0, MAX_COINS, 0);
-      const existingCoins = clampInt(existing?.coins, 0, MAX_COINS, 0);
-      // Coins are increase-only: a stale client cannot roll back the server balance.
-      const dbCoins = Math.min(MAX_COINS, Math.max(existingCoins, incomingCoins));
-
-      const incomingHighWave = clampInt(rpg?.defenseHighWave, 0, 200, 0);
-      const existingHighWave = clampInt(existing?.defense_high_wave, 0, 200, 0);
-      const dbHighWave = Math.max(existingHighWave, incomingHighWave);
-
-      const incomingBondLevel = clampInt(waifu?.bondLevel, 1, 99999, 1);
-      const dbBondLevel = incomingBondLevel;
-      const incomingBondExp = clampInt(waifu?.bondExp, 0, Number.MAX_SAFE_INTEGER, 0);
-
-      // Only accept claimed milestones that the current bond level actually grants
-      const incomingMilestones = Array.isArray(rpg?.claimedAffectionMilestones)
-        ? rpg.claimedAffectionMilestones
+      const rawMilestones = payload.rpg?.claimedAffectionMilestones ?? payload.claimedMilestones;
+      const incomingMilestones = Array.isArray(rawMilestones)
+        ? rawMilestones
             .filter((m: unknown) => typeof m === 'number' && Number.isInteger(m) && m >= 0 && m <= dbBondLevel)
             .slice(0, 200)
-        : [];
+        : existing?.claimed_milestones || [];
 
+      // Server is authoritative for coins, bond, and defense wave. Only update cosmetic appearances, settings, and verified milestones.
       await supabase.from('user_progress').upsert({
         user_id: session.userId,
-        coins: dbCoins,
-        bond_exp: incomingBondExp,
-        bond_level: dbBondLevel,
         waifu_name: typeof waifu?.name === 'string' ? waifu.name.slice(0, 40) : 'Akari',
         waifu_personality: typeof waifu?.personality === 'string' ? waifu.personality.slice(0, 40) : 'tsundere',
         worn_outfit: typeof waifu?.appearance?.outfit === 'string' ? waifu.appearance.outfit : 'seifuku',
@@ -69,17 +104,15 @@ export async function POST(event: { request: Request }) {
         appearance_data: waifu?.appearance && typeof waifu.appearance === 'object' ? waifu.appearance : {},
         settings_data: settings && typeof settings === 'object' ? settings : {},
         claimed_milestones: incomingMilestones,
-        defense_high_wave: dbHighWave,
-        defense_victories: clampInt(rpg?.defenseStats?.totalVictories, 0, 1000000, 0),
-        goblins_defeated: clampInt(rpg?.defenseStats?.goblinsDefeated, 0, 1000000, 0),
         updated_at: new Date().toISOString()
       });
 
-      // Update showcase slots
-      if (Array.isArray(rpg?.showcaseItems)) {
+      // Update showcase slots from validated inventory items
+      const rawShowcase = Array.isArray(showcaseItems) ? showcaseItems : Array.isArray(payload.rpg?.showcaseItems) ? payload.rpg.showcaseItems : null;
+      if (Array.isArray(rawShowcase)) {
         await supabase.from('user_showcase').delete().eq('user_id', session.userId);
         const validIds = new Set(COSMETIC_CATALOG.map(c => c.id));
-        const inserts = rpg.showcaseItems.slice(0, 6)
+        const inserts = rawShowcase.slice(0, 6)
           .filter((itemId: unknown) => typeof itemId === 'string' && validIds.has(itemId))
           .map((itemId: string, slotIndex: number) => ({
             user_id: session.userId,
@@ -89,30 +122,6 @@ export async function POST(event: { request: Request }) {
         if (inserts.length > 0) {
           await supabase.from('user_showcase').insert(inserts);
         }
-      }
-
-      // Update inventory (all unlocked cosmetics) - only accept catalog-valid ids
-      const validCatalog = new Set(COSMETIC_CATALOG.map(c => c.id));
-      const unlockedOutfits: string[] = Array.isArray(rpg?.unlockedOutfits) ? rpg.unlockedOutfits.filter((id: unknown) => typeof id === 'string' && validCatalog.has(id)) : [];
-      const unlockedAccessories: string[] = Array.isArray(rpg?.unlockedAccessories) ? rpg.unlockedAccessories.filter((id: unknown) => typeof id === 'string' && validCatalog.has(id)) : [];
-      const unlockedHairstyles: string[] = Array.isArray(rpg?.unlockedHairstyles) ? rpg.unlockedHairstyles.filter((id: unknown) => typeof id === 'string' && validCatalog.has(id)) : [];
-
-      const allUnlocked = [
-        ...unlockedOutfits.filter(id => id !== 'none').map(id => ({ item_id: id, category: 'outfit' })),
-        ...unlockedAccessories.filter(id => id !== 'none').map(id => ({ item_id: id, category: 'accessory' })),
-        ...unlockedHairstyles.filter(id => id !== 'none').map(id => ({ item_id: id, category: 'hairstyle' }))
-      ];
-
-      if (allUnlocked.length > 0) {
-        await supabase.from('user_inventory').delete().eq('user_id', session.userId);
-        await supabase.from('user_inventory').insert(
-          allUnlocked.map(entry => ({
-            user_id: session.userId,
-            item_id: entry.item_id,
-            category: entry.category,
-            rarity: itemRarity(entry.item_id)
-          }))
-        );
       }
 
       // Sync calendar events/tasks. The client's calendar list is private and

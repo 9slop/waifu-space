@@ -10,7 +10,11 @@ export async function POST(event: { request: Request }) {
   const token = authHeader?.replace(/^Bearer\s+/i, '');
   const session = verifySessionToken(token);
 
-  const rateLimitKey = session ? `def_${session.userId}` : 'def_anon';
+  if (!session) {
+    return json({ verified: false, error: 'Unauthorized: You must be signed in to submit waves.' }, { status: 401 });
+  }
+
+  const rateLimitKey = `def_${session.userId}`;
   const limit = checkRateLimit(rateLimitKey, 15, 60_000);
   if (!limit.allowed) {
     return json({ verified: false, error: 'Too many wave submissions. Slow down.' }, { status: 429 });
@@ -18,7 +22,23 @@ export async function POST(event: { request: Request }) {
 
   try {
     const body = await event.request.json();
-    const userId = session ? session.userId : 'anon';
+
+    // Security Audit: Reject any request containing client-defined reward values
+    if (
+      body.coins !== undefined ||
+      body.currentCoins !== undefined ||
+      body.coinsReward !== undefined ||
+      body.exp !== undefined ||
+      body.expReward !== undefined ||
+      body.reward !== undefined ||
+      body.goblinsDefeated !== undefined ||
+      body.silver !== undefined ||
+      body.trust !== undefined
+    ) {
+      return json({ verified: false, error: 'Client-defined reward values are strictly forbidden.' }, { status: 400 });
+    }
+
+    const userId = session.userId;
     const spendDeltas = Array.isArray(body.spends) ? body.spends : [];
 
     const result = completeDefenseWave(

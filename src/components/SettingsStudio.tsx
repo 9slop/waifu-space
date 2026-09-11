@@ -5,7 +5,6 @@ import {
   saveState,
   updateSettings,
   showToast,
-  resetAllData,
   speakText,
   isCosmeticUnlocked
 } from '../lib/store';
@@ -52,47 +51,6 @@ export function SettingsStudio() {
       }
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleExportData = () => {
-    if (typeof window === 'undefined') return;
-    const json = JSON.stringify(state, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `waifu-space-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast(t('settings.data.exportSuccess'));
-  };
-
-  const handleImportData = (e: Event) => {
-    const input = e.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-    const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = evt => {
-      try {
-        const text = evt.target?.result as string;
-        const parsed = JSON.parse(text);
-        setState(parsed);
-        saveState();
-        showToast(t('settings.data.importSuccess'));
-      } catch (err) {
-        showToast(t('settings.data.importFailed'));
-      }
-    };
-    reader.readAsText(file);
-    input.value = '';
-  };
-
-  const handleResetConfirm = () => {
-    if (confirm(t('settings.data.resetConfirm'))) {
-      resetAllData();
-    }
   };
 
   const handleExportCalendar = () => {
@@ -855,36 +813,6 @@ export function SettingsStudio() {
 
               <div class="setting-row">
                 <div>
-                  <strong>{t('settings.data.exportJson')}</strong>
-                  <p class="setting-desc">{t('settings.data.exportJsonDesc')}</p>
-                </div>
-                <button
-                  type="button"
-                  class="gcal-btn gcal-btn-outline"
-                  onClick={handleExportData}
-                >
-                  {t('settings.data.exportBtn')}
-                </button>
-              </div>
-
-              <div class="setting-row">
-                <div>
-                  <strong>{t('settings.data.restoreBackup')}</strong>
-                  <p class="setting-desc">{t('settings.data.restoreBackupDesc')}</p>
-                </div>
-                <label class="gcal-btn gcal-btn-outline" style={{ cursor: 'pointer' }}>
-                  {t('settings.data.importBtn')}
-                  <input
-                    type="file"
-                    accept=".json"
-                    style={{ display: 'none' }}
-                    onChange={handleImportData}
-                  />
-                </label>
-              </div>
-
-              <div class="setting-row">
-                <div>
                   <strong>{t('settings.data.exportCalendar')}</strong>
                   <p class="setting-desc">{t('settings.data.exportCalendarDesc')}</p>
                 </div>
@@ -911,20 +839,6 @@ export function SettingsStudio() {
                     onChange={handleImportCalendar}
                   />
                 </label>
-              </div>
-
-              <div class="setting-row" style={{ 'margin-top': '24px' }}>
-                <div>
-                  <strong style={{ color: '#ff4757' }}>{t('settings.data.factoryReset')}</strong>
-                  <p class="setting-desc">{t('settings.data.factoryResetDesc')}</p>
-                </div>
-                <button
-                  type="button"
-                  class="gcal-btn gcal-btn-danger"
-                  onClick={handleResetConfirm}
-                >
-                  {t('settings.data.resetBtn')}
-                </button>
               </div>
             </div>
           </div>

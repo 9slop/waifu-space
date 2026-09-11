@@ -13,18 +13,12 @@ export const STORAGE_KEY = 'waifu_space_data_v1';
 const ACTIVE_USER_KEY = 'waifu_space_active_user_v1';
 const GUEST_ID_PREFIX = 'guest_';
 
-/**
- * Registered accounts keep their own localStorage bucket so one account can
- * never see (or clobber) another account's locally saved state, even when they
- * are used in the same browser. Guests / logged-out sessions share the legacy
- * global key.
- */
 function isRegisteredAccount(user: UserAccount | null | undefined): boolean {
-  return !!user && !!user.id && !user.id.startsWith(GUEST_ID_PREFIX);
+  return !!user && !!user.id;
 }
 
 function scopedStorageKey(userId: string | null | undefined): string {
-  if (!userId || userId.startsWith(GUEST_ID_PREFIX)) return STORAGE_KEY;
+  if (!userId) return STORAGE_KEY;
   return `${STORAGE_KEY}_acct_${userId}`;
 }
 
@@ -360,9 +354,21 @@ export function showToast(message: string) {
 export function saveState() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(scopedStorageKey(state.user?.id), JSON.stringify(state));
-    // Remember which registered account owns the save so a page reload restores
-    // the right bucket while the persisted session is still active.
+    // Security: Game state (coins, inventory, defense records, bond level/exp)
+    // is NOT persisted to localStorage. The database is the single source of truth.
+    const clientPersistedState = {
+      user: state.user,
+      settings: state.settings,
+      calendar: state.calendar,
+      chat: state.chat,
+      waifu: {
+        name: state.waifu.name,
+        personality: state.waifu.personality,
+        appearance: state.waifu.appearance,
+        mood: state.waifu.mood
+      }
+    };
+    localStorage.setItem(scopedStorageKey(state.user?.id), JSON.stringify(clientPersistedState));
     if (isRegisteredAccount(state.user)) {
       localStorage.setItem(ACTIVE_USER_KEY, state.user!.id);
     } else {
@@ -395,23 +401,12 @@ function buildSyncSnapshot() {
     waifu: {
       name: state.waifu.name,
       personality: state.waifu.personality,
-      bondLevel: state.waifu.bondLevel,
-      bondExp: state.waifu.bondExp,
       appearance: state.waifu.appearance
-    },
-    rpg: {
-      coins: state.rpg.coins,
-      unlockedOutfits: state.rpg.unlockedOutfits,
-      unlockedAccessories: state.rpg.unlockedAccessories,
-      unlockedHairstyles: state.rpg.unlockedHairstyles,
-      claimedAffectionMilestones: state.rpg.claimedAffectionMilestones,
-      defenseHighWave: state.rpg.defenseHighWave,
-      defenseStats: state.rpg.defenseStats,
-      showcaseItems: state.rpg.showcaseItems
     },
     settings: state.settings,
     calendar: state.calendar.events.map(e => ({ ...e })),
-    calendarOverrides: state.calendar.occurrenceOverrides.map(o => ({ ...o }))
+    calendarOverrides: state.calendar.occurrenceOverrides.map(o => ({ ...o })),
+    showcaseItems: state.rpg.showcaseItems
   };
 }
 
@@ -486,6 +481,13 @@ export async function pushProgressToCloud(): Promise<boolean> {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(buildSyncSnapshot())
     });
+    if (res.status === 401) {
+      // Intentional 401 on unauthorized / expired session: clear session and stop syncing
+      setUserAccount(null);
+      setCloudSyncStatus('error');
+      clearPendingSync();
+      return false;
+    }
     if (!res.ok) {
       setCloudSyncStatus('error');
       queuePendingSync();
@@ -540,6 +542,11 @@ export async function loadCloudProgress(token?: string): Promise<void> {
     const res = await fetch('/api/sync/progress', {
       headers: { Authorization: `Bearer ${authToken}` }
     });
+    if (res.status === 401) {
+      setUserAccount(null);
+      setCloudSyncStatus('error');
+      return;
+    }
     if (!res.ok) {
       setCloudSyncStatus('error');
       return;
@@ -1634,12 +1641,4 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
 export function clearChatHistory() {
   setState('chat', 'messages', []);
   saveState();
-}
-
-export function resetAllData() {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-  setState(JSON.parse(JSON.stringify(DEFAULT_STATE)));
-  showToast('Reset to default settings');
 }

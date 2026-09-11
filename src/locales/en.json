@@ -24,13 +24,14 @@
   "nav": {
     "companion": "Companion",
     "calendar": "Calendar",
-    "rpg": "RPG Hub",
+    "minigames": "Minigames",
+    "rpg": "Minigames",
     "settings": "Settings",
     "profile": "Profile",
     "leaderboard": "Leaderboard",
     "login": "Login",
     "logout": "Logout",
-    "coinTooltip": "RPG Gold Coins - Click to visit RPG Hub"
+    "coinTooltip": "Gold Coins - Click to visit Minigames"
   },
   "profile": {
     "title": "Commander Profile",
@@ -38,7 +39,29 @@
     "share": "Share",
     "goblinsKilled": "Goblins Vanquished",
     "showcaseTitle": "Trophy Showcase",
-    "showcaseDesc": "Featured prized cosmetics proudly displayed for other players to admire."
+    "showcaseDesc": "Featured prized cosmetics proudly displayed for other players to admire.",
+    "companionTitle": "Companion",
+    "currentOutfit": "Current Outfit",
+    "currentAccessory": "Current Accessory",
+    "currentHairstyle": "Current Hairstyle",
+    "emptyShowcaseSlot": "Empty Showcase Slot",
+    "shareToast": "Profile link copied to clipboard!",
+    "openSettings": "Open Settings",
+    "editProfile": "Edit Profile",
+    "displayName": "Display Name",
+    "bio": "Bio",
+    "avatar": "Avatar",
+    "customAvatar": "Custom Avatar URL",
+    "publicProfileOf": "Public Profile of {name}",
+    "backToMyProfile": "Back to My Profile",
+    "userNotFound": "User not found",
+    "tabs": {
+      "showcase": "Showcase",
+      "wardrobe": "Wardrobe",
+      "inventory": "Inventory",
+      "statistics": "Statistics",
+      "settings": "Settings"
+    }
   },
   "auth": {
     "loginTitle": "Welcome Back, Commander",
@@ -54,8 +77,6 @@
     "loginBtn": "Sign In",
     "registerBtn": "Create Account",
     "processing": "Processing...",
-    "or": "or",
-    "continueAsGuest": "Continue as Guest",
     "usernameTooShort": "Username must be at least 3 characters.",
     "passwordTooShort": "Password must be at least 6 characters.",
     "passwordMismatch": "Passwords do not match.",

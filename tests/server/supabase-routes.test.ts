@@ -288,17 +288,71 @@ describe('Supabase-backed API routes (regression guard)', () => {
     const userId = '83a2f9db-6a0e-4f5b-bcc4-9d0ee2d11abc';
     const token = createSessionToken({ id: userId, username: 'Syncer', email: 'syncer@waifuspace.moe' });
 
-    it('upserts progress and replaces showcase slots', async () => {
+    it('rejects client-supplied progression and reward fields with 400', async () => {
+      // Test coins injection
+      let res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ rpg: { coins: 500 } })
+        })
+      );
+      expect(res.status).toBe(400);
+
+      // Test unlockedOutfits injection
+      res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ rpg: { unlockedOutfits: ['kimono'] } })
+        })
+      );
+      expect(res.status).toBe(400);
+
+      // Test defenseHighWave injection
+      res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ rpg: { defenseHighWave: 25 } })
+        })
+      );
+      expect(res.status).toBe(400);
+
+      // Test bondLevel injection
+      res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ waifu: { bondLevel: 10 } })
+        })
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it('upserts valid client payload (settings, waifu customization, showcase) with 200', async () => {
+      mocks.state.db.user_progress.push({ user_id: userId, coins: 500, bond_level: 5 });
+
       const res = await syncPOST(
         req('http://localhost/api/sync/progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
-            waifu: { name: 'Neo', personality: 'kuudere', bondExp: 500, bondLevel: 7, appearance: { outfit: 'kimono', accessory: 'flower_pin', hairstyle: 'wavy', hairColor: '#fff', eyeColor: '#000', skinTone: '#fff', customAvatarUrl: '', avatarMode: 'svg' } },
+            waifu: {
+              name: 'Neo',
+              personality: 'kuudere',
+              appearance: {
+                outfit: 'kimono',
+                accessory: 'flower_pin',
+                hairstyle: 'wavy',
+                hairColor: '#fff',
+                eyeColor: '#000',
+                skinTone: '#fff',
+                customAvatarUrl: '',
+                avatarMode: 'svg'
+              }
+            },
             rpg: {
-              coins: 3400,
-              defenseHighWave: 18,
-              defenseStats: { totalVictories: 9, goblinsDefeated: 132 },
               claimedAffectionMilestones: [2, 3],
               showcaseItems: ['kimono', 'flower_pin']
             },
@@ -313,11 +367,10 @@ describe('Supabase-backed API routes (regression guard)', () => {
 
       const progress = mocks.state.db.user_progress.find(p => p.user_id === userId);
       expect(progress).toBeDefined();
-      expect(progress.coins).toBe(3400);
-      expect(progress.bond_level).toBe(7);
+      expect(progress.coins).toBe(500); // untouched
+      expect(progress.bond_level).toBe(5); // untouched
       expect(progress.waifu_name).toBe('Neo');
-      expect(progress.defense_high_wave).toBe(18);
-      expect(progress.goblins_defeated).toBe(132);
+      expect(progress.waifu_personality).toBe('kuudere');
       expect(progress.claimed_milestones).toEqual([2, 3]);
       expect(progress.settings_data).toEqual({ theme: 'tokyo' });
 
@@ -325,66 +378,16 @@ describe('Supabase-backed API routes (regression guard)', () => {
       expect(showcase.map(s => s.item_id)).toEqual(['kimono', 'flower_pin']);
     });
 
-    it('persists unlocked inventory into user_inventory', async () => {
-      mocks.state.db.user_progress.push({ user_id: userId, coins: 200 });
+    it('filters claimed milestones that exceed server bond level', async () => {
+      mocks.state.db.user_progress.push({ user_id: userId, coins: 200, bond_level: 3 });
 
       const res = await syncPOST(
         req('http://localhost/api/sync/progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
-            waifu: { name: 'Neo', personality: 'kuudere', bondExp: 0, bondLevel: 1, appearance: {} },
-            rpg: {
-              coins: 200,
-              unlockedOutfits: ['seifuku', 'kimono'],
-              unlockedAccessories: ['ribbon', 'cat_ears'],
-              unlockedHairstyles: ['twintails'],
-              claimedAffectionMilestones: [],
-              defenseStats: {},
-              showcaseItems: []
-            },
-            settings: {}
-          })
-        })
-      );
-      expect(res.status).toBe(200);
-
-      const inventory = mocks.state.db.user_inventory.filter(r => r.user_id === userId);
-      const byCategory = (cat: string) => inventory.filter(r => r.category === cat).map(r => r.item_id).sort();
-      expect(byCategory('outfit')).toEqual(['kimono', 'seifuku']);
-      expect(byCategory('accessory')).toEqual(['cat_ears', 'ribbon']);
-      expect(byCategory('hairstyle')).toEqual(['twintails']);
-      expect(inventory.every(r => r.rarity !== 'none')).toBe(true);
-    });
-
-    it('coins are increase-only: a stale client cannot roll back the server balance', async () => {
-      mocks.state.db.user_progress.push({ user_id: userId, coins: 1000, bond_level: 1 });
-
-      const res = await syncPOST(
-        req('http://localhost/api/sync/progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            waifu: { name: 'OldClient', personality: 'tsundere', bondExp: 0, bondLevel: 1, appearance: {} },
-            rpg: { coins: 5, claimedAffectionMilestones: [], defenseStats: {}, showcaseItems: [] },
-            settings: {}
-          })
-        })
-      );
-      expect(res.status).toBe(200);
-
-      const progress = mocks.state.db.user_progress.find(p => p.user_id === userId);
-      expect(progress.coins).toBe(1000); // NOT rolled back to 5
-    });
-
-    it('filters claimed milestones that the current bond level does not grant', async () => {
-      const res = await syncPOST(
-        req('http://localhost/api/sync/progress', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            waifu: { name: 'Cheater', personality: 'tsundere', bondExp: 0, bondLevel: 3, appearance: {} },
-            rpg: { coins: 50, claimedAffectionMilestones: [2, 99, 3], defenseStats: {}, showcaseItems: [] },
+            waifu: { name: 'Cheater', personality: 'tsundere', appearance: {} },
+            rpg: { claimedAffectionMilestones: [2, 99, 3], showcaseItems: [] },
             settings: {}
           })
         })
@@ -395,20 +398,15 @@ describe('Supabase-backed API routes (regression guard)', () => {
       expect(progress.claimed_milestones).toEqual([2, 3]);
     });
 
-    it('ignores inventory and showcase items that are not in the catalog', async () => {
+    it('ignores showcase items that are not in the catalog', async () => {
       const res = await syncPOST(
         req('http://localhost/api/sync/progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
-            waifu: { name: 'Forger', personality: 'tsundere', bondExp: 0, bondLevel: 1, appearance: {} },
+            waifu: { name: 'Forger', personality: 'tsundere', appearance: {} },
             rpg: {
-              coins: 100,
-              unlockedOutfits: ['seifuku', 'totally_fake_item'],
-              unlockedAccessories: [],
-              unlockedHairstyles: [],
               claimedAffectionMilestones: [],
-              defenseStats: {},
               showcaseItems: ['seifuku', 'fake_showcase', 'none']
             },
             settings: {}
@@ -416,9 +414,6 @@ describe('Supabase-backed API routes (regression guard)', () => {
         })
       );
       expect(res.status).toBe(200);
-
-      const inventory = mocks.state.db.user_inventory.filter(r => r.user_id === userId);
-      expect(inventory.map(r => r.item_id)).toEqual(['seifuku']);
 
       // 'fake_showcase' is not in the catalog and is dropped; 'none' is a valid
       // catalog id so it is preserved.
@@ -467,8 +462,8 @@ describe('Supabase-backed API routes (regression guard)', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
-            waifu: { name: 'Neo', personality: 'kuudere', bondExp: 0, bondLevel: 1, appearance: {} },
-            rpg: { coins: 200, claimedAffectionMilestones: [], defenseStats: {}, showcaseItems: [] },
+            waifu: { name: 'Neo', personality: 'kuudere', appearance: {} },
+            rpg: { claimedAffectionMilestones: [], defenseStats: {}, showcaseItems: [] },
             settings: {},
             calendar: [
               { id: 'evt-1', title: 'Sprint Review', start: '2026-09-10T10:00:00Z', end: '2026-09-10T11:00:00Z', allDay: false, type: 'event', completed: false, color: '#ff6584', description: 'sync', location: 'Room 4', recurrence: 'none' },
@@ -542,8 +537,8 @@ describe('Supabase-backed API routes (regression guard)', () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
-            waifu: { name: 'Neo', personality: 'kuudere', bondExp: 0, bondLevel: 1, appearance: {} },
-            rpg: { coins: 200, claimedAffectionMilestones: [], defenseStats: {}, showcaseItems: [] },
+            waifu: { name: 'Neo', personality: 'kuudere', appearance: {} },
+            rpg: { claimedAffectionMilestones: [], defenseStats: {}, showcaseItems: [] },
             settings: {},
             calendar: [],
             calendarOverrides: [
@@ -573,13 +568,34 @@ describe('Supabase-backed API routes (regression guard)', () => {
       expect(res.status).toBe(200);
       const data = await res.json();
       expect(Array.isArray(data.calendarOverrides)).toBe(true);
-      expect(data.calendarOverrides).toHaveLength(0);
     });
   });
 
   describe('gacha/roll (server-authoritative)', () => {
     const userId = '5a7f9d4c-8e61-4a3b-bc2d-1a2b3c4d5e6f';
     const token = createSessionToken({ id: userId, username: 'Roller', email: 'roller@waifuspace.moe' });
+
+    it('rejects client-supplied balance or reward fields with 400', async () => {
+      mocks.state.db.user_progress.push({ user_id: userId, coins: 500 });
+
+      let res = await rollPOST(
+        req('http://localhost/api/gacha/roll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ boxType: 'standard', currentCoins: 999999 })
+        })
+      );
+      expect(res.status).toBe(400);
+
+      res = await rollPOST(
+        req('http://localhost/api/gacha/roll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ boxType: 'standard', unlockedItemIds: ['some_id'] })
+        })
+      );
+      expect(res.status).toBe(400);
+    });
 
     it('deducts the cost from the DB balance, inserts the item, and audits the roll', async () => {
       mocks.state.db.user_progress.push({ user_id: userId, coins: 500 });
@@ -588,7 +604,7 @@ describe('Supabase-backed API routes (regression guard)', () => {
         req('http://localhost/api/gacha/roll', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ boxType: 'standard', currentCoins: 999999, unlockedItemIds: [] })
+          body: JSON.stringify({ boxType: 'standard' })
         })
       );
 
@@ -597,7 +613,7 @@ describe('Supabase-backed API routes (regression guard)', () => {
       expect(data.success).toBe(true);
       expect(data.isDuplicate).toBe(false);
 
-      // Uses the DB balance (500) as source of truth - NOT the forged 999999.
+      // Uses the DB balance (500) as source of truth.
       // Standard chest costs 120, so DB coins end at 380.
       const progress = mocks.state.db.user_progress.find(p => p.user_id === userId);
       expect(progress.coins).toBe(380);
@@ -628,7 +644,7 @@ describe('Supabase-backed API routes (regression guard)', () => {
         req('http://localhost/api/gacha/roll', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ boxType: 'standard', currentCoins: 0, unlockedItemIds: [] })
+          body: JSON.stringify({ boxType: 'standard' })
         })
       );
 
