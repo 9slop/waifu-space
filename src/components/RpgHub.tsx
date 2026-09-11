@@ -8,6 +8,7 @@ import {
   isCosmeticUnlocked,
   toggleShowcaseItem,
   getUnlockedCosmeticsCount,
+  getBondExpNeeded,
   showToast,
   RpgCosmeticItem
 } from '../lib/store';
@@ -79,12 +80,12 @@ export function RpgHub() {
               <div class="rpg-bar-item">
                 <div class="bar-header">
                   <span>🌟 {t('rpg.dashboard.bondLevel', { level: state.waifu?.bondLevel || 1 })}</span>
-                  <small>{state.waifu?.bondExp || 0} / {(state.waifu?.bondLevel || 1) * 50} XP</small>
+                  <small>{state.waifu?.bondExp || 0} / {getBondExpNeeded(state.waifu?.bondLevel || 1)} XP</small>
                 </div>
                 <div class="stat-progress-bar">
                   <div
                     class="progress-fill exp-fill"
-                    style={{ width: `${Math.min(100, ((state.waifu?.bondExp || 0) / ((state.waifu?.bondLevel || 1) * 50)) * 100)}%` }}
+                    style={{ width: `${Math.min(100, ((state.waifu?.bondExp || 0) / getBondExpNeeded(state.waifu?.bondLevel || 1)) * 100)}%` }}
                   ></div>
                 </div>
               </div>

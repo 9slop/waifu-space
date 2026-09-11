@@ -629,17 +629,76 @@ export function loadState() {
 }
 
 // Bond progression
+export function getBondExpNeeded(level: number): number {
+  return Math.max(1, Math.floor(level)) * 60;
+}
+
+const INTERACTION_COOLDOWNS_MS: Record<string, number> = {
+  poke: 3 * 60 * 1000,
+  headpat: 5 * 60 * 1000,
+  chat: 60 * 1000
+};
+
+const INTERACTION_REWARDS: Record<string, { bondExp: number; coins: number }> = {
+  poke: { bondExp: 4, coins: 2 },
+  headpat: { bondExp: 6, coins: 3 },
+  chat: { bondExp: 2, coins: 1 }
+};
+
+const COOLDOWN_STORAGE_KEY = 'waifu_space_cooldowns_v1';
+
+function readCooldowns(): Record<string, number> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(COOLDOWN_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function getCooldownRemainingMs(action: string): number {
+  const until = readCooldowns()[action] || 0;
+  return Math.max(0, until - Date.now());
+}
+
+export function formatCooldown(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0m';
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds > 0 ? seconds + 's' : ''}`.trim() : `${seconds}s`;
+}
+
+export function tryClaimInteraction(action: string): boolean {
+  const remaining = getCooldownRemainingMs(action);
+  return !(remaining > 0);
+}
+
+function setInteractionCooldown(action: string) {
+  if (typeof window === 'undefined') return;
+  const windowMs = INTERACTION_COOLDOWNS_MS[action];
+  if (!windowMs) return;
+  const cd = readCooldowns();
+  cd[action] = Date.now() + windowMs;
+  try {
+    localStorage.setItem(COOLDOWN_STORAGE_KEY, JSON.stringify(cd));
+  } catch {
+    // ignore
+  }
+}
+
 export function gainBondExp(amount: number) {
   const safeAmount = Number.isFinite(amount) ? Math.max(0, amount) : 0;
   setState(
     produce(s => {
       let exp = Math.max(0, s.waifu.bondExp || 0) + safeAmount;
       let level = Math.max(1, s.waifu.bondLevel || 1);
-      const needed = level * 50;
+      const needed = getBondExpNeeded(level);
       if (exp >= needed) {
         exp -= needed;
         level += 1;
-        const bonusCoins = level * 25;
+        const bonusCoins = level * 20;
         s.rpg.coins = Math.max(0, (s.rpg.coins || 0) + bonusCoins);
         showToast(`🌸 Bond Level Up! ${s.waifu.name} reached Lv. ${level}! (+${bonusCoins} 🪙)`);
       }
@@ -732,9 +791,35 @@ export function pokeAvatar() {
   const persona = getPersonality(state.waifu.personality);
   const pokes = persona.poke;
   const item = pokes[Math.floor(Math.random() * pokes.length)];
-  gainBondExp(8);
-  addCoins(5);
+
+  if (tryClaimInteraction('poke')) {
+    setInteractionCooldown('poke');
+    gainBondExp(INTERACTION_REWARDS.poke.bondExp);
+    addCoins(INTERACTION_REWARDS.poke.coins);
+  } else {
+    const remaining = formatCooldown(getCooldownRemainingMs('poke'));
+    showToast(`🌸 ${state.waifu.name} is still flustered from that! Try again in ${remaining}.`);
+  }
+
   triggerWaifuResponse(item.text, item.mood);
+}
+
+// Headpat action (affection reward with its own cooldown)
+export function headpatWaifu() {
+  const persona = getPersonality(state.waifu.personality);
+  const pats = persona.poke;
+  const pat = pats[Math.floor(Math.random() * pats.length)];
+
+  if (tryClaimInteraction('headpat')) {
+    setInteractionCooldown('headpat');
+    gainBondExp(INTERACTION_REWARDS.headpat.bondExp);
+    addCoins(INTERACTION_REWARDS.headpat.coins);
+  } else {
+    const remaining = formatCooldown(getCooldownRemainingMs('headpat'));
+    showToast(`🌸 ${state.waifu.name} is already happy from that! Try again in ${remaining}.`);
+  }
+
+  triggerWaifuResponse(pat.text, pat.mood);
 }
 
 // Economy & RPG Operations
@@ -1040,8 +1125,8 @@ export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEve
   };
 
   setState('calendar', 'events', events => [newEvent, ...events]);
-  gainBondExp(15);
-  addCoins(20);
+  gainBondExp(8);
+  addCoins(10);
   saveState();
   return newEvent;
 }
@@ -1077,8 +1162,11 @@ export function toggleTask(id: string) {
   updateCalendarEvent(id, { completed: isNowCompleted });
 
   if (isNowCompleted) {
-    gainBondExp(25);
-    addCoins(35);
+    if (!target._rewarded) {
+      updateCalendarEvent(id, { _rewarded: true });
+      gainBondExp(12);
+      addCoins(15);
+    }
     const persona = getPersonality(state.waifu.personality);
     const praises = persona.taskComplete;
     const praise = praises[Math.floor(Math.random() * praises.length)];
@@ -1098,8 +1186,11 @@ export async function sendUserMessage(rawText: string) {
     timestamp: new Date().toISOString()
   };
   setState('chat', 'messages', msgs => [...msgs, userMsg]);
-  gainBondExp(5);
-  addCoins(5);
+  if (tryClaimInteraction('chat')) {
+    setInteractionCooldown('chat');
+    gainBondExp(INTERACTION_REWARDS.chat.bondExp);
+    addCoins(INTERACTION_REWARDS.chat.coins);
+  }
   saveState();
 
   setState('chat', 'isTyping', true);

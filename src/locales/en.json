@@ -87,7 +87,9 @@
     "poke": "Poke",
     "reviewSchedule": "Review Today's Schedule",
     "cute": "You look cute!",
-    "stageLabel": "Interactive avatar stage. Press Enter or click to interact with {name}."
+    "stageLabel": "Interactive avatar stage. Press Enter or click to interact with {name}.",
+    "pokeCooldown": "{name} is still flustered from that! Try again in {time}.",
+    "headpatCooldown": "{name} is already happy from that! Try again in {time}."
   },
   "chat": {
     "headerTitle": "Chat with {name}",

@@ -87,7 +87,9 @@
     "poke": "つつく",
     "reviewSchedule": "今日の予定を確認",
     "cute": "今日も可愛いね！",
-    "stageLabel": "インタラクティブなアバターステージ。Enter キーかクリックで {name} と交流できます。"
+    "stageLabel": "インタラクティブなアバターステージ。Enter キーかクリックで {name} と交流できます。",
+    "pokeCooldown": "{name} はまだ照れています！{time} 後にまた試してください。",
+    "headpatCooldown": "{name} はもう満足しているみたい！{time} 後にまた試してください。"
   },
   "chat": {
     "headerTitle": "{name}とのチャット",
