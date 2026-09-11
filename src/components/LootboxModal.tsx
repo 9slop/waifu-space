@@ -1,6 +1,7 @@
 import { createSignal, Show, For } from 'solid-js';
-import { state, setState, openLootbox, RpgCosmeticItem, showToast, isCosmeticUnlocked } from '../lib/store';
+import { state, setState, openLootbox, RpgCosmeticItem, showToast, isCosmeticUnlocked, gainBondExp, unlockCosmetic } from '../lib/store';
 import { t } from '../lib/i18n';
+import { onActivateKey } from '../lib/accessibility';
 
 export function LootboxModal() {
   const [selectedChest, setSelectedChest] = createSignal<'standard' | 'royal'>('standard');
@@ -115,10 +116,10 @@ export function LootboxModal() {
   };
 
   return (
-    <div class="lootbox-system-card">
+    <div class="lootbox-system-card" role="region" aria-labelledby="lootbox-modal-title">
       <div class="lootbox-header">
         <div class="lootbox-title-group">
-          <h2>🎁 {t('gacha.title')}</h2>
+          <h2 id="lootbox-modal-title">🎁 {t('gacha.title')}</h2>
           <p class="lootbox-subtitle">
             {t('gacha.subtitle')}
           </p>
@@ -133,7 +134,12 @@ export function LootboxModal() {
       <div class="chest-options-grid">
         <div
           class={`chest-card ${selectedChest() === 'standard' ? 'selected' : ''}`}
+          role="button"
+          tabindex="0"
+          aria-pressed={selectedChest() === 'standard'}
+          aria-label={t('gacha.silverChest')}
           onClick={() => setSelectedChest('standard')}
+          onKeyDown={e => onActivateKey(e, () => setSelectedChest('standard'))}
         >
           <div class="chest-badge standard-badge">{t('gacha.regular')}</div>
           <div class="chest-icon">📦</div>
@@ -146,7 +152,12 @@ export function LootboxModal() {
 
         <div
           class={`chest-card royal-card ${selectedChest() === 'royal' ? 'selected' : ''}`}
+          role="button"
+          tabindex="0"
+          aria-pressed={selectedChest() === 'royal'}
+          aria-label={t('gacha.royalChest')}
           onClick={() => setSelectedChest('royal')}
+          onKeyDown={e => onActivateKey(e, () => setSelectedChest('royal'))}
         >
           <div class="chest-badge royal-badge">{t('gacha.highRarityGuaranteed')}</div>
           <div class="chest-icon">✨👑✨</div>
@@ -189,7 +200,7 @@ export function LootboxModal() {
       {/* REVEALED ITEM CARD */}
       <Show when={revealedItem()}>
         {item => (
-          <div class={`revealed-item-modal ${getRarityClass(item().rarity)}`}>
+          <div class={`revealed-item-modal ${getRarityClass(item().rarity)}`} aria-live="polite">
             <div class="revealed-glow-ray"></div>
             <div class="revealed-header">
               <span class={`rarity-tag ${getRarityClass(item().rarity)}`}>

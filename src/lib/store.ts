@@ -3,6 +3,9 @@ import { createSignal } from 'solid-js';
 import { CalendarEventItem } from './ical';
 import { getPersonality, getRandomGreeting, PersonalityArchetype } from './personality';
 import { callLLM } from './llm';
+import { parseIntent, hasIntent, DialogIntent } from './intents';
+import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
+import { sanitizeRawState } from './validate';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
 
@@ -346,6 +349,69 @@ export function saveState() {
 
 let cloudSyncTimer: any = null;
 
+const PENDING_SYNC_KEY = 'waifu_space_pending_sync_v1';
+
+export type CloudSyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
+
+export const [cloudSyncStatus, setCloudSyncStatus] = createSignal<CloudSyncStatus>('idle');
+
+function isOnline(): boolean {
+  return typeof navigator === 'undefined' || navigator.onLine !== false;
+}
+
+function buildSyncSnapshot() {
+  return {
+    waifu: {
+      name: state.waifu.name,
+      personality: state.waifu.personality,
+      bondLevel: state.waifu.bondLevel,
+      bondExp: state.waifu.bondExp,
+      appearance: state.waifu.appearance
+    },
+    rpg: {
+      coins: state.rpg.coins,
+      unlockedOutfits: state.rpg.unlockedOutfits,
+      unlockedAccessories: state.rpg.unlockedAccessories,
+      unlockedHairstyles: state.rpg.unlockedHairstyles,
+      claimedAffectionMilestones: state.rpg.claimedAffectionMilestones,
+      defenseHighWave: state.rpg.defenseHighWave,
+      defenseStats: state.rpg.defenseStats,
+      showcaseItems: state.rpg.showcaseItems
+    },
+    settings: state.settings
+  };
+}
+
+function readPendingSync(): Record<string, unknown> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(PENDING_SYNC_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function queuePendingSync() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify({ payload: buildSyncSnapshot(), updatedAt: Date.now() }));
+  } catch (e) {
+    console.error('Failed to queue pending cloud sync', e);
+  }
+}
+
+function clearPendingSync() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(PENDING_SYNC_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export function scheduleCloudSync() {
   if (typeof window === 'undefined') return;
   if (!state.user?.token) return;
@@ -355,37 +421,41 @@ export function scheduleCloudSync() {
   }, 2500);
 }
 
-async function pushProgressToCloud() {
+/**
+ * Pushes progress to the cloud. Best-effort: on a network failure or while the
+ * browser is offline, the latest snapshot is queued locally and retried when
+ * the connection comes back, so no progress is silently lost.
+ */
+export async function pushProgressToCloud(): Promise<boolean> {
   const token = state.user?.token;
-  if (!token) return;
+  if (!token) return false;
+
+  if (!isOnline()) {
+    setCloudSyncStatus('offline');
+    queuePendingSync();
+    return false;
+  }
+
+  setCloudSyncStatus('syncing');
   try {
-    await fetch('/api/sync/progress', {
+    const res = await fetch('/api/sync/progress', {
       method: 'POST',
       keepalive: true,
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        waifu: {
-          name: state.waifu.name,
-          personality: state.waifu.personality,
-          bondLevel: state.waifu.bondLevel,
-          bondExp: state.waifu.bondExp,
-          appearance: state.waifu.appearance
-        },
-        rpg: {
-          coins: state.rpg.coins,
-          unlockedOutfits: state.rpg.unlockedOutfits,
-          unlockedAccessories: state.rpg.unlockedAccessories,
-          unlockedHairstyles: state.rpg.unlockedHairstyles,
-          claimedAffectionMilestones: state.rpg.claimedAffectionMilestones,
-          defenseHighWave: state.rpg.defenseHighWave,
-          defenseStats: state.rpg.defenseStats,
-          showcaseItems: state.rpg.showcaseItems
-        },
-        settings: state.settings
-      })
+      body: JSON.stringify(buildSyncSnapshot())
     });
+    if (!res.ok) {
+      setCloudSyncStatus('error');
+      queuePendingSync();
+      return false;
+    }
+    clearPendingSync();
+    setCloudSyncStatus('synced');
+    return true;
   } catch {
-    // Cloud sync is best-effort; the local state already persists.
+    setCloudSyncStatus(isOnline() ? 'error' : 'offline');
+    queuePendingSync();
+    return false;
   }
 }
 
@@ -399,6 +469,14 @@ if (typeof window !== 'undefined') {
   };
   window.addEventListener('pagehide', flushPendingSync);
   window.addEventListener('beforeunload', flushPendingSync);
+
+  // Retry any queued (offline) sync as soon as the connection returns.
+  window.addEventListener('online', () => {
+    if (!state.user?.token) return;
+    if (!readPendingSync()) return;
+    clearTimeout(cloudSyncTimer);
+    void pushProgressToCloud();
+  });
 }
 
 /**
@@ -410,14 +488,28 @@ export async function loadCloudProgress(token?: string): Promise<void> {
   const authToken = token || state.user?.token;
   if (!authToken) return;
 
+  if (!isOnline()) {
+    // Offline fallback: keep the local save authoritative until a pull succeeds.
+    setCloudSyncStatus('offline');
+    return;
+  }
+
   try {
     const res = await fetch('/api/sync/progress', {
       headers: { Authorization: `Bearer ${authToken}` }
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      setCloudSyncStatus('error');
+      return;
+    }
 
     const data = await res.json();
-    if (!data.success) return;
+    if (!data.success) {
+      setCloudSyncStatus('error');
+      return;
+    }
+
+    setCloudSyncStatus('synced');
 
     const p = data.progress;
     if (!p) {
@@ -447,8 +539,9 @@ export async function loadCloudProgress(token?: string): Promise<void> {
           Object.assign(s.waifu.appearance, p.appearance_data);
         }
         if (p.settings_data && typeof p.settings_data === 'object') {
-          Object.assign(s.settings, p.settings_data);
-          s.settings.language = p.settings_data.language === 'ja' ? 'ja' : s.settings.language;
+          const cleaned = sanitizeSettings(p.settings_data);
+          Object.assign(s.settings, cleaned);
+          if (cleaned.language) s.settings.language = cleaned.language;
         }
         if (Array.isArray(p.claimed_milestones) && p.claimed_milestones.length > 0) {
           s.rpg.claimedAffectionMilestones = Array.from(new Set([...(s.rpg.claimedAffectionMilestones || []), ...p.claimed_milestones]));
@@ -475,8 +568,12 @@ export async function loadCloudProgress(token?: string): Promise<void> {
     );
     saveState();
   } catch {
-    // Best-effort cloud load; the local state remains authoritative.
+    setCloudSyncStatus(isOnline() ? 'error' : 'offline');
   }
+}
+
+function unionStrings(a: string[] | undefined, b: string[] | undefined): string[] {
+  return Array.from(new Set([...(a || []), ...(b || [])]));
 }
 
 export function loadState() {
@@ -485,31 +582,43 @@ export function loadState() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+      const rawHadEvents = typeof parsed.calendar === 'object' && parsed.calendar !== null && Array.isArray(parsed.calendar.events);
+      const rawHadMessages = typeof parsed.chat === 'object' && parsed.chat !== null && Array.isArray(parsed.chat.messages);
+
+      // Schema validation & sanitization of possibly-corrupt, legacy, or
+      // future-shaped data before it ever reaches the reactive store.
+      const { data, issues } = sanitizeRawState(parsed);
+      if (issues.length > 0) console.warn('State hydration issues:', issues);
+
       setState(
         produce(s => {
           Object.assign(s, {
             ...DEFAULT_STATE,
-            ...parsed,
-            user: parsed.user || null,
-            waifu: { ...DEFAULT_STATE.waifu, ...(parsed.waifu || {}), appearance: { ...DEFAULT_STATE.waifu.appearance, ...(parsed.waifu?.appearance || {}) } },
+            ...data,
+            user: data.user,
+            waifu: {
+              ...DEFAULT_STATE.waifu,
+              ...(data.waifu || {}),
+              appearance: { ...DEFAULT_STATE.waifu.appearance, ...(data.waifu?.appearance || {}) }
+            },
             rpg: {
               ...DEFAULT_RPG,
-              ...(parsed.rpg || {}),
-              coins: typeof parsed.rpg?.coins === 'number' ? parsed.rpg.coins : DEFAULT_RPG.coins,
-              unlockedOutfits: Array.from(new Set([...DEFAULT_RPG.unlockedOutfits, ...(parsed.rpg?.unlockedOutfits || [])])),
-              unlockedAccessories: Array.from(new Set([...DEFAULT_RPG.unlockedAccessories, ...(parsed.rpg?.unlockedAccessories || [])])),
-              unlockedHairstyles: Array.from(new Set([...DEFAULT_RPG.unlockedHairstyles, ...(parsed.rpg?.unlockedHairstyles || [])])),
-              showcaseItems: Array.isArray(parsed.rpg?.showcaseItems) ? parsed.rpg.showcaseItems : DEFAULT_RPG.showcaseItems,
-              claimedAffectionMilestones: Array.isArray(parsed.rpg?.claimedAffectionMilestones) ? parsed.rpg.claimedAffectionMilestones : [],
-              defenseHighWave: typeof parsed.rpg?.defenseHighWave === 'number' ? parsed.rpg.defenseHighWave : 0,
-              defenseStats: {
-                totalVictories: parsed.rpg?.defenseStats?.totalVictories || 0,
-                goblinsDefeated: parsed.rpg?.defenseStats?.goblinsDefeated || 0
-              }
+              ...(data.rpg || {}),
+              unlockedOutfits: unionStrings(DEFAULT_RPG.unlockedOutfits, data.rpg?.unlockedOutfits),
+              unlockedAccessories: unionStrings(DEFAULT_RPG.unlockedAccessories, data.rpg?.unlockedAccessories),
+              unlockedHairstyles: unionStrings(DEFAULT_RPG.unlockedHairstyles, data.rpg?.unlockedHairstyles)
             },
-            calendar: { ...DEFAULT_STATE.calendar, ...(parsed.calendar || {}), events: Array.isArray(parsed.calendar?.events) ? parsed.calendar.events : DEFAULT_STATE.calendar.events },
-            settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}), language: parsed.settings?.language === 'ja' ? 'ja' : 'en' },
-            chat: { ...DEFAULT_STATE.chat, ...(parsed.chat || {}) }
+            calendar: {
+              ...DEFAULT_STATE.calendar,
+              ...(data.calendar || {}),
+              events: rawHadEvents ? data.calendar?.events || [] : DEFAULT_STATE.calendar.events
+            },
+            settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
+            chat: {
+              ...DEFAULT_STATE.chat,
+              ...(data.chat || {}),
+              messages: rawHadMessages ? data.chat?.messages || [] : DEFAULT_STATE.chat.messages
+            }
           });
         })
       );
@@ -521,16 +630,17 @@ export function loadState() {
 
 // Bond progression
 export function gainBondExp(amount: number) {
+  const safeAmount = Number.isFinite(amount) ? Math.max(0, amount) : 0;
   setState(
     produce(s => {
-      let exp = s.waifu.bondExp + amount;
-      let level = s.waifu.bondLevel;
+      let exp = Math.max(0, s.waifu.bondExp || 0) + safeAmount;
+      let level = Math.max(1, s.waifu.bondLevel || 1);
       const needed = level * 50;
       if (exp >= needed) {
         exp -= needed;
         level += 1;
         const bonusCoins = level * 25;
-        s.rpg.coins += bonusCoins;
+        s.rpg.coins = Math.max(0, (s.rpg.coins || 0) + bonusCoins);
         showToast(`🌸 Bond Level Up! ${s.waifu.name} reached Lv. ${level}! (+${bonusCoins} 🪙)`);
       }
       s.waifu.bondExp = exp;
@@ -629,13 +739,19 @@ export function pokeAvatar() {
 
 // Economy & RPG Operations
 export function addCoins(amount: number) {
-  setState('rpg', 'coins', c => c + amount);
+  const safeAmount = Number.isFinite(amount) ? Math.max(0, amount) : 0;
+  setState('rpg', 'coins', c => {
+    const base = Number.isFinite(c) ? Math.max(0, c) : 0;
+    return clampNumber(base + safeAmount, 0, 99999999);
+  });
   saveState();
 }
 
 export function spendCoins(amount: number): boolean {
-  if (state.rpg.coins < amount) return false;
-  setState('rpg', 'coins', c => c - amount);
+  if (!Number.isFinite(amount) || amount <= 0) return false;
+  const balance = Number.isFinite(state.rpg.coins) ? Math.max(0, Math.floor(state.rpg.coins)) : 0;
+  if (balance < Math.floor(amount)) return false;
+  setState('rpg', 'coins', clampNumber(balance - Math.floor(amount), 0, 99999999));
   saveState();
   return true;
 }
@@ -732,6 +848,16 @@ export function toggleShowcaseItem(itemId: string): boolean {
 
 export function setUserAccount(user: UserAccount | null) {
   setState('user', user);
+  saveState();
+}
+
+/**
+ * Validated settings updater: any incoming values are sanitized/clamped before
+ * being persisted, so malformed UI input can never corrupt saved settings.
+ */
+export function updateSettings(partial: Record<string, unknown>) {
+  const cleaned = sanitizeSettings(partial);
+  setState('settings', prev => ({ ...prev, ...cleaned }));
   saveState();
 }
 
@@ -884,12 +1010,26 @@ export function getEventsForDate(events: CalendarEventItem[], targetDate: Date):
 }
 
 // Calendar event operations
-export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEventItem {
+export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEventItem | null {
+  // Defensive validation: malformed payloads are rejected before they reach the store.
+  const validation = validateCalendarEventInput(event);
+  if (!validation.ok) {
+    console.warn('addCalendarEvent rejected input:', validation.issues);
+    showToast(validation.issues[0].message);
+    return null;
+  }
+
+  const start = event.start || new Date().toISOString();
+  let end = event.end || new Date(Date.now() + 3600000).toISOString();
+  if (new Date(end).getTime() < new Date(start).getTime()) {
+    end = new Date(new Date(start).getTime() + 3600000).toISOString();
+  }
+
   const newEvent: CalendarEventItem = {
     id: event.id || ('evt-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5)),
-    title: event.title || 'New Event',
-    start: event.start || new Date().toISOString(),
-    end: event.end || new Date(Date.now() + 3600000).toISOString(),
+    title: (event.title || '').trim() || 'New Event',
+    start,
+    end,
     allDay: event.allDay ?? false,
     type: event.type || 'event',
     completed: false,
@@ -906,11 +1046,23 @@ export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEve
   return newEvent;
 }
 
-export function updateCalendarEvent(id: string, updates: Partial<CalendarEventItem>) {
+export function updateCalendarEvent(id: string, updates: Partial<CalendarEventItem>): boolean {
+  const existing = state.calendar.events.find(ev => ev.id === id);
+  if (!existing) return false;
+
+  const merged: Partial<CalendarEventItem> = { ...existing, ...updates };
+  const validation = validateCalendarEventInput(merged);
+  if (!validation.ok) {
+    console.warn('updateCalendarEvent rejected update:', validation.issues);
+    showToast(validation.issues[0].message);
+    return false;
+  }
+
   setState('calendar', 'events', events =>
     events.map(ev => (ev.id === id ? { ...ev, ...updates } : ev))
   );
   saveState();
+  return true;
 }
 
 export function deleteCalendarEvent(id: string) {
@@ -953,24 +1105,12 @@ export async function sendUserMessage(rawText: string) {
   setState('chat', 'isTyping', true);
 
   try {
-    const lower = text.toLowerCase();
     const personaId = state.waifu.personality;
     const persona = getPersonality(personaId);
 
-    // 1. Schedule intent
-    if (
-      lower.includes('schedule') ||
-      lower.includes('calendar') ||
-      lower.includes('today') ||
-      lower.includes('task') ||
-      lower.includes('agenda')
-    ) {
+    // 1. Intent detection (schedule)
+    if (hasIntent(parseIntent(text), 'schedule')) {
       const today = new Date();
-      const isSameDay = (d1: Date, d2: Date) =>
-        d1.getFullYear() === d2.getFullYear() &&
-        d1.getMonth() === d2.getMonth() &&
-        d1.getDate() === d2.getDate();
-
       const todayEvents = state.calendar.events.filter(e => isSameDay(new Date(e.start), today));
       const evCount = todayEvents.filter(e => e.type === 'event').length;
       const tkCount = todayEvents.filter(e => e.type === 'task' && !e.completed).length;
@@ -1004,7 +1144,7 @@ export async function sendUserMessage(rawText: string) {
 
     // 3. Fallback offline dialogue engine
     await new Promise(r => setTimeout(r, 400));
-    const reply = generateOfflineReply(lower, personaId, persona);
+    const reply = generateOfflineReply(text, personaId, persona);
     setState('chat', 'isTyping', false);
     triggerWaifuResponse(reply.text, reply.mood, reply.suggestions);
   } catch (err) {
@@ -1025,9 +1165,13 @@ function inferMoodFromText(text: string, personaId: string): string {
   return 'neutral';
 }
 
-function generateOfflineReply(lower: string, personaId: string, persona: PersonalityArchetype) {
+function generateOfflineReply(text: string, personaId: string, persona: PersonalityArchetype) {
+  const match = parseIntent(text);
+  const intent = match.intent;
+  const strong = (target: DialogIntent) => hasIntent(match, target);
+
   // Compliments
-  if (lower.includes('love') || lower.includes('cute') || lower.includes('pretty') || lower.includes('marry') || lower.includes('beautiful')) {
+  if (strong('compliment')) {
     const map: Record<string, { text: string; mood: string }> = {
       tsundere: { text: "W-WHAT?! What are you blabbering about, dummy?! Don't just say things like that with a straight face! ...B-Baka!", mood: 'blush' },
       kuudere: { text: "Compliment registered. Heart rate telemetry indicates unexpected elevation... Please refrain from causing uncalibrated emotional spikes.", mood: 'blush' },
@@ -1040,7 +1184,7 @@ function generateOfflineReply(lower: string, personaId: string, persona: Persona
   }
 
   // Task done
-  if (lower.includes('done') || lower.includes('finished') || lower.includes('completed') || lower.includes('i did it')) {
+  if (strong('taskComplete')) {
     const map: Record<string, { text: string; mood: string }> = {
       tsundere: { text: "Hmph! Well... I guess you're not completely useless after all. Good job... dummy. Don't let it go to your head!", mood: 'blush' },
       kuudere: { text: "Task completion logged into telemetry. Productivity quotient increased. Outstanding performance.", mood: 'happy' },
@@ -1052,21 +1196,14 @@ function generateOfflineReply(lower: string, personaId: string, persona: Persona
     return { text: res.text, mood: res.mood, suggestions: ["Give me praise!", "What's next on calendar?", "Headpat", "Thanks Akari!"] };
   }
 
-  // Greetings
-  if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey') || lower.includes('konnichiwa') || lower.includes('ohayo')) {
-    const map: Record<string, { text: string; mood: string }> = {
-      tsundere: { text: "Oh, you finally decided to say hi? What do you want, baka? Don't tell me you forgot your tasks already!", mood: 'pout' },
-      kuudere: { text: "Salutations. System ready to assist with daily operations and schedule tracking.", mood: 'neutral' },
-      yandere: { text: "Hello darling! I missed you every single microsecond you were away~ You didn't talk to any other girls, right?", mood: 'happy' },
-      deredere: { text: "Yaaay, hello superstar! Super happy to see you right now! Let's have an amazing and productive day! 🌸✨", mood: 'happy' },
-      dandere: { text: "H-Hello... it's really gentle and nice to hear your voice today... u-um, how are you...?", mood: 'blush' }
-    };
-    const res = map[personaId] || map.tsundere;
-    return { text: res.text, mood: res.mood, suggestions: ["What's my schedule today?", "You look cute!", "Poke", "Just wanted to say hi"] };
+  // Greetings (time-of-day aware)
+  if (strong('greeting')) {
+    const greeting = getRandomGreeting(personaId);
+    return { text: greeting.text, mood: greeting.mood, suggestions: ["What's my schedule today?", "You look cute!", "Poke", "Just wanted to say hi"] };
   }
 
   // Joke
-  if (lower.includes('joke') || lower.includes('funny') || lower.includes('laugh')) {
+  if (strong('joke')) {
     const jokes = [
       "Why do anime characters make great programmers? Because they love to loop through their arcs! 🌸",
       "Why did the calendar take a vacation? Because its days were numbered! 😄",
@@ -1076,6 +1213,45 @@ function generateOfflineReply(lower: string, personaId: string, persona: Persona
       text: jokes[Math.floor(Math.random() * jokes.length)],
       mood: 'happy',
       suggestions: ["Haha that was good!", "Tell another!", "Review schedule", "You're cute"]
+    };
+  }
+
+  // Thanks
+  if (strong('thanks')) {
+    const map: Record<string, { text: string; mood: string }> = {
+      tsundere: { text: "H-Hmph! It's not like I did it so I could hear you say thanks... I was just bored anyway. Baka!", mood: 'blush' },
+      kuudere: { text: "Acknowledgment received. Behavioral records updated to prioritize your future assistance requests.", mood: 'neutral' },
+      yandere: { text: "Hehe, you're welcome, darling! I would do absolutely anything for you~ Absolutely anything at all.", mood: 'yandere' },
+      deredere: { text: "Aww, thank YOU for always being so dependable! Helping you is my favorite thing in the whole world! 💖", mood: 'happy' },
+      dandere: { text: "N-No need to thank me... I'm just happy that I could help you, even a little...", mood: 'blush' }
+    };
+    const res = map[personaId] || map.tsundere;
+    return { text: res.text, mood: res.mood, suggestions: ["Review today's schedule", "You're the best!", "Poke", "Tell me a joke"] };
+  }
+
+  // Help
+  if (strong('help')) {
+    return {
+      text: "I can review your schedule, remind you of tasks, cheer you on when you finish things, crack a joke, or just keep you company! Try asking \"What's on my calendar today?\" or just say hi.",
+      mood: persona.defaultMood,
+      suggestions: ["What's on my calendar today?", "Tell me a joke", "You look cute today", "Thanks!"]
+    };
+  }
+
+  // Fallback: recognized but low-confidence / unmatched input.
+  if (intent !== 'default' && match.confidence > 0) {
+    // Recognized signal but too weak to commit — acknowledge it generically.
+    const fallbacks: Record<string, string> = {
+      tsundere: "Hmph! I heard you, dummy. I just need you to be a bit clearer, okay?",
+      kuudere: "Input received. Confidence insufficient for a precise response. Please restate your request.",
+      yandere: "Hehe, tell me again, darling? I want to hear every single word twice~",
+      deredere: "Hehe, I caught a little of that! Could you say it again for me? ✨",
+      dandere: "U-Um, I'm not sure I understood... would you mind saying that once more...?"
+    };
+    return {
+      text: fallbacks[personaId] || fallbacks.tsundere,
+      mood: persona.defaultMood,
+      suggestions: ["Review today's schedule", "How are you doing?", "You look cute today", "Tell me a joke"]
     };
   }
 

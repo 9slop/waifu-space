@@ -86,7 +86,8 @@
     "headpat": "なでなで",
     "poke": "つつく",
     "reviewSchedule": "今日の予定を確認",
-    "cute": "今日も可愛いね！"
+    "cute": "今日も可愛いね！",
+    "stageLabel": "インタラクティブなアバターステージ。Enter キーかクリックで {name} と交流できます。"
   },
   "chat": {
     "headerTitle": "{name}とのチャット",
@@ -94,6 +95,8 @@
     "you": "あなた",
     "placeholder": "{name}に話しかける...",
     "sendTooltip": "メッセージを送信",
+    "messagesRegion": "チャットメッセージ。新しいメッセージは自動的に読み上げられます。",
+    "inputLabel": "{name}へのメッセージ",
     "schedulePrompt": "今日の予定を確認",
     "cutePrompt": "今日も可愛いね",
     "pokePrompt": "つつく",
@@ -205,6 +208,25 @@
       "noValidEvents": ".icsファイルに有効な予定が見つかりませんでした",
       "rescheduled": "「{title}」の日時を {date} に変更しました",
       "waifuBriefing": "ブリーフィング: {text}"
+    },
+    "validation": {
+      "titleRequired": "タイトルを入力してください。",
+      "titleTooLong": "タイトルは{max}文字以内で入力してください。",
+      "invalidStart": "開始日時が無効です。",
+      "invalidEnd": "終了日時が無効です。",
+      "endBeforeStart": "終了日時は開始日時より後にしてください。",
+      "invalidType": "予定の種類が無効です。",
+      "invalidRecurrence": "繰り返し設定が無効です。",
+      "invalidColor": "色は有効な16進数カラーコードで指定してください。"
+    },
+    "a11y": {
+      "miniCalendar": "ミニカレンダー",
+      "prevMonth": "前の月",
+      "nextMonth": "次の月",
+      "selectDay": "{date}を選択",
+      "openEvent": "{title}を開く",
+      "quickTask": "クイックタスクを追加",
+      "closeDialog": "ダイアログを閉じる"
     }
   },
   "rpg": {
@@ -328,6 +350,14 @@
       "voice": "音声・AI",
       "data": "データ管理",
       "language": "言語"
+    },
+    "a11y": {
+      "hairColorOption": "髪色 {color} を選択",
+      "eyeColorOption": "目の色 {color} を選択",
+      "wallpaperOption": "壁紙 {name} を選択",
+      "themeOption": "テーマ {name} を選択",
+      "languageOption": "言語 {name} を選択",
+      "personalityOption": "性格 {name} を選択"
     },
     "language": {
       "title": "言語設定",

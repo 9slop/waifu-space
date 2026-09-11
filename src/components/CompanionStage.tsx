@@ -9,6 +9,7 @@ import {
   triggerWaifuResponse
 } from '../lib/store';
 import { getPersonality } from '../lib/personality';
+import { onActivateKey } from '../lib/accessibility';
 import { WaifuAvatar } from './WaifuAvatar';
 import { ChatStage } from './ChatStage';
 import { t } from '../lib/i18n';
@@ -58,8 +59,12 @@ export function CompanionStage() {
         {/* AVATAR INTERACTIVE STAGE */}
         <div
           class="avatar-interactive-stage"
+          role="button"
+          tabindex="0"
+          aria-label={t('companion.stageLabel', { name: state.waifu.name })}
           title={t('companion.avatarClickTooltip', { name: state.waifu.name })}
           onClick={pokeAvatar}
+          onKeyDown={e => onActivateKey(e, pokeAvatar)}
         >
           <div class={`avatar-mount ${avatarBounced() ? 'avatar-bounced' : ''}`}>
             <WaifuAvatar />

@@ -1,6 +1,7 @@
 import { createSignal, onMount, For, Show } from 'solid-js';
 import { state } from '../lib/store';
 import { t } from '../lib/i18n';
+import { useFocusTrap } from '../lib/accessibility';
 
 interface LeaderboardEntry {
   rank: number;
@@ -81,13 +82,21 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
 
   return (
     <Show when={props.isOpen}>
-      <div class="leaderboard-modal-backdrop" onClick={props.onClose} data-testid="leaderboard-modal">
+      <div
+        ref={useFocusTrap(() => props.isOpen, props.onClose)}
+        class="leaderboard-modal-backdrop"
+        onClick={props.onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="leaderboard-modal-title"
+        data-testid="leaderboard-modal"
+      >
         <div class="leaderboard-modal-card" onClick={e => e.stopPropagation()}>
-          <button class="modal-close-btn" onClick={props.onClose}>✕</button>
+          <button class="modal-close-btn" onClick={props.onClose} aria-label={t('common.close')}>✕</button>
 
           <div class="leaderboard-modal-header">
             <span class="hall-icon">🏆</span>
-            <h2>{t('leaderboard.title')}</h2>
+            <h2 id="leaderboard-modal-title">{t('leaderboard.title')}</h2>
             <p>{t('leaderboard.subtitle')}</p>
           </div>
 

@@ -2,6 +2,9 @@ import { Show } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { toggleTask, deleteCalendarEvent, showToast } from '../lib/store';
 import { t, getLocale } from '../lib/i18n';
+import { useFocusTrap } from '../lib/accessibility';
+
+const POPOVER_TITLE_ID = 'calendar-popover-title';
 
 export function CalendarPopover(props: {
   event: CalendarEventItem | null;
@@ -9,6 +12,8 @@ export function CalendarPopover(props: {
   onEdit: (ev: CalendarEventItem) => void;
   onClose: () => void;
 }) {
+  const dialogRef = useFocusTrap(() => !!props.event, () => props.onClose());
+
   return (
     <Show when={props.event}>
       {ev => {
@@ -35,7 +40,11 @@ export function CalendarPopover(props: {
 
         return (
           <div
+            ref={dialogRef}
             class="gcal-popover"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={POPOVER_TITLE_ID}
             style={{
               display: 'block',
               top: props.position ? `${props.position.top}px` : '50%',
@@ -77,6 +86,7 @@ export function CalendarPopover(props: {
                 <button
                   class="popover-btn"
                   title={t('calendar.popover.close')}
+                  aria-label={t('calendar.a11y.closeDialog')}
                   onClick={props.onClose}
                 >
                   ✕
@@ -85,7 +95,7 @@ export function CalendarPopover(props: {
             </div>
 
             <div class="popover-body">
-              <h3 class="popover-title">{ev().title}</h3>
+              <h3 class="popover-title" id={POPOVER_TITLE_ID}>{ev().title}</h3>
               <div class="popover-time">
                 {dateStr()} · {timeStr()}
               </div>

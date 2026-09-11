@@ -76,7 +76,7 @@ export function WaifuAvatar() {
   return (
     <>
       {state.waifu.appearance.avatarMode === 'custom' && state.waifu.appearance.customAvatarUrl ? (
-        <div class={`custom-avatar-wrapper mood-${mood()}`}>
+        <div class={`custom-avatar-wrapper mood-${mood()}`} aria-hidden="true">
           <img
             src={state.waifu.appearance.customAvatarUrl}
             alt="Custom Companion Avatar"
@@ -85,8 +85,8 @@ export function WaifuAvatar() {
           <div class="custom-avatar-mood-badge">{getMoodEmoji(mood())}</div>
         </div>
       ) : (
-        <div class={`svg-avatar-wrapper animate-breathe mood-${mood()}`}>
-          <svg viewBox="0 0 400 520" class="waifu-avatar-svg" xmlns="http://www.w3.org/2000/svg">
+        <div class={`svg-avatar-wrapper animate-breathe mood-${mood()}`} aria-hidden="true">
+          <svg viewBox="0 0 400 520" class="waifu-avatar-svg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <defs>
               <linearGradient id={`${pfx}_hairGrad`} x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stop-color={shadeColor(hairColor(), 15)} />

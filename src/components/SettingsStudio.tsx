@@ -3,11 +3,13 @@ import {
   state,
   setState,
   saveState,
+  updateSettings,
   showToast,
   resetAllData,
   speakText,
   isCosmeticUnlocked
 } from '../lib/store';
+import { onActivateKey } from '../lib/accessibility';
 import { PERSONALITIES } from '../lib/personality';
 import { STOCK_WALLPAPERS } from '../lib/wallpapers';
 import { WaifuAvatar } from './WaifuAvatar';
@@ -177,23 +179,32 @@ export function SettingsStudio() {
 
               <div class="personality-grid">
                 <For each={Object.values(PERSONALITIES)}>
-                  {p => (
-                    <div
-                      class={`personality-card ${state.waifu.personality === p.id ? 'active' : ''}`}
-                      onClick={() => {
-                        setState('waifu', 'personality', p.id);
-                        setState('waifu', 'mood', p.defaultMood);
-                        saveState();
-                        showToast(t('settings.personality.switchedToast', { name: p.name }));
-                      }}
-                    >
-                      <div class="persona-card-header">
-                        <span class="persona-name">{p.name}</span>
-                        {state.waifu.personality === p.id && <span class="persona-check">✔</span>}
+                  {p => {
+                    const isActive = () => state.waifu.personality === p.id;
+                    const selectPersonality = () => {
+                      setState('waifu', 'personality', p.id);
+                      setState('waifu', 'mood', p.defaultMood);
+                      saveState();
+                      showToast(t('settings.personality.switchedToast', { name: p.name }));
+                    };
+                    return (
+                      <div
+                        class={`personality-card ${isActive() ? 'active' : ''}`}
+                        role="button"
+                        tabindex="0"
+                        aria-pressed={isActive()}
+                        aria-label={t('settings.a11y.personalityOption', { name: p.name })}
+                        onClick={selectPersonality}
+                        onKeyDown={e => onActivateKey(e, selectPersonality)}
+                      >
+                        <div class="persona-card-header">
+                          <span class="persona-name">{p.name}</span>
+                          {isActive() && <span class="persona-check">✔</span>}
+                        </div>
+                        <p class="persona-tagline">{p.tagline}</p>
                       </div>
-                      <p class="persona-tagline">{p.tagline}</p>
-                    </div>
-                  )}
+                    );
+                  }}
                 </For>
               </div>
             </div>
@@ -365,6 +376,8 @@ export function SettingsStudio() {
                               type="button"
                               class="color-dot"
                               style={{ background: c }}
+                              aria-label={t('settings.a11y.hairColorOption', { color: c })}
+                              aria-pressed={state.waifu.appearance.hairColor === c}
                               onClick={() => {
                                 setState('waifu', 'appearance', 'hairColor', c);
                                 saveState();
@@ -396,6 +409,8 @@ export function SettingsStudio() {
                               type="button"
                               class="color-dot"
                               style={{ background: c }}
+                              aria-label={t('settings.a11y.eyeColorOption', { color: c })}
+                              aria-pressed={state.waifu.appearance.eyeColor === c}
                               onClick={() => {
                                 setState('waifu', 'appearance', 'eyeColor', c);
                                 saveState();
@@ -462,23 +477,33 @@ export function SettingsStudio() {
 
               <div class="wallpaper-grid">
                 <For each={STOCK_WALLPAPERS}>
-                  {wp => (
-                    <div
-                      class={`wallpaper-card ${state.settings.wallpaperType === 'stock' && state.settings.wallpaperId === wp.id ? 'active' : ''}`}
-                      onClick={() => {
-                        setState('settings', 'wallpaperType', 'stock');
-                        setState('settings', 'wallpaperId', wp.id);
-                        saveState();
-                        showToast(t('settings.wallpapers.changedToast', { name: wp.name }));
-                      }}
-                    >
-                      <img src={wp.thumb} alt={wp.name} class="wallpaper-thumb" />
-                      <div class="wallpaper-info">
-                        <span class="wallpaper-name">{wp.name}</span>
-                        <span class="wallpaper-cat">{wp.category}</span>
+                  {wp => {
+                    const isActive = () =>
+                      state.settings.wallpaperType === 'stock' && state.settings.wallpaperId === wp.id;
+                    const selectWallpaper = () => {
+                      updateSettings({ wallpaperType: 'stock' });
+                      updateSettings({ wallpaperId: wp.id });
+                      saveState();
+                      showToast(t('settings.wallpapers.changedToast', { name: wp.name }));
+                    };
+                    return (
+                      <div
+                        class={`wallpaper-card ${isActive() ? 'active' : ''}`}
+                        role="button"
+                        tabindex="0"
+                        aria-pressed={isActive()}
+                        aria-label={t('settings.a11y.wallpaperOption', { name: wp.name })}
+                        onClick={selectWallpaper}
+                        onKeyDown={e => onActivateKey(e, selectWallpaper)}
+                      >
+                        <img src={wp.thumb} alt={wp.name} aria-hidden="true" class="wallpaper-thumb" />
+                        <div class="wallpaper-info">
+                          <span class="wallpaper-name">{wp.name}</span>
+                          <span class="wallpaper-cat">{wp.category}</span>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  }}
                 </For>
               </div>
 
@@ -494,11 +519,11 @@ export function SettingsStudio() {
                   placeholder="https://images.unsplash.com/..."
                   value={state.settings.customWallpaperUrl}
                   onInput={e => {
-                    setState('settings', 'customWallpaperUrl', e.currentTarget.value);
+                    updateSettings({ customWallpaperUrl: e.currentTarget.value });
                     if (e.currentTarget.value) {
-                      setState('settings', 'wallpaperType', 'custom');
+                      updateSettings({ wallpaperType: 'custom' });
                     } else {
-                      setState('settings', 'wallpaperType', 'stock');
+                      updateSettings({ wallpaperType: 'stock' });
                     }
                     saveState();
                   }}
@@ -516,7 +541,7 @@ export function SettingsStudio() {
                   max="15"
                   value={state.settings.wallpaperBlur}
                   onInput={e => {
-                    setState('settings', 'wallpaperBlur', parseInt(e.currentTarget.value, 10));
+                    updateSettings({ wallpaperBlur: parseInt(e.currentTarget.value, 10) });
                     saveState();
                   }}
                 />
@@ -533,7 +558,7 @@ export function SettingsStudio() {
                   max="80"
                   value={state.settings.wallpaperDim}
                   onInput={e => {
-                    setState('settings', 'wallpaperDim', parseInt(e.currentTarget.value, 10));
+                    updateSettings({ wallpaperDim: parseInt(e.currentTarget.value, 10) });
                     saveState();
                   }}
                 />
@@ -548,7 +573,7 @@ export function SettingsStudio() {
                   type="checkbox"
                   checked={state.settings.sakuraParticles}
                   onChange={e => {
-                    setState('settings', 'sakuraParticles', e.currentTarget.checked);
+                    updateSettings({ sakuraParticles: e.currentTarget.checked });
                     saveState();
                   }}
                 />
@@ -577,20 +602,29 @@ export function SettingsStudio() {
                     { id: 'amoled', name: '🖤 AMOLED Dark', color: '#ff6584' }
                   ]}
                 >
-                  {thm => (
-                    <div
-                      class={`theme-card ${state.settings.theme === thm.id ? 'active' : ''}`}
-                      onClick={() => {
-                        setState('settings', 'theme', thm.id);
-                        document.documentElement.setAttribute('data-theme', thm.id);
-                        saveState();
-                        showToast(t('settings.themes.themeSetToast', { name: thm.name }));
-                      }}
-                    >
-                      <span class="theme-dot" style={{ background: thm.color }} />
-                      <span class="theme-name">{thm.name}</span>
-                    </div>
-                  )}
+                  {thm => {
+                    const isActive = () => state.settings.theme === thm.id;
+                    const selectTheme = () => {
+                      updateSettings({ theme: thm.id });
+                      document.documentElement.setAttribute('data-theme', thm.id);
+                      saveState();
+                      showToast(t('settings.themes.themeSetToast', { name: thm.name }));
+                    };
+                    return (
+                      <div
+                        class={`theme-card ${isActive() ? 'active' : ''}`}
+                        role="button"
+                        tabindex="0"
+                        aria-pressed={isActive()}
+                        aria-label={t('settings.a11y.themeOption', { name: thm.name })}
+                        onClick={selectTheme}
+                        onKeyDown={e => onActivateKey(e, selectTheme)}
+                      >
+                        <span class="theme-dot" style={{ background: thm.color }} />
+                        <span class="theme-name">{thm.name}</span>
+                      </div>
+                    );
+                  }}
                 </For>
               </div>
 
@@ -603,7 +637,7 @@ export function SettingsStudio() {
                   type="color"
                   value={state.settings.customAccent}
                   onInput={e => {
-                    setState('settings', 'customAccent', e.currentTarget.value);
+                    updateSettings({ customAccent: e.currentTarget.value });
                     document.documentElement.style.setProperty('--primary-accent', e.currentTarget.value);
                     saveState();
                   }}
@@ -631,7 +665,7 @@ export function SettingsStudio() {
                   type="checkbox"
                   checked={state.settings.ttsEnabled}
                   onChange={e => {
-                    setState('settings', 'ttsEnabled', e.currentTarget.checked);
+                    updateSettings({ ttsEnabled: e.currentTarget.checked });
                     saveState();
                   }}
                 />
@@ -647,7 +681,7 @@ export function SettingsStudio() {
                   style={{ width: '220px' }}
                   value={state.settings.ttsVoice}
                   onChange={e => {
-                    setState('settings', 'ttsVoice', e.currentTarget.value);
+                    updateSettings({ ttsVoice: e.currentTarget.value });
                     saveState();
                   }}
                 >
@@ -670,7 +704,7 @@ export function SettingsStudio() {
                   step="0.1"
                   value={state.settings.ttsPitch}
                   onInput={e => {
-                    setState('settings', 'ttsPitch', parseFloat(e.currentTarget.value));
+                    updateSettings({ ttsPitch: parseFloat(e.currentTarget.value) });
                     saveState();
                   }}
                 />
@@ -688,7 +722,7 @@ export function SettingsStudio() {
                   step="0.1"
                   value={state.settings.ttsRate}
                   onInput={e => {
-                    setState('settings', 'ttsRate', parseFloat(e.currentTarget.value));
+                    updateSettings({ ttsRate: parseFloat(e.currentTarget.value) });
                     saveState();
                   }}
                 />
@@ -720,7 +754,7 @@ export function SettingsStudio() {
                   style={{ width: '180px' }}
                   value={state.settings.llmProvider}
                   onChange={e => {
-                    setState('settings', 'llmProvider', e.currentTarget.value);
+                    updateSettings({ llmProvider: e.currentTarget.value });
                     saveState();
                   }}
                 >
@@ -745,7 +779,7 @@ export function SettingsStudio() {
                       placeholder="sk-..."
                       value={state.settings.llmApiKey}
                       onInput={e => {
-                        setState('settings', 'llmApiKey', e.currentTarget.value);
+                        updateSettings({ llmApiKey: e.currentTarget.value });
                         saveState();
                       }}
                     />
@@ -762,7 +796,7 @@ export function SettingsStudio() {
                       style={{ 'max-width': '340px' }}
                       value={state.settings.llmModel}
                       onInput={e => {
-                        setState('settings', 'llmModel', e.currentTarget.value);
+                        updateSettings({ llmModel: e.currentTarget.value });
                         saveState();
                       }}
                     />
@@ -850,15 +884,20 @@ export function SettingsStudio() {
                 <For each={SUPPORTED_LANGUAGES}>
                   {lang => {
                     const isSelected = () => (state.settings.language || 'en') === lang.code;
+                    const selectLanguage = () => {
+                      setLanguage(lang.code);
+                      showToast(t('settings.language.switchedToast', { lang: lang.nativeName }));
+                    };
                     return (
                       <div
                         class={`personality-card language-card ${isSelected() ? 'active' : ''}`}
                         data-testid={`language-card-${lang.code}`}
                         style={{ cursor: 'pointer', padding: '16px', 'border-radius': '12px' }}
-                        onClick={() => {
-                          setLanguage(lang.code);
-                          showToast(t('settings.language.switchedToast', { lang: lang.nativeName }));
-                        }}
+                        role="button"
+                        tabindex="0"
+                        aria-pressed={isSelected()}
+                        onClick={selectLanguage}
+                        onKeyDown={e => onActivateKey(e, selectLanguage)}
                       >
                         <div
                           class="persona-card-header"

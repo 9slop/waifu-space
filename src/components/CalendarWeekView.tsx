@@ -2,6 +2,7 @@ import { For, Show, onMount, createSignal } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
 import { t, getLocale } from '../lib/i18n';
+import { onActivateKey } from '../lib/accessibility';
 
 export function CalendarWeekView(props: {
   currentDate: Date;
@@ -308,12 +309,16 @@ export function CalendarWeekView(props: {
                               height: pos.height,
                               background: ev.color || '#ff6584'
                             }}
+                            role="button"
+                            tabindex="0"
+                            aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
                             draggable={true}
                             onDragStart={e => handleDragStart(e, ev)}
                             onClick={e => {
                               e.stopPropagation();
                               props.onOpenEvent(ev, e.currentTarget.getBoundingClientRect());
                             }}
+                            onKeyDown={e => onActivateKey(e, () => props.onOpenEvent(ev))}
                           >
                             <div class="event-card-header">
                               {ev.type === 'task' && (

@@ -19,6 +19,7 @@ export function WallpaperBackground() {
       <div
         class="app-wallpaper"
         id="app-wallpaper"
+        aria-hidden="true"
         style={{
           background: `url("${currentWallpaper().url}"), ${currentWallpaper().fallback}`,
           'background-size': 'cover',
@@ -30,6 +31,7 @@ export function WallpaperBackground() {
       <div
         class="wallpaper-overlay"
         id="wallpaper-overlay"
+        aria-hidden="true"
         style={{
           'background-color': `rgba(10, 10, 15, ${(state.settings.wallpaperDim ?? 45) / 100})`
         }}
