@@ -1,11 +1,11 @@
 import { createStore, produce } from 'solid-js/store';
 import { createSignal } from 'solid-js';
-import { CalendarEventItem } from './ical';
+import { CalendarEventItem, CalendarOccurrenceOverride } from './ical';
 import { getPersonality, getRandomGreeting, PersonalityArchetype } from './personality';
 import { callLLM } from './llm';
 import { parseIntent, hasIntent, DialogIntent } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
-import { sanitizeRawState, sanitizeEvent } from './validate';
+import { sanitizeRawState, sanitizeEvent, sanitizeOccurrenceOverride } from './validate';
 import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
@@ -135,6 +135,7 @@ export interface AppState {
     view: 'month' | 'week' | 'day';
     selectedDate: string;
     events: CalendarEventItem[];
+    occurrenceOverrides: CalendarOccurrenceOverride[];
     filterEvents: boolean;
     filterTasks: boolean;
     filterBirthdays: boolean;
@@ -268,6 +269,7 @@ export const DEFAULT_STATE: AppState = {
     view: 'week',
     selectedDate: new Date().toISOString(),
     events: DEFAULT_EVENTS,
+    occurrenceOverrides: [],
     filterEvents: true,
     filterTasks: true,
     filterBirthdays: true,
@@ -383,7 +385,8 @@ function buildSyncSnapshot() {
       showcaseItems: state.rpg.showcaseItems
     },
     settings: state.settings,
-    calendar: state.calendar.events.map(e => ({ ...e }))
+    calendar: state.calendar.events.map(e => ({ ...e })),
+    calendarOverrides: state.calendar.occurrenceOverrides.map(o => ({ ...o }))
   };
 }
 
@@ -535,6 +538,16 @@ export async function loadCloudProgress(token?: string): Promise<void> {
         .filter((e): e is CalendarEventItem => e !== null);
       if (sanitized.length > 0) {
         setState('calendar', 'events', sanitized);
+      }
+    }
+
+    const serverCalendarOverrides: unknown[] = Array.isArray(data.calendarOverrides) ? data.calendarOverrides : [];
+    if (serverCalendarOverrides.length > 0) {
+      const sanitized = serverCalendarOverrides
+        .map(sanitizeOccurrenceOverride)
+        .filter((o): o is CalendarOccurrenceOverride => o !== null && o.parentId !== '');
+      if (sanitized.length > 0) {
+        setState('calendar', 'occurrenceOverrides', sanitized);
       }
     }
 
@@ -1085,9 +1098,17 @@ export function isEventOnDate(ev: CalendarEventItem, targetDate: Date): boolean 
   return isSameDay(s, targetDate);
 }
 
+export function dateKeyOf(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function getOccurrenceForDate(ev: CalendarEventItem, targetDate: Date): CalendarEventItem {
+  const dateKey = dateKeyOf(targetDate);
   if (isSameDay(new Date(ev.start), targetDate)) {
-    return ev;
+    return { ...ev, parentId: ev.parentId || ev.id, dateKey };
   }
   const s = new Date(ev.start);
   const e = new Date(ev.end || ev.start);
@@ -1099,19 +1120,87 @@ export function getOccurrenceForDate(ev: CalendarEventItem, targetDate: Date): C
 
   return {
     ...ev,
+    parentId: ev.parentId || ev.id,
+    dateKey,
     start: occStart.toISOString(),
     end: occEnd.toISOString()
   };
 }
 
-export function getEventsForDate(events: CalendarEventItem[], targetDate: Date): CalendarEventItem[] {
+function occurrenceOverrideFor(parentId: string, dateKey: string): CalendarOccurrenceOverride | undefined {
+  return state.calendar.occurrenceOverrides.find(o => o.parentId === parentId && o.dateKey === dateKey);
+}
+
+function applyOccurrenceOverride(occ: CalendarEventItem, ovr: CalendarOccurrenceOverride): CalendarEventItem {
+  return {
+    ...occ,
+    parentId: occ.parentId || ovr.parentId,
+    dateKey: occ.dateKey || ovr.dateKey,
+    title: ovr.title !== undefined ? ovr.title : occ.title,
+    start: ovr.start !== undefined ? ovr.start : occ.start,
+    end: ovr.end !== undefined ? ovr.end : occ.end,
+    allDay: ovr.allDay !== undefined ? ovr.allDay : occ.allDay,
+    color: ovr.color !== undefined ? ovr.color : occ.color,
+    location: ovr.location !== undefined ? ovr.location : occ.location,
+    description: ovr.description !== undefined ? ovr.description : occ.description,
+    completed: ovr.completed !== undefined ? ovr.completed : occ.completed,
+    _rewarded: ovr.rewarded !== undefined ? ovr.rewarded : occ._rewarded
+  };
+}
+
+export function getEventsForDate(
+  events: CalendarEventItem[],
+  targetDate: Date,
+  overrides: CalendarOccurrenceOverride[] = state.calendar.occurrenceOverrides
+): CalendarEventItem[] {
+  const targetKey = dateKeyOf(targetDate);
   const res: CalendarEventItem[] = [];
+
   for (const ev of events) {
-    if (isEventOnDate(ev, targetDate)) {
-      res.push(getOccurrenceForDate(ev, targetDate));
-    }
+    if (!isEventOnDate(ev, targetDate)) continue;
+    const ovr = occurrenceOverrideFor(ev.id, targetKey);
+    if (ovr?.deleted) continue;
+    res.push(ovr ? applyOccurrenceOverride(getOccurrenceForDate(ev, targetDate), ovr) : getOccurrenceForDate(ev, targetDate));
   }
+
+  // Moved occurrences: an override carrying an explicit start that lands on
+  // this day for a series that does not itself recur on this day.
+  for (const ovr of overrides) {
+    if (ovr.deleted || !ovr.start) continue;
+    if (dateKeyOf(new Date(ovr.start)) !== targetKey) continue;
+    const base = events.find(e => e.id === ovr.parentId);
+    if (!base || !base.recurrence || base.recurrence === 'none') continue;
+    if (isEventOnDate(base, targetDate)) continue;
+    res.push(applyOccurrenceOverride(getOccurrenceForDate(base, targetDate), ovr));
+  }
+
   return res;
+}
+
+export function upsertOccurrenceOverride(parentId: string, dateKey: string, fields: Partial<CalendarOccurrenceOverride>) {
+  const baseEvent = state.calendar.events.find(e => e.id === parentId);
+  // Only recurring events have per-occurrence overrides.
+  if (!baseEvent || !baseEvent.recurrence || baseEvent.recurrence === 'none') return;
+
+  const existing = occurrenceOverrideFor(parentId, dateKey);
+  const record: CalendarOccurrenceOverride = {
+    ...(existing ||
+      ({
+        id: `occ-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        parentId,
+        dateKey
+      } as CalendarOccurrenceOverride)),
+    ...fields
+  };
+  record.updatedAt = new Date().toISOString();
+
+  const idx = state.calendar.occurrenceOverrides.findIndex(o => o.parentId === parentId && o.dateKey === dateKey);
+  if (idx >= 0) {
+    setState('calendar', 'occurrenceOverrides', overrides => overrides.map((o, i) => (i === idx ? record : o)));
+  } else {
+    setState('calendar', 'occurrenceOverrides', overrides => [...overrides, record]);
+  }
+  saveState();
 }
 
 // Calendar event operations
@@ -1151,9 +1240,32 @@ export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEve
   return newEvent;
 }
 
-export function updateCalendarEvent(id: string, updates: Partial<CalendarEventItem>): boolean {
+export function updateCalendarEvent(id: string, updates: Partial<CalendarEventItem>, dateKey?: string): boolean {
   const existing = state.calendar.events.find(ev => ev.id === id);
   if (!existing) return false;
+
+  if (dateKey && existing.recurrence && existing.recurrence !== 'none') {
+    const occ = getOccurrenceForDate(existing, new Date(`${dateKey}T00:00:00`));
+    const merged: CalendarEventItem = { ...occ, ...updates };
+    const validation = validateCalendarEventInput(merged);
+    if (!validation.ok) {
+      console.warn('updateCalendarEvent rejected occurrence update:', validation.issues);
+      showToast(validation.issues[0].message);
+      return false;
+    }
+    const delta: Partial<CalendarOccurrenceOverride> = {};
+    if ('title' in updates) delta.title = updates.title;
+    if ('start' in updates) delta.start = updates.start;
+    if ('end' in updates) delta.end = updates.end;
+    if ('allDay' in updates) delta.allDay = updates.allDay;
+    if ('color' in updates) delta.color = updates.color;
+    if ('location' in updates) delta.location = updates.location;
+    if ('description' in updates) delta.description = updates.description;
+    if ('completed' in updates) delta.completed = updates.completed;
+    if ('_rewarded' in updates) delta.rewarded = updates._rewarded;
+    upsertOccurrenceOverride(id, dateKey, delta);
+    return true;
+  }
 
   const merged: Partial<CalendarEventItem> = { ...existing, ...updates };
   const validation = validateCalendarEventInput(merged);
@@ -1170,19 +1282,68 @@ export function updateCalendarEvent(id: string, updates: Partial<CalendarEventIt
   return true;
 }
 
-export function deleteCalendarEvent(id: string) {
+export function deleteCalendarEvent(id: string, dateKey?: string) {
+  const existing = state.calendar.events.find(ev => ev.id === id);
+  if (dateKey && existing?.recurrence && existing.recurrence !== 'none') {
+    upsertOccurrenceOverride(id, dateKey, { deleted: true });
+    return;
+  }
   setState('calendar', 'events', events => events.filter(ev => ev.id !== id));
+  setState('calendar', 'occurrenceOverrides', overrides => overrides.filter(o => o.parentId !== id));
   saveState();
 }
 
-export function toggleTask(id: string) {
-  const target = state.calendar.events.find(e => e.id === id);
-  if (!target) return;
-  const isNowCompleted = !target.completed;
+/**
+ * Moves a single occurrence of a repeating event to a new start time. The old
+ * occurrence is marked deleted and a fresh override carries the new absolute
+ * start/end so only that one instance is affected.
+ */
+export function moveCalendarEvent(id: string, oldDateKey: string, start: string, end: string): boolean {
+  const base = state.calendar.events.find(e => e.id === id);
+  if (!base || !base.recurrence || base.recurrence === 'none') return false;
+  const newDateKey = dateKeyOf(new Date(start));
+  if (newDateKey === oldDateKey) {
+    upsertOccurrenceOverride(id, oldDateKey, { start, end });
+    return true;
+  }
+  upsertOccurrenceOverride(id, oldDateKey, { deleted: true });
+  upsertOccurrenceOverride(id, newDateKey, { start, end });
+  return true;
+}
+
+export function toggleTask(id: string, dateKey?: string) {
+  const base = state.calendar.events.find(e => e.id === id);
+  if (!base) return;
+  const isRecurring = !!base.recurrence && base.recurrence !== 'none';
+
+  if (isRecurring && dateKey) {
+    const ovr = occurrenceOverrideFor(id, dateKey);
+    const occ = getOccurrenceForDate(base, new Date(`${dateKey}T00:00:00`));
+    const wasCompleted = ovr?.completed ?? occ.completed;
+    const isNowCompleted = !wasCompleted;
+    const firstCompletion = isNowCompleted && !(ovr?.rewarded ?? occ._rewarded ?? false);
+
+    upsertOccurrenceOverride(id, dateKey, {
+      completed: isNowCompleted,
+      rewarded: ovr?.rewarded ?? occ._rewarded ?? firstCompletion
+    });
+
+    if (firstCompletion) {
+      gainBondExp(12);
+      addCoins(15);
+      const persona = getPersonality(state.waifu.personality);
+      const praises = persona.taskComplete;
+      const praise = praises[Math.floor(Math.random() * praises.length)];
+      triggerWaifuResponse(praise.text, praise.mood);
+    }
+    return;
+  }
+
+  const isNowCompleted = !base.completed;
   updateCalendarEvent(id, { completed: isNowCompleted });
 
   if (isNowCompleted) {
-    if (!target._rewarded) {
+    if (!base._rewarded) {
       updateCalendarEvent(id, { _rewarded: true });
       gainBondExp(12);
       addCoins(15);
