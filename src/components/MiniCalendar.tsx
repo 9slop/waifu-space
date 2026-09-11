@@ -1,4 +1,4 @@
-import { createSignal, For } from 'solid-js';
+import { createSignal, createEffect, untrack, For } from 'solid-js';
 import { t, getLocale } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
 
@@ -7,6 +7,17 @@ export function MiniCalendar(props: {
   onSelectDate: (d: Date) => void;
 }) {
   const [navDate, setNavDate] = createSignal(new Date(props.selectedDate));
+
+  // Keep the visible month in step with the externally driven selection (e.g.
+  // navigating months in the main grid), without fighting the prev/next
+  // buttons. Only props.selectedDate is tracked here.
+  createEffect(() => {
+    const sel = props.selectedDate;
+    const cur = untrack(navDate);
+    if (sel && (sel.getFullYear() !== cur.getFullYear() || sel.getMonth() !== cur.getMonth())) {
+      setNavDate(new Date(sel.getFullYear(), sel.getMonth(), 1));
+    }
+  });
 
   const prevMonth = () => {
     const d = new Date(navDate());
@@ -87,11 +98,11 @@ export function MiniCalendar(props: {
         <For each={daysInGrid()}>
           {item => {
             const isToday = isSameDay(item.date, today);
-            const isSelected = isSameDay(item.date, props.selectedDate);
+            const isSelected = () => isSameDay(item.date, props.selectedDate);
             return (
               <button
                 type="button"
-                class={`mini-day ${item.currentMonth ? '' : 'outside'} ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`}
+                class={`mini-day ${item.currentMonth ? '' : 'outside'} ${isToday ? 'today' : ''} ${isSelected() ? 'selected' : ''}`}
                 style={{ opacity: item.currentMonth ? '1' : '0.35' }}
                 aria-label={t('calendar.a11y.selectDay', {
                   date: item.date.toLocaleDateString(getLocale(), {
@@ -100,7 +111,7 @@ export function MiniCalendar(props: {
                     day: 'numeric'
                   })
                 })}
-                aria-pressed={isSelected}
+                aria-pressed={isSelected()}
                 onClick={() => {
                   props.onSelectDate(item.date);
                 }}
