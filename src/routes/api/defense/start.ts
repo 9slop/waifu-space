@@ -9,7 +9,11 @@ export async function POST(event: { request: Request }) {
   const token = authHeader?.replace(/^Bearer\s+/i, '');
   const session = verifySessionToken(token);
 
-  const rateLimitKey = session ? `def_start_${session.userId}` : 'def_start_anon';
+  if (!session) {
+    return json({ success: false, error: 'Unauthorized: You must be signed in to play.' }, { status: 401 });
+  }
+
+  const rateLimitKey = `def_start_${session.userId}`;
   const limit = checkRateLimit(rateLimitKey, 10, 60_000);
   if (!limit.allowed) {
     return json({ success: false, error: 'Too many game restarts. Slow down.' }, { status: 429 });
@@ -17,7 +21,7 @@ export async function POST(event: { request: Request }) {
 
   try {
     // A new game always starts a fresh server-side session, resetting silver.
-    const userId = session ? session.userId : 'anon';
+    const userId = session.userId;
     const activeSession = startDefenseSession(userId);
 
     return json({

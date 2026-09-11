@@ -1,5 +1,5 @@
-import { RpgHub } from '../components/RpgHub';
+import { Navigate } from '@solidjs/router';
 
-export default function RpgPage() {
-  return <RpgHub />;
+export default function RpgRedirect() {
+  return <Navigate href="/minigames" />;
 }

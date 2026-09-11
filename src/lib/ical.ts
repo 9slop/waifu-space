@@ -147,6 +147,12 @@ export function importFromICS(icsText: string): CalendarEventItem[] {
         } else if (rrule.includes('FREQ=WEEKLY')) {
           curr.recurrence = 'weekly';
         }
+      } else if (line.startsWith('X-TASK:') || line.startsWith('X-Task:') || line.startsWith('X-TYPE:task') || line.startsWith('CATEGORIES:TASK')) {
+        curr.type = 'task';
+        curr.color = '#00cec9';
+      } else if (line.startsWith('X-TYPE:birthday') || line.startsWith('CATEGORIES:BIRTHDAY')) {
+        curr.type = 'birthday';
+        curr.color = '#e84393';
       }
     }
   });

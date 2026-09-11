@@ -10,7 +10,8 @@ import {
   getEnemyHp,
   getEnemySilver,
   SILVER_STARTER,
-  MAX_DEFENSE_WAVE
+  MAX_DEFENSE_WAVE,
+  MAX_TOWER_LEVEL
 } from '../../src/lib/defense-balance';
 
 describe('Defense balance & deterministic wave plan', () => {
@@ -93,5 +94,35 @@ describe('Defense balance & deterministic wave plan', () => {
   it('clamps waves to the valid range', () => {
     expect(getDefenseWavePlan(0).wave).toBe(1);
     expect(getDefenseWavePlan(99999).wave).toBe(MAX_DEFENSE_WAVE);
+  });
+
+  it('caps max tower level at 5 and scales upgrade costs up to level 5', () => {
+    expect(MAX_TOWER_LEVEL).toBe(5);
+    for (let lv = 1; lv < MAX_TOWER_LEVEL; lv++) {
+      expect(getTowerUpgradeCost('archer', lv + 1)).toBeGreaterThan(getTowerUpgradeCost('archer', lv));
+    }
+  });
+
+  it('spawns mini-bosses every 10 waves starting from wave 5 (5, 15, 25)', () => {
+    for (const w of [5, 15, 25, 35]) {
+      const plan = getDefenseWavePlan(w);
+      expect(plan.hasMiniBoss).toBe(true);
+      expect(plan.enemyCounts.miniboss).toBe(1);
+      expect(plan.hasBoss).toBe(false);
+    }
+    for (const w of [1, 2, 3, 4, 6, 7, 8, 9, 10, 20]) {
+      const plan = getDefenseWavePlan(w);
+      expect(plan.hasMiniBoss).toBe(false);
+      expect(plan.enemyCounts.miniboss).toBe(0);
+    }
+  });
+
+  it('scales enemy HP aggressively at high waves with compound scaling', () => {
+    const hp5 = getEnemyHp('scout', 5);
+    const hp15 = getEnemyHp('scout', 15);
+    const hp25 = getEnemyHp('scout', 25);
+    // Late-game scaling accelerates beyond linear additions
+    expect(hp15 - hp5).toBeGreaterThan(0);
+    expect(hp25 - hp15).toBeGreaterThan(hp15 - hp5);
   });
 });

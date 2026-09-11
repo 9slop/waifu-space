@@ -6,9 +6,10 @@
 // between waves). Coins remain the global, out-of-game currency.
 
 export type TowerType = 'archer' | 'frost' | 'thunder' | 'sanctuary';
-export type EnemyType = 'scout' | 'runner' | 'warrior' | 'shaman' | 'shielder' | 'brute' | 'boss';
+export type EnemyType = 'scout' | 'runner' | 'warrior' | 'shaman' | 'shielder' | 'brute' | 'miniboss' | 'boss';
 
 export const MAX_DEFENSE_WAVE = 200;
+export const MAX_TOWER_LEVEL = 5;
 export const SILVER_STARTER = 120;
 export const SILVER_CAP = 100_000;
 
@@ -66,12 +67,16 @@ export const ENEMY_SPECS: Record<EnemyType, EnemySpec> = {
   shaman: { hpBase: 130, hpPerWave: 28, speed: 0.45, silverBase: 14, silverPerWave: 3, shrineDamage: 10, radius: 13, color: '#4a148c', icon: '🧙' },
   shielder: { hpBase: 210, hpPerWave: 42, speed: 0.34, silverBase: 16, silverPerWave: 3, shrineDamage: 18, radius: 15, color: '#546e7a', icon: '🛡️' },
   brute: { hpBase: 320, hpPerWave: 60, speed: 0.3, silverBase: 20, silverPerWave: 4, shrineDamage: 20, radius: 16, color: '#bf360c', icon: '🗿' },
+  miniboss: { hpBase: 650, hpPerWave: 150, speed: 0.28, silverBase: 45, silverPerWave: 8, shrineDamage: 25, radius: 19, color: '#8e24aa', icon: '🦹' },
   boss: { hpBase: 1300, hpPerWave: 280, speed: 0.22, silverBase: 80, silverPerWave: 15, shrineDamage: 40, radius: 22, color: '#b71c1c', icon: '👹' }
 };
 
 export function getEnemyHp(type: EnemyType, wave: number): number {
   const spec = ENEMY_SPECS[type];
-  return Math.round(spec.hpBase + spec.hpPerWave * wave);
+  const safeWave = Math.max(1, Math.min(MAX_DEFENSE_WAVE, Math.floor(wave || 1)));
+  // Progressive compound scaling beyond wave 3 for high-wave intensity
+  const factor = safeWave <= 3 ? 1 : Math.pow(1.04, safeWave - 3);
+  return Math.round((spec.hpBase + spec.hpPerWave * safeWave) * factor);
 }
 
 export function getEnemySilver(type: EnemyType, wave: number): number {
@@ -95,6 +100,7 @@ export interface DefenseWavePlan {
   spawns: EnemyType[];
   enemyCounts: Record<EnemyType, number>;
   hasBoss: boolean;
+  hasMiniBoss: boolean;
   total: number;
 }
 
@@ -102,6 +108,7 @@ export interface DefenseWavePlan {
  * Every wave is deterministically scripted from its number alone, so the server
  * can validate kills / rewards against the exact same plan the client runs.
  * A boss appears on every 10th wave (10, 20, 30 ...).
+ * A mini-boss appears every 10 waves starting at wave 5 (5, 15, 25 ...).
  */
 export function getDefenseWavePlan(wave: number): DefenseWavePlan {
   const safeWave = Math.max(1, Math.min(MAX_DEFENSE_WAVE, Math.floor(wave || 1)));
@@ -119,6 +126,8 @@ export function getDefenseWavePlan(wave: number): DefenseWavePlan {
   }
 
   const hasBoss = safeWave % 10 === 0;
+  const hasMiniBoss = safeWave % 10 === 5;
+  if (hasMiniBoss) spawns.push('miniboss');
   if (hasBoss) spawns.push('boss');
 
   const enemyCounts: Record<EnemyType, number> = {
@@ -128,13 +137,14 @@ export function getDefenseWavePlan(wave: number): DefenseWavePlan {
     shaman: 0,
     shielder: 0,
     brute: 0,
+    miniboss: 0,
     boss: 0
   };
   spawns.forEach(t => {
     enemyCounts[t] += 1;
   });
 
-  return { wave: safeWave, spawns, enemyCounts, hasBoss, total: spawns.length };
+  return { wave: safeWave, spawns, enemyCounts, hasBoss, hasMiniBoss, total: spawns.length };
 }
 
 /**
@@ -154,5 +164,5 @@ export function getWaveClearSilver(wave: number): number {
 /** Minimum plausible duration for a wave clear, used by anti-cheat validation. */
 export function getMinPlausibleWaveMs(wave: number): number {
   const safeWave = Math.max(1, Math.min(MAX_DEFENSE_WAVE, Math.floor(wave || 1)));
-  return Math.max(2500, safeWave * 800);
+  return Math.max(1000, safeWave * 600);
 }

@@ -1,4 +1,4 @@
-import { createSignal, onMount, For, Show } from 'solid-js';
+import { createSignal, createEffect, onMount, For, Show } from 'solid-js';
 import { state } from '../lib/store';
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
@@ -71,8 +71,10 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
     setLoading(false);
   };
 
-  onMount(() => {
-    fetchLeaderboard();
+  createEffect(() => {
+    if (props.isOpen) {
+      fetchLeaderboard();
+    }
   });
 
   const handleTabChange = (tab: 'wave' | 'bond' | 'goblins') => {

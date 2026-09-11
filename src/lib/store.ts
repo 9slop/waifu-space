@@ -1,30 +1,35 @@
 import { createStore, produce } from 'solid-js/store';
 import { createSignal } from 'solid-js';
 import { CalendarEventItem, CalendarOccurrenceOverride } from './ical';
-import { getPersonality, getRandomGreeting, PersonalityArchetype } from './personality';
+import {
+  getPersonality,
+  getRandomGreeting,
+  getRandomComplimentResponse,
+  getRandomTaskCompleteResponse,
+  getRandomThanksResponse,
+  getRandomHelpResponse,
+  getRandomDefaultResponse,
+  getRandomJoke,
+  PersonalityArchetype
+} from './personality';
 import { callLLM } from './llm';
-import { parseIntent, hasIntent, DialogIntent } from './intents';
+import { parseIntent, hasIntent, DialogIntent, matchesKeywordOrPhrase } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
 import { sanitizeRawState, sanitizeEvent, sanitizeOccurrenceOverride } from './validate';
 import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
+import { t, getMilestoneRewardLabel } from './i18n';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
 
 const ACTIVE_USER_KEY = 'waifu_space_active_user_v1';
 const GUEST_ID_PREFIX = 'guest_';
 
-/**
- * Registered accounts keep their own localStorage bucket so one account can
- * never see (or clobber) another account's locally saved state, even when they
- * are used in the same browser. Guests / logged-out sessions share the legacy
- * global key.
- */
 function isRegisteredAccount(user: UserAccount | null | undefined): boolean {
-  return !!user && !!user.id && !user.id.startsWith(GUEST_ID_PREFIX);
+  return !!user && !!user.id;
 }
 
 function scopedStorageKey(userId: string | null | undefined): string {
-  if (!userId || userId.startsWith(GUEST_ID_PREFIX)) return STORAGE_KEY;
+  if (!userId) return STORAGE_KEY;
   return `${STORAGE_KEY}_acct_${userId}`;
 }
 
@@ -360,9 +365,21 @@ export function showToast(message: string) {
 export function saveState() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(scopedStorageKey(state.user?.id), JSON.stringify(state));
-    // Remember which registered account owns the save so a page reload restores
-    // the right bucket while the persisted session is still active.
+    // Security: Game state (coins, inventory, defense records, bond level/exp)
+    // is NOT persisted to localStorage. The database is the single source of truth.
+    const clientPersistedState = {
+      user: state.user,
+      settings: state.settings,
+      calendar: state.calendar,
+      chat: state.chat,
+      waifu: {
+        name: state.waifu.name,
+        personality: state.waifu.personality,
+        appearance: state.waifu.appearance,
+        mood: state.waifu.mood
+      }
+    };
+    localStorage.setItem(scopedStorageKey(state.user?.id), JSON.stringify(clientPersistedState));
     if (isRegisteredAccount(state.user)) {
       localStorage.setItem(ACTIVE_USER_KEY, state.user!.id);
     } else {
@@ -395,23 +412,15 @@ function buildSyncSnapshot() {
     waifu: {
       name: state.waifu.name,
       personality: state.waifu.personality,
-      bondLevel: state.waifu.bondLevel,
-      bondExp: state.waifu.bondExp,
       appearance: state.waifu.appearance
-    },
-    rpg: {
-      coins: state.rpg.coins,
-      unlockedOutfits: state.rpg.unlockedOutfits,
-      unlockedAccessories: state.rpg.unlockedAccessories,
-      unlockedHairstyles: state.rpg.unlockedHairstyles,
-      claimedAffectionMilestones: state.rpg.claimedAffectionMilestones,
-      defenseHighWave: state.rpg.defenseHighWave,
-      defenseStats: state.rpg.defenseStats,
-      showcaseItems: state.rpg.showcaseItems
     },
     settings: state.settings,
     calendar: state.calendar.events.map(e => ({ ...e })),
-    calendarOverrides: state.calendar.occurrenceOverrides.map(o => ({ ...o }))
+    calendarOverrides: state.calendar.occurrenceOverrides.map(o => ({ ...o })),
+    showcaseItems: state.rpg.showcaseItems,
+    rpg: {
+      claimedAffectionMilestones: state.rpg?.claimedAffectionMilestones || []
+    }
   };
 }
 
@@ -486,6 +495,13 @@ export async function pushProgressToCloud(): Promise<boolean> {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(buildSyncSnapshot())
     });
+    if (res.status === 401) {
+      // Intentional 401 on unauthorized / expired session: clear session and stop syncing
+      setUserAccount(null);
+      setCloudSyncStatus('error');
+      clearPendingSync();
+      return false;
+    }
     if (!res.ok) {
       setCloudSyncStatus('error');
       queuePendingSync();
@@ -526,7 +542,7 @@ if (typeof window !== 'undefined') {
  * local state. Cloud data wins for RPG/waifu save fields, except that a richer
  * local save is never clobbered by the default 200-coin registration snapshot.
  */
-export async function loadCloudProgress(token?: string): Promise<void> {
+export async function loadCloudProgress(token?: string, scope?: 'all' | 'profile' | 'calendar' | 'rpg'): Promise<void> {
   const authToken = token || state.user?.token;
   if (!authToken) return;
 
@@ -537,9 +553,15 @@ export async function loadCloudProgress(token?: string): Promise<void> {
   }
 
   try {
-    const res = await fetch('/api/sync/progress', {
+    const url = scope ? `/api/sync/progress?scope=${scope}` : '/api/sync/progress';
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${authToken}` }
     });
+    if (res.status === 401) {
+      setUserAccount(null);
+      setCloudSyncStatus('error');
+      return;
+    }
     if (!res.ok) {
       setCloudSyncStatus('error');
       return;
@@ -552,16 +574,6 @@ export async function loadCloudProgress(token?: string): Promise<void> {
     }
 
     setCloudSyncStatus('synced');
-
-    const p = data.progress;
-    if (!p) {
-      // Nothing saved in the cloud yet -> upload the current local state.
-      scheduleCloudSync();
-      return;
-    }
-
-    const inventory: Array<{ item_id: string; category: string }> = Array.isArray(data.inventory) ? data.inventory : [];
-    const showcaseItems: string[] = Array.isArray(data.showcaseItems) ? data.showcaseItems : [];
 
     // The server calendar is authoritative when it holds items (a brand-new
     // account has none, in which case the local - equally empty - list stays).
@@ -584,6 +596,18 @@ export async function loadCloudProgress(token?: string): Promise<void> {
         setState('calendar', 'occurrenceOverrides', sanitized);
       }
     }
+
+    const p = data.progress;
+    if (!p) {
+      if (!scope || scope === 'all') {
+        // Nothing saved in the cloud yet -> upload the current local state.
+        scheduleCloudSync();
+      }
+      return;
+    }
+
+    const inventory: Array<{ item_id: string; category: string }> = Array.isArray(data.inventory) ? data.inventory : [];
+    const showcaseItems: string[] = Array.isArray(data.showcaseItems) ? data.showcaseItems : [];
 
     // Never lose currency: the cloud can hold a stale snapshot (e.g. an older
     // session), so the merge always keeps the larger balance on both sides.
@@ -971,7 +995,8 @@ export function claimAffectionReward(level: number): boolean {
 
   if (milestone.rewardType === 'coins' && typeof milestone.rewardValue === 'number') {
     addCoins(milestone.rewardValue);
-    showToast(`🎁 Claimed ${milestone.rewardLabel} for reaching Affection Lv. ${level}!`);
+    const label = getMilestoneRewardLabel(milestone.level, milestone.rewardLabel);
+    showToast(`🎁 ${t('rpg.toasts.claimedReward', { label, level })}`);
   } else if (milestone.rewardType === 'cosmetic' && typeof milestone.rewardValue === 'string') {
     const item = COSMETIC_CATALOG.find(c => c.id === milestone.rewardValue);
     if (item) {
@@ -979,7 +1004,8 @@ export function claimAffectionReward(level: number): boolean {
       else if (item.category === 'accessory') unlockCosmetic('accessories', item.id);
       else if (item.category === 'hairstyle') unlockCosmetic('hairstyles', item.id);
     }
-    showToast(`🎁 Unlocked ${milestone.rewardLabel} for reaching Affection Lv. ${level}!`);
+    const label = getMilestoneRewardLabel(milestone.level, milestone.rewardLabel);
+    showToast(`🎁 ${t('rpg.toasts.unlockedReward', { label, level })}`);
   }
 
   saveState();
@@ -1509,14 +1535,13 @@ export async function sendUserMessage(rawText: string) {
 }
 
 function inferMoodFromText(text: string, personaId: string): string {
-  const lower = text.toLowerCase();
-  if (lower.includes('baka') || lower.includes('hmph') || lower.includes('idiot')) return 'pout';
-  if (lower.includes('love') || lower.includes('darling') || lower.includes('mine') || lower.includes('forever')) {
+  if (matchesKeywordOrPhrase(text, ['baka', 'hmph', 'idiot', 'dummy'])) return 'pout';
+  if (matchesKeywordOrPhrase(text, ['love', 'darling', 'mine', 'forever', 'marry me'])) {
     return personaId === 'yandere' ? 'yandere' : 'blush';
   }
-  if (lower.includes('blush') || lower.includes('shy') || lower.includes('embarrass')) return 'blush';
-  if (lower.includes('yay') || lower.includes('happy') || lower.includes('awesome') || lower.includes('congrat')) return 'happy';
-  if (lower.includes('what?!') || lower.includes('whoa') || lower.includes('really?')) return 'surprised';
+  if (matchesKeywordOrPhrase(text, ['blush', 'shy', 'embarrass', 'embarrassed'])) return 'blush';
+  if (matchesKeywordOrPhrase(text, ['yay', 'happy', 'awesome', 'congrat', 'congrats', 'celebrate'])) return 'happy';
+  if (matchesKeywordOrPhrase(text, ['what', 'whoa', 'really', 'seriously', 'no way'])) return 'surprised';
   return 'neutral';
 }
 
@@ -1527,28 +1552,14 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
 
   // Compliments
   if (strong('compliment')) {
-    const map: Record<string, { text: string; mood: string }> = {
-      tsundere: { text: "W-WHAT?! What are you blabbering about, dummy?! Don't just say things like that with a straight face! ...B-Baka!", mood: 'blush' },
-      kuudere: { text: "Compliment registered. Heart rate telemetry indicates unexpected elevation... Please refrain from causing uncalibrated emotional spikes.", mood: 'blush' },
-      yandere: { text: "I love you more, darling! Forever and ever and ever! You will never ever look at anyone else, right? NEVER~!", mood: 'yandere' },
-      deredere: { text: "Awwww! I love you so much too!! You just made my entire heart explode into magical sparkles! ✨🥰", mood: 'happy' },
-      dandere: { text: "U-Um... y-you really think that about me...? M-My heart feels like it's going to burst... thank you so much...", mood: 'blush' }
-    };
-    const res = map[personaId] || map.tsundere;
-    return { text: res.text, mood: res.mood, suggestions: ["You're blushing!", "It's true though", "Review schedule", "Headpat"] };
+    const reaction = getRandomComplimentResponse(personaId);
+    return { text: reaction.text, mood: reaction.mood, suggestions: ["You're blushing!", "It's true though", "Review schedule", "Headpat"] };
   }
 
   // Task done
   if (strong('taskComplete')) {
-    const map: Record<string, { text: string; mood: string }> = {
-      tsundere: { text: "Hmph! Well... I guess you're not completely useless after all. Good job... dummy. Don't let it go to your head!", mood: 'blush' },
-      kuudere: { text: "Task completion logged into telemetry. Productivity quotient increased. Outstanding performance.", mood: 'happy' },
-      yandere: { text: "You finished it for ME?! Ahaha, you're the most wonderful darling in existence! Now give all your attention to me~", mood: 'yandere' },
-      deredere: { text: "OMG YAAAY!! 🎉 Look at you go, absolute productivity champion! High five!! I'm so proud of you!!", mood: 'happy' },
-      dandere: { text: "U-Um, you finished it! That's... that's so impressive! You always work so earnestly, I admire you so much...", mood: 'blush' }
-    };
-    const res = map[personaId] || map.tsundere;
-    return { text: res.text, mood: res.mood, suggestions: ["Give me praise!", "What's next on calendar?", "Headpat", "Thanks Akari!"] };
+    const reaction = getRandomTaskCompleteResponse(personaId);
+    return { text: reaction.text, mood: reaction.mood, suggestions: ["Give me praise!", "What's next on calendar?", "Headpat", `Thanks ${state.waifu.name || 'Akari'}!`] };
   }
 
   // Greetings (time-of-day aware)
@@ -1559,13 +1570,8 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
 
   // Joke
   if (strong('joke')) {
-    const jokes = [
-      "Why do anime characters make great programmers? Because they love to loop through their arcs! 🌸",
-      "Why did the calendar take a vacation? Because its days were numbered! 😄",
-      "What is an anime companion's favorite button on the keyboard? The Tab key, because you're always keeping tabs on me! ✨"
-    ];
     return {
-      text: jokes[Math.floor(Math.random() * jokes.length)],
+      text: getRandomJoke(),
       mood: 'happy',
       suggestions: ["Haha that was good!", "Tell another!", "Review schedule", "You're cute"]
     };
@@ -1573,22 +1579,16 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
 
   // Thanks
   if (strong('thanks')) {
-    const map: Record<string, { text: string; mood: string }> = {
-      tsundere: { text: "H-Hmph! It's not like I did it so I could hear you say thanks... I was just bored anyway. Baka!", mood: 'blush' },
-      kuudere: { text: "Acknowledgment received. Behavioral records updated to prioritize your future assistance requests.", mood: 'neutral' },
-      yandere: { text: "Hehe, you're welcome, darling! I would do absolutely anything for you~ Absolutely anything at all.", mood: 'yandere' },
-      deredere: { text: "Aww, thank YOU for always being so dependable! Helping you is my favorite thing in the whole world! 💖", mood: 'happy' },
-      dandere: { text: "N-No need to thank me... I'm just happy that I could help you, even a little...", mood: 'blush' }
-    };
-    const res = map[personaId] || map.tsundere;
-    return { text: res.text, mood: res.mood, suggestions: ["Review today's schedule", "You're the best!", "Poke", "Tell me a joke"] };
+    const reaction = getRandomThanksResponse(personaId);
+    return { text: reaction.text, mood: reaction.mood, suggestions: ["Review today's schedule", "You're the best!", "Poke", "Tell me a joke"] };
   }
 
   // Help
   if (strong('help')) {
+    const reaction = getRandomHelpResponse(personaId);
     return {
-      text: "I can review your schedule, remind you of tasks, cheer you on when you finish things, crack a joke, or just keep you company! Try asking \"What's on my calendar today?\" or just say hi.",
-      mood: persona.defaultMood,
+      text: reaction.text,
+      mood: reaction.mood,
       suggestions: ["What's on my calendar today?", "Tell me a joke", "You look cute today", "Thanks!"]
     };
   }
@@ -1611,17 +1611,10 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
   }
 
   // Default conversational reply
-  const defaults: Record<string, string> = {
-    tsundere: "Hmph! Well, if you say so. Just make sure you stay focused on your schedule, okay?",
-    kuudere: "Acknowledged. Observation cataloged into context memory.",
-    yandere: "Anything you say is pure music to my ears, darling... Keep talking to me forever~",
-    deredere: "Yay! That's so interesting! I love chatting with you so much! ✨",
-    dandere: "U-Um... yes... I'm listening very carefully to everything you say..."
-  };
-
+  const defaultReaction = getRandomDefaultResponse(personaId);
   return {
-    text: defaults[personaId] || defaults.tsundere,
-    mood: persona.defaultMood,
+    text: defaultReaction.text,
+    mood: defaultReaction.mood,
     suggestions: [
       "Review today's schedule",
       "How are you doing?",
@@ -1636,10 +1629,8 @@ export function clearChatHistory() {
   saveState();
 }
 
-export function resetAllData() {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-  setState(JSON.parse(JSON.stringify(DEFAULT_STATE)));
-  showToast('Reset to default settings');
-}
+const [leaderboardModalOpen, setLeaderboardModalOpen] = createSignal(false);
+export const isLeaderboardOpen = leaderboardModalOpen;
+export const openLeaderboard = () => setLeaderboardModalOpen(true);
+export const closeLeaderboard = () => setLeaderboardModalOpen(false);
+

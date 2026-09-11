@@ -1,6 +1,6 @@
 import { json } from '@solidjs/router';
 import { checkRateLimit } from '../../../lib/server/rate-limit';
-import { registerLocalUser, getLocalUserByUsername, createSessionToken } from '../../../lib/server/auth';
+import { registerLocalUser, getLocalUserByUsername, createSessionToken, createSessionCookie } from '../../../lib/server/auth';
 import { getSupabaseServerClient, isSupabaseConfigured } from '../../../lib/server/supabase';
 
 export async function POST(event: { request: Request }) {
@@ -61,11 +61,18 @@ export async function POST(event: { request: Request }) {
       });
 
       const token = createSessionToken({ id: userId, username: cleanUsername, email: cleanEmail });
-      return json({
-        success: true,
-        token,
-        user: { id: userId, username: cleanUsername, email: cleanEmail }
-      });
+      return json(
+        {
+          success: true,
+          token,
+          user: { id: userId, username: cleanUsername, email: cleanEmail }
+        },
+        {
+          headers: {
+            'Set-Cookie': createSessionCookie(token)
+          }
+        }
+      );
     }
 
     // Offline / demo store fallback
@@ -77,11 +84,18 @@ export async function POST(event: { request: Request }) {
     const newUser = registerLocalUser(cleanUsername, cleanEmail, password);
     const token = createSessionToken({ id: newUser.id, username: newUser.username, email: newUser.email });
 
-    return json({
-      success: true,
-      token,
-      user: { id: newUser.id, username: newUser.username, email: newUser.email }
-    });
+    return json(
+      {
+        success: true,
+        token,
+        user: { id: newUser.id, username: newUser.username, email: newUser.email }
+      },
+      {
+        headers: {
+          'Set-Cookie': createSessionCookie(token)
+        }
+      }
+    );
   } catch (err: any) {
     return json({ success: false, error: err.message || 'Server error during registration.' }, { status: 500 });
   }

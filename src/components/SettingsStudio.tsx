@@ -5,7 +5,6 @@ import {
   saveState,
   updateSettings,
   showToast,
-  resetAllData,
   speakText,
   isCosmeticUnlocked
 } from '../lib/store';
@@ -14,17 +13,23 @@ import { PERSONALITIES } from '../lib/personality';
 import { STOCK_WALLPAPERS } from '../lib/wallpapers';
 import { exportToICS, importFromICS } from '../lib/ical';
 import { WaifuAvatar } from './WaifuAvatar';
-import { t, SUPPORTED_LANGUAGES, setLanguage, SupportedLanguage } from '../lib/i18n';
+import { t, SUPPORTED_LANGUAGES, setLanguage, SupportedLanguage, getPersonalityName, getCosmeticName, getMoodName } from '../lib/i18n';
+
+import { compressImage } from '../lib/image-compress';
 
 export function SettingsStudio() {
   const [activeTab, setActiveTab] = createSignal<
-    'personality' | 'appearance' | 'wallpapers' | 'themes' | 'voice' | 'data' | 'language'
-  >('personality');
+    'profile' | 'personality' | 'appearance' | 'wallpapers' | 'themes' | 'voice' | 'data' | 'language'
+  >('profile');
+
+  const [editBio, setEditBio] = createSignal(state.user?.bio || '');
+  const [editAvatarUrl, setEditAvatarUrl] = createSignal(state.user?.avatarUrl || '');
+  const [uploadingAvatar, setUploadingAvatar] = createSignal(false);
 
   const [availableVoices, setAvailableVoices] = createSignal<SpeechSynthesisVoice[]>([]);
 
   onMount(() => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       const load = () => {
         setAvailableVoices(window.speechSynthesis.getVoices());
       };
@@ -37,67 +42,55 @@ export function SettingsStudio() {
     speakText(t('settings.voice.testVoiceMessage', { name: state.waifu.name }));
   };
 
-  const handleCustomAvatarFile = (e: Event) => {
+  const uploadAvatarImage = async (file: File): Promise<string> => {
+    const compressed = await compressImage(file, 512, 512, 0.82);
+    const token = state.user?.token;
+    const res = await fetch('/api/upload/avatar', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ dataUrl: compressed.dataUrl })
+    });
+    const data = await res.json();
+    if (data.success && data.avatarUrl) {
+      return data.avatarUrl;
+    }
+    return compressed.dataUrl;
+  };
+
+  const handleCustomAvatarFile = async (e: Event) => {
     const input = e.target as HTMLInputElement;
     if (!input.files || input.files.length === 0) return;
     const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const dataUrl = evt.target?.result as string;
-      if (dataUrl) {
-        setState('waifu', 'appearance', 'customAvatarUrl', dataUrl);
-        setState('waifu', 'appearance', 'avatarMode', 'custom');
-        saveState();
-        showToast(t('settings.appearance.customSpriteUpdated'));
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleExportData = () => {
-    if (typeof window === 'undefined') return;
-    const json = JSON.stringify(state, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `waifu-space-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast(t('settings.data.exportSuccess'));
-  };
-
-  const handleImportData = (e: Event) => {
-    const input = e.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-    const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = evt => {
-      try {
-        const text = evt.target?.result as string;
-        const parsed = JSON.parse(text);
-        setState(parsed);
-        saveState();
-        showToast(t('settings.data.importSuccess'));
-      } catch (err) {
-        showToast(t('settings.data.importFailed'));
-      }
-    };
-    reader.readAsText(file);
-    input.value = '';
-  };
-
-  const handleResetConfirm = () => {
-    if (confirm(t('settings.data.resetConfirm'))) {
-      resetAllData();
+    try {
+      setUploadingAvatar(true);
+      const url = await uploadAvatarImage(file);
+      setState('waifu', 'appearance', 'customAvatarUrl', url);
+      setState('waifu', 'appearance', 'avatarMode', 'custom');
+      saveState();
+      showToast(t('settings.appearance.customSpriteUpdated'));
+    } catch {
+      showToast('Failed to process avatar image');
+    } finally {
+      setUploadingAvatar(false);
+      input.value = '';
     }
   };
 
   const handleExportCalendar = () => {
     if (typeof window === 'undefined') return;
-    exportToICS(state.calendar.events);
+    const icsContent = exportToICS(state.calendar.events);
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `waifu_calendar_${new Date().toISOString().slice(0, 10)}.ics`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     showToast(t('settings.data.exportCalendarSuccess'));
   };
 
@@ -122,6 +115,64 @@ export function SettingsStudio() {
     input.value = '';
   };
 
+  const handleSaveProfileSettings = async () => {
+    const bio = editBio().trim();
+    const avatarUrl = editAvatarUrl().trim();
+    if (state.user) {
+      setState('user', 'bio', bio);
+      setState('user', 'avatarUrl', avatarUrl);
+      saveState();
+
+      try {
+        const token = state.user.token;
+        await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ bio, avatarUrl })
+        });
+      } catch {
+        // Saved locally
+      }
+      showToast(t('settings.appearance.customSpriteUpdated') || 'Profile updated successfully!');
+    } else {
+      showToast('Profile updated locally.');
+    }
+  };
+
+  const handleCustomProfileAvatarUpload = async (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    try {
+      setUploadingAvatar(true);
+      const url = await uploadAvatarImage(file);
+      setEditAvatarUrl(url);
+      if (state.user) {
+        setState('user', 'avatarUrl', url);
+        saveState();
+
+        const token = state.user.token;
+        await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ avatarUrl: url })
+        }).catch(() => {});
+      }
+      showToast(t('settings.appearance.customSpriteUpdated') || 'Avatar sprite updated!');
+    } catch {
+      showToast('Failed to process avatar image');
+    } finally {
+      setUploadingAvatar(false);
+      input.value = '';
+    }
+  };
+
   const hairColorPresets = ['#ff7597', '#4f86f7', '#6c5ce7', '#ffeaa7', '#2d3436', '#d63031', '#00cec9', '#a29bfe'];
   const eyeColorPresets = ['#4f86f7', '#ff7597', '#fdcb6e', '#00cec9', '#6c5ce7', '#e17055', '#2d3436', '#ff4757'];
 
@@ -129,6 +180,13 @@ export function SettingsStudio() {
     <div class="settings-layout">
       {/* SETTINGS TABS NAV */}
       <nav class="settings-nav">
+        <button
+          type="button"
+          class={`settings-tab-btn ${activeTab() === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          👤 {t('settings.tabs.profile')}
+        </button>
         <button
           type="button"
           class={`settings-tab-btn ${activeTab() === 'personality' ? 'active' : ''}`}
@@ -182,6 +240,103 @@ export function SettingsStudio() {
 
       {/* SETTINGS SECTIONS WRAPPER */}
       <div class="settings-content">
+        {/* 0. PROFILE & ACCOUNT TAB */}
+        <Show when={activeTab() === 'profile'}>
+          <div class="settings-section active">
+            <div class="section-card">
+              <h3 class="section-title">👤 {t('profile.editProfile')}</h3>
+              <p class="section-subtitle">
+                Customize your commander public profile, bio, and avatar.
+              </p>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <label>{t('profile.displayName')}</label>
+                  <small class="setting-desc">{t('profile.handleHint')}</small>
+                </div>
+                <input
+                  type="text"
+                  class="profile-input modal-input"
+                  style={{ 'max-width': '380px' }}
+                  value={state.user?.username || 'Guest'}
+                  disabled={true}
+                  title="Username is permanent"
+                />
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <label>{t('profile.bio')}</label>
+                  <small class="setting-desc">{t('profile.bioHint')}</small>
+                </div>
+                <textarea
+                  class="profile-textarea modal-input"
+                  style={{ 'max-width': '450px', 'min-height': '80px' }}
+                  value={editBio()}
+                  onInput={e => setEditBio(e.currentTarget.value)}
+                  placeholder={t('profile.defaultBio')}
+                  rows={3}
+                />
+              </div>
+
+              <div class="setting-row">
+                <div class="setting-label">
+                  <label>{t('profile.avatar')}</label>
+                  <small class="setting-desc">{t('profile.avatarHint')}</small>
+                </div>
+                <div class="avatar-setting-content" style={{ display: 'flex', gap: '16px', 'align-items': 'center' }}>
+                  <div
+                    class="avatar-preview-circle"
+                    style={{
+                      width: '64px',
+                      height: '64px',
+                      'border-radius': '50%',
+                      overflow: 'hidden',
+                      border: '2px solid rgba(255, 101, 132, 0.4)',
+                      display: 'flex',
+                      'align-items': 'center',
+                      'justify-content': 'center',
+                      'background': 'rgba(255, 255, 255, 0.05)',
+                      'flex-shrink': 0
+                    }}
+                  >
+                    <Show when={editAvatarUrl()} fallback={<span style={{ 'font-size': '28px' }}>👤</span>}>
+                      <img
+                        src={editAvatarUrl()}
+                        alt="Avatar Preview"
+                        style={{ width: '100%', height: '100%', 'object-fit': 'cover' }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </Show>
+                  </div>
+                  <div class="avatar-upload-group" style={{ display: 'flex', 'flex-direction': 'column', gap: '8px', 'flex': 1, 'max-width': '370px' }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleCustomProfileAvatarUpload}
+                    />
+                    <input
+                      type="text"
+                      class="profile-input modal-input"
+                      placeholder="https://..."
+                      value={editAvatarUrl()}
+                      onInput={e => setEditAvatarUrl(e.currentTarget.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="profile-edit-actions" style={{ 'margin-top': '24px' }}>
+                <button class="btn-save-profile" onClick={handleSaveProfileSettings}>
+                  💾 {t('profile.saveChanges')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Show>
+
         {/* 1. PERSONALITY TAB */}
         <Show when={activeTab() === 'personality'}>
           <div class="settings-section active">
@@ -213,7 +368,7 @@ export function SettingsStudio() {
                       setState('waifu', 'personality', p.id);
                       setState('waifu', 'mood', p.defaultMood);
                       saveState();
-                      showToast(t('settings.personality.switchedToast', { name: p.name }));
+                      showToast(t('settings.personality.switchedToast', { name: getPersonalityName(p.id) }));
                     };
                     return (
                       <div
@@ -221,12 +376,12 @@ export function SettingsStudio() {
                         role="button"
                         tabindex="0"
                         aria-pressed={isActive()}
-                        aria-label={t('settings.a11y.personalityOption', { name: p.name })}
+                        aria-label={t('settings.a11y.personalityOption', { name: getPersonalityName(p.id) })}
                         onClick={selectPersonality}
                         onKeyDown={e => onActivateKey(e, selectPersonality)}
                       >
                         <div class="persona-card-header">
-                          <span class="persona-name">{p.name}</span>
+                          <span class="persona-name">{getPersonalityName(p.id)}</span>
                           {isActive() && <span class="persona-check">✔</span>}
                         </div>
                         <p class="persona-tagline">{p.tagline}</p>
@@ -324,13 +479,13 @@ export function SettingsStudio() {
                           saveState();
                         }}
                       >
-                        <option value="twintails">{isCosmeticUnlocked('hairstyles', 'twintails') ? '👧 Twintails' : '🔒 👧 Twintails'}</option>
-                        <option value="long">{isCosmeticUnlocked('hairstyles', 'long') ? '💇‍♀️ Long Straight' : '🔒 💇‍♀️ Long Straight'}</option>
-                        <option value="short_bob">{isCosmeticUnlocked('hairstyles', 'short_bob') ? '💁‍♀️ Short Bob' : '🔒 💁‍♀️ Short Bob'}</option>
-                        <option value="ponytail">{isCosmeticUnlocked('hairstyles', 'ponytail') ? '👱‍♀️ Ponytail' : '🔒 🤦‍♀️ Ponytail'}</option>
-                        <option value="wavy">{isCosmeticUnlocked('hairstyles', 'wavy') ? '👩‍🦱 Wavy Curls' : '🔒 👩‍🦱 Wavy Curls'}</option>
-                        <option value="space_bun">{isCosmeticUnlocked('hairstyles', 'space_bun') ? '🪐 Space Buns' : '🔒 🪐 Space Buns'}</option>
-                        <option value="celestial_wave">{isCosmeticUnlocked('hairstyles', 'celestial_wave') ? '🌌 Celestial Waves' : '🔒 🌌 Celestial Waves'}</option>
+                        <option value="twintails">{isCosmeticUnlocked('hairstyles', 'twintails') ? `👧 ${getCosmeticName('twintails')}` : `🔒 👧 ${getCosmeticName('twintails')}`}</option>
+                        <option value="long">{isCosmeticUnlocked('hairstyles', 'long') ? `💇‍♀️ ${getCosmeticName('long')}` : `🔒 💇‍♀️ ${getCosmeticName('long')}`}</option>
+                        <option value="short_bob">{isCosmeticUnlocked('hairstyles', 'short_bob') ? `💁‍♀️ ${getCosmeticName('short_bob')}` : `🔒 💁‍♀️ ${getCosmeticName('short_bob')}`}</option>
+                        <option value="ponytail">{isCosmeticUnlocked('hairstyles', 'ponytail') ? `👱‍♀️ ${getCosmeticName('ponytail')}` : `🔒 🤦‍♀️ ${getCosmeticName('ponytail')}`}</option>
+                        <option value="wavy">{isCosmeticUnlocked('hairstyles', 'wavy') ? `👩‍🦱 ${getCosmeticName('wavy')}` : `🔒 👩‍🦱 ${getCosmeticName('wavy')}`}</option>
+                        <option value="space_bun">{isCosmeticUnlocked('hairstyles', 'space_bun') ? `🪐 ${getCosmeticName('space_bun')}` : `🔒 🪐 ${getCosmeticName('space_bun')}`}</option>
+                        <option value="celestial_wave">{isCosmeticUnlocked('hairstyles', 'celestial_wave') ? `🌌 ${getCosmeticName('celestial_wave')}` : `🔒 🌌 ${getCosmeticName('celestial_wave')}`}</option>
                       </select>
                     </div>
 
@@ -355,15 +510,15 @@ export function SettingsStudio() {
                           saveState();
                         }}
                       >
-                        <option value="seifuku">{isCosmeticUnlocked('outfits', 'seifuku') ? '🏫 Sailor Seifuku' : '🔒 🏫 Sailor Seifuku'}</option>
-                        <option value="casual">{isCosmeticUnlocked('outfits', 'casual') ? '🛋️ Cozy Hoodie' : '🔒 🛋️ Cozy Hoodie'}</option>
-                        <option value="maid">{isCosmeticUnlocked('outfits', 'maid') ? '☕ Maid Uniform' : '🔒 ☕ Maid Uniform'}</option>
-                        <option value="kimono">{isCosmeticUnlocked('outfits', 'kimono') ? '👘 Summer Kimono' : '🔒 👘 Summer Kimono'}</option>
-                        <option value="gothic">{isCosmeticUnlocked('outfits', 'gothic') ? '🥀 Gothic Lolita' : '🔒 🥀 Gothic Lolita'}</option>
-                        <option value="miko">{isCosmeticUnlocked('outfits', 'miko') ? '⛩️ Shrine Maiden (Miko)' : '🔒 ⛩️ Shrine Maiden'}</option>
-                        <option value="magical">{isCosmeticUnlocked('outfits', 'magical') ? '✨ Magical Girl' : '🔒 ✨ Magical Girl'}</option>
-                        <option value="armor">{isCosmeticUnlocked('outfits', 'armor') ? '🛡️ Guardian Armor' : '🔒 🛡️ Guardian Armor'}</option>
-                        <option value="celestial_dress">{isCosmeticUnlocked('outfits', 'celestial_dress') ? '🌌 Celestial Gown' : '🔒 🌌 Celestial Gown'}</option>
+                        <option value="seifuku">{isCosmeticUnlocked('outfits', 'seifuku') ? `🏫 ${getCosmeticName('seifuku')}` : `🔒 🏫 ${getCosmeticName('seifuku')}`}</option>
+                        <option value="casual">{isCosmeticUnlocked('outfits', 'casual') ? `🛋️ ${getCosmeticName('casual')}` : `🔒 🛋️ ${getCosmeticName('casual')}`}</option>
+                        <option value="maid">{isCosmeticUnlocked('outfits', 'maid') ? `☕ ${getCosmeticName('maid')}` : `🔒 ☕ ${getCosmeticName('maid')}`}</option>
+                        <option value="kimono">{isCosmeticUnlocked('outfits', 'kimono') ? `👘 ${getCosmeticName('kimono')}` : `🔒 👘 ${getCosmeticName('kimono')}`}</option>
+                        <option value="gothic">{isCosmeticUnlocked('outfits', 'gothic') ? `🥀 ${getCosmeticName('gothic')}` : `🔒 🥀 ${getCosmeticName('gothic')}`}</option>
+                        <option value="miko">{isCosmeticUnlocked('outfits', 'miko') ? `⛩️ ${getCosmeticName('miko')}` : `🔒 ⛩️ ${getCosmeticName('miko')}`}</option>
+                        <option value="magical">{isCosmeticUnlocked('outfits', 'magical') ? `✨ ${getCosmeticName('magical')}` : `🔒 ✨ ${getCosmeticName('magical')}`}</option>
+                        <option value="armor">{isCosmeticUnlocked('outfits', 'armor') ? `🛡️ ${getCosmeticName('armor')}` : `🔒 🛡️ ${getCosmeticName('armor')}`}</option>
+                        <option value="celestial_dress">{isCosmeticUnlocked('outfits', 'celestial_dress') ? `🌌 ${getCosmeticName('celestial_dress')}` : `🔒 🌌 ${getCosmeticName('celestial_dress')}`}</option>
                       </select>
                     </div>
 
@@ -388,15 +543,15 @@ export function SettingsStudio() {
                           saveState();
                         }}
                       >
-                        <option value="none">{t('common.none')}</option>
-                        <option value="ribbon">{isCosmeticUnlocked('accessories', 'ribbon') ? '🎀 Ribbon' : '🔒 🎀 Ribbon'}</option>
-                        <option value="glasses">{isCosmeticUnlocked('accessories', 'glasses') ? '👓 Red-rim Glasses' : '🔒 👓 Red-rim Glasses'}</option>
-                        <option value="flower_pin">{isCosmeticUnlocked('accessories', 'flower_pin') ? '🌸 Sakura Hairpin' : '🔒 🌸 Sakura Hairpin'}</option>
-                        <option value="headphones">{isCosmeticUnlocked('accessories', 'headphones') ? '🎧 Cyber Headphones' : '🔒 🎧 Cyber Headphones'}</option>
-                        <option value="cat_ears">{isCosmeticUnlocked('accessories', 'cat_ears') ? '🐱 Cat Ears' : '🔒 🐱 Cat Ears'}</option>
-                        <option value="bunny_ears">{isCosmeticUnlocked('accessories', 'bunny_ears') ? '🐰 Bunny Ears' : '🔒 🐰 Bunny Ears'}</option>
-                        <option value="kitsune_mask">{isCosmeticUnlocked('accessories', 'kitsune_mask') ? '🦊 Kitsune Mask' : '🔒 🦊 Kitsune Mask'}</option>
-                        <option value="halo">{isCosmeticUnlocked('accessories', 'halo') ? '😇 Angel Halo' : '🔒 😇 Angel Halo'}</option>
+                        <option value="none">{getCosmeticName('none', t('common.none'))}</option>
+                        <option value="ribbon">{isCosmeticUnlocked('accessories', 'ribbon') ? `🎀 ${getCosmeticName('ribbon')}` : `🔒 🎀 ${getCosmeticName('ribbon')}`}</option>
+                        <option value="glasses">{isCosmeticUnlocked('accessories', 'glasses') ? `👓 ${getCosmeticName('glasses')}` : `🔒 👓 ${getCosmeticName('glasses')}`}</option>
+                        <option value="flower_pin">{isCosmeticUnlocked('accessories', 'flower_pin') ? `🌸 ${getCosmeticName('flower_pin')}` : `🔒 🌸 ${getCosmeticName('flower_pin')}`}</option>
+                        <option value="headphones">{isCosmeticUnlocked('accessories', 'headphones') ? `🎧 ${getCosmeticName('headphones')}` : `🔒 🎧 ${getCosmeticName('headphones')}`}</option>
+                        <option value="cat_ears">{isCosmeticUnlocked('accessories', 'cat_ears') ? `🐱 ${getCosmeticName('cat_ears')}` : `🔒 🐱 ${getCosmeticName('cat_ears')}`}</option>
+                        <option value="bunny_ears">{isCosmeticUnlocked('accessories', 'bunny_ears') ? `🐰 ${getCosmeticName('bunny_ears')}` : `🔒 🐰 ${getCosmeticName('bunny_ears')}`}</option>
+                        <option value="kitsune_mask">{isCosmeticUnlocked('accessories', 'kitsune_mask') ? `🦊 ${getCosmeticName('kitsune_mask')}` : `🔒 🦊 ${getCosmeticName('kitsune_mask')}`}</option>
+                        <option value="halo">{isCosmeticUnlocked('accessories', 'halo') ? `😇 ${getCosmeticName('halo')}` : `🔒 😇 ${getCosmeticName('halo')}`}</option>
                       </select>
                     </div>
 
@@ -483,7 +638,7 @@ export function SettingsStudio() {
                                 saveState();
                               }}
                             >
-                              {m}
+                              {getMoodName(m)}
                             </button>
                           )}
                         </For>
@@ -855,36 +1010,6 @@ export function SettingsStudio() {
 
               <div class="setting-row">
                 <div>
-                  <strong>{t('settings.data.exportJson')}</strong>
-                  <p class="setting-desc">{t('settings.data.exportJsonDesc')}</p>
-                </div>
-                <button
-                  type="button"
-                  class="gcal-btn gcal-btn-outline"
-                  onClick={handleExportData}
-                >
-                  {t('settings.data.exportBtn')}
-                </button>
-              </div>
-
-              <div class="setting-row">
-                <div>
-                  <strong>{t('settings.data.restoreBackup')}</strong>
-                  <p class="setting-desc">{t('settings.data.restoreBackupDesc')}</p>
-                </div>
-                <label class="gcal-btn gcal-btn-outline" style={{ cursor: 'pointer' }}>
-                  {t('settings.data.importBtn')}
-                  <input
-                    type="file"
-                    accept=".json"
-                    style={{ display: 'none' }}
-                    onChange={handleImportData}
-                  />
-                </label>
-              </div>
-
-              <div class="setting-row">
-                <div>
                   <strong>{t('settings.data.exportCalendar')}</strong>
                   <p class="setting-desc">{t('settings.data.exportCalendarDesc')}</p>
                 </div>
@@ -911,20 +1036,6 @@ export function SettingsStudio() {
                     onChange={handleImportCalendar}
                   />
                 </label>
-              </div>
-
-              <div class="setting-row" style={{ 'margin-top': '24px' }}>
-                <div>
-                  <strong style={{ color: '#ff4757' }}>{t('settings.data.factoryReset')}</strong>
-                  <p class="setting-desc">{t('settings.data.factoryResetDesc')}</p>
-                </div>
-                <button
-                  type="button"
-                  class="gcal-btn gcal-btn-danger"
-                  onClick={handleResetConfirm}
-                >
-                  {t('settings.data.resetBtn')}
-                </button>
               </div>
             </div>
           </div>

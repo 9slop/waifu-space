@@ -1,7 +1,17 @@
-import { createSignal, onMount, onCleanup, createEffect, Suspense } from 'solid-js';
-import { Router, A, useLocation } from '@solidjs/router';
+import { createSignal, onMount, onCleanup, createEffect, Suspense, Show } from 'solid-js';
+import { Router, A, useNavigate } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { state, loadState, loadCloudProgress, showToast, triggerWaifuResponse, setUserAccount } from './lib/store';
+import {
+  state,
+  loadState,
+  loadCloudProgress,
+  showToast,
+  triggerWaifuResponse,
+  setUserAccount,
+  isLeaderboardOpen,
+  closeLeaderboard
+} from './lib/store';
+import { defenseGameActive, setDefenseGameActive } from './lib/defense-bridge';
 import { t } from './lib/i18n';
 import { WallpaperBackground } from './components/WallpaperBackground';
 import { SakuraCanvas } from './components/SakuraCanvas';
@@ -18,28 +28,67 @@ import './styles/settings.css';
 import './styles/rpg.css';
 
 function AppLayout(props: { children: any }) {
-  const [clockTime, setClockTime] = createSignal('');
+  const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = createSignal(false);
-  const [showLeaderboardModal, setShowLeaderboardModal] = createSignal(false);
-  let clockInterval: any = null;
+  const [isAuthChecking, setIsAuthChecking] = createSignal(true);
+  const [pendingNavHref, setPendingNavHref] = createSignal<string | null>(null);
   let deadlineInterval: any = null;
+
+  const handleNavClick = (e: MouseEvent, href: string) => {
+    if (defenseGameActive()) {
+      e.preventDefault();
+      setPendingNavHref(href);
+    }
+  };
+
+  const confirmLeaveDefense = () => {
+    const href = pendingNavHref();
+    if (href) {
+      setDefenseGameActive(false);
+      setPendingNavHref(null);
+      navigate(href);
+    }
+  };
 
   onMount(() => {
     loadState();
 
-    // Restore cloud progress for a returning user with a saved session
-    if (state.user?.token) {
-      loadCloudProgress(state.user.token);
-    }
-
-    // Clock
-    const updateClock = () => {
-      setClockTime(
-        new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      );
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (defenseGameActive()) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
     };
-    updateClock();
-    clockInterval = setInterval(updateClock, 1000);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Restore session via cookie or token
+    const restoreSession = async () => {
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: state.user?.token ? { Authorization: `Bearer ${state.user.token}` } : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.user && data.token) {
+            setUserAccount({
+              ...data.user,
+              token: data.token
+            });
+            await loadCloudProgress(data.token);
+            return;
+          }
+        }
+      } catch {
+        // Offline or network error: keep offline state
+      } finally {
+        setIsAuthChecking(false);
+      }
+
+      if (state.user?.token) {
+        loadCloudProgress(state.user.token);
+      }
+    };
+    void restoreSession();
 
     // Apply theme
     document.documentElement.setAttribute('data-theme', state.settings.theme || 'sakura');
@@ -70,8 +119,8 @@ function AppLayout(props: { children: any }) {
     }, 60000);
 
     onCleanup(() => {
-      clearInterval(clockInterval);
       clearInterval(deadlineInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     });
   });
 
@@ -84,6 +133,9 @@ function AppLayout(props: { children: any }) {
     }
   });
 
+  const authModalOpen = () => !isAuthChecking() && (!state.user || showAuthModal());
+  const canDismissAuth = () => !!state.user;
+
   return (
     <div class="app-shell">
       {/* BACKGROUND WALLPAPER & AMBIENT LAYERS */}
@@ -92,31 +144,23 @@ function AppLayout(props: { children: any }) {
 
       {/* TOP NAVIGATION BAR */}
       <header class="app-header">
-        <A href="/" class="app-brand">
+        <A href="/" class="app-brand" onClick={e => handleNavClick(e, '/')}>
           <span class="brand-icon">🌸</span>
           <span class="brand-name">WaifuSpace</span>
           <span class="brand-tag">v2.0.0</span>
         </A>
 
-        {/* 3 PRIMARY TABS */}
+        {/* PRIMARY TABS */}
         <nav class="nav-tabs">
-          <A href="/" class="nav-tab-btn" activeClass="active" end={true}>
-            <span>🌸</span>
-            <span>{t('nav.companion')}</span>
-          </A>
-          <A href="/calendar" class="nav-tab-btn" activeClass="active">
+          <A href="/calendar" class="nav-tab-btn" activeClass="active" onClick={e => handleNavClick(e, '/calendar')}>
             <span>📅</span>
             <span>{t('nav.calendar')}</span>
           </A>
-          <A href="/rpg" class="nav-tab-btn" activeClass="active">
-            <span>⚔️</span>
-            <span>{t('nav.rpg')}</span>
+          <A href="/minigames" class="nav-tab-btn" activeClass="active" onClick={e => handleNavClick(e, '/minigames')}>
+            <span>🎮</span>
+            <span>{t('nav.minigames')}</span>
           </A>
-          <A href="/settings" class="nav-tab-btn" activeClass="active">
-            <span>⚙️</span>
-            <span>{t('nav.settings')}</span>
-          </A>
-          <A href="/profile" class="nav-tab-btn" activeClass="active">
+          <A href="/profile" class="nav-tab-btn" activeClass="active" onClick={e => handleNavClick(e, '/profile')}>
             <span>👤</span>
             <span>{t('nav.profile')}</span>
           </A>
@@ -124,17 +168,7 @@ function AppLayout(props: { children: any }) {
 
         {/* RIGHT HEADER META */}
         <div class="header-right">
-          <button
-            class="header-action-pill btn-leaderboard"
-            data-testid="header-btn-leaderboard"
-            title={t('nav.leaderboard')}
-            onClick={() => setShowLeaderboardModal(true)}
-          >
-            <span>🏆</span>
-            <span class="pill-text">{t('nav.leaderboard')}</span>
-          </button>
-
-          <A href="/rpg" class="header-coin-pill" title={t('nav.coinTooltip')}>
+          <A href="/minigames" class="header-coin-pill" title={t('nav.coinTooltip')} onClick={e => handleNavClick(e, '/minigames')}>
             <span>🪙</span>
             <span>{state.rpg ? state.rpg.coins : 0}</span>
           </A>
@@ -150,14 +184,24 @@ function AppLayout(props: { children: any }) {
             </button>
           }>
             <div class="user-profile-badge">
-              <A href="/profile" class="user-badge-link" title={state.user?.username}>
-                <span class="user-avatar-tiny">🌸</span>
+              <A href="/profile" class="user-badge-link" title={state.user?.username} onClick={e => handleNavClick(e, '/profile')}>
+                <Show when={state.user?.avatarUrl} fallback={<span class="user-avatar-tiny">🌸</span>}>
+                  <img
+                    src={state.user?.avatarUrl}
+                    alt={state.user?.username || 'Avatar'}
+                    class="user-avatar-tiny-img"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </Show>
                 <span class="user-badge-name">{state.user?.username}</span>
               </A>
               <button
                 class="btn-header-logout"
                 title={t('nav.logout')}
                 onClick={() => {
+                  void fetch('/api/auth/me', { method: 'POST' }).catch(() => {});
                   setUserAccount(null);
                   showToast(t('auth.logoutSuccess'));
                 }}
@@ -166,8 +210,6 @@ function AppLayout(props: { children: any }) {
               </button>
             </div>
           </Show>
-
-          <div class="header-clock">{clockTime() || '12:00 PM'}</div>
         </div>
       </header>
 
@@ -178,14 +220,33 @@ function AppLayout(props: { children: any }) {
 
       {/* MODALS */}
       <AuthModal
-        isOpen={showAuthModal()}
+        isOpen={authModalOpen()}
+        canClose={canDismissAuth()}
         onClose={() => setShowAuthModal(false)}
       />
 
       <LeaderboardModal
-        isOpen={showLeaderboardModal()}
-        onClose={() => setShowLeaderboardModal(false)}
+        isOpen={isLeaderboardOpen()}
+        onClose={closeLeaderboard}
       />
+
+      {/* DEFENSE NAVIGATION LEAVE MODAL */}
+      <Show when={pendingNavHref()}>
+        <div class="defense-leave-overlay" data-testid="global-defense-leave-modal">
+          <div class="defense-leave-modal">
+            <h3>⚠️ {t('defense.confirmLeaveTitle')}</h3>
+            <p>{t('defense.confirmLeaveDesc')}</p>
+            <div class="defense-leave-actions">
+              <button class="btn-stay" onClick={() => setPendingNavHref(null)}>
+                🎮 {t('defense.stayInGame')}
+              </button>
+              <button class="btn-leave" onClick={confirmLeaveDefense}>
+                🏃 {t('defense.leaveAnyway')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       {/* GLOBAL TOAST NOTIFICATION */}
       <ToastNotification />

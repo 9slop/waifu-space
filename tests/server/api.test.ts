@@ -4,7 +4,11 @@ import {
   getLocalUserByUsername,
   createSessionToken,
   verifySessionToken,
-  invalidateSessionToken
+  invalidateSessionToken,
+  createSessionCookie,
+  createClearSessionCookie,
+  getSessionTokenFromRequest,
+  SESSION_COOKIE_NAME
 } from '../../src/lib/server/auth';
 import { checkRateLimit } from '../../src/lib/server/rate-limit';
 import { rollLootboxServer, verifyDefenseWaveServer } from '../../src/lib/server/game-logic';
@@ -54,6 +58,40 @@ describe('Server APIs & Backend Logic', () => {
 
       // Also: a completely signature-less payload must be rejected
       expect(verifySessionToken(`ws_${Buffer.from(JSON.stringify({ userId: 'usr_x', exp: Date.now() + 100000 })).toString('base64url')}`)).toBeNull();
+    });
+
+    it('generates correct session and clear cookies', () => {
+      const token = 'ws_mock_token_123';
+      const cookie = createSessionCookie(token);
+      expect(cookie).toContain(`${SESSION_COOKIE_NAME}=${encodeURIComponent(token)}`);
+      expect(cookie).toContain('Path=/');
+      expect(cookie).toContain('SameSite=Lax');
+      expect(cookie).toContain('Max-Age=');
+
+      const clearCookie = createClearSessionCookie();
+      expect(clearCookie).toContain(`${SESSION_COOKIE_NAME}=;`);
+      expect(clearCookie).toContain('Max-Age=0');
+      expect(clearCookie).toContain('Expires=Thu, 01 Jan 1970');
+    });
+
+    it('extracts session token from Cookie header or Bearer authorization', () => {
+      const token = 'ws_sample_valid_token';
+
+      // From cookie
+      const reqWithCookie = new Request('http://localhost/api/test', {
+        headers: { Cookie: `theme=sakura; ${SESSION_COOKIE_NAME}=${token}; other=123` }
+      });
+      expect(getSessionTokenFromRequest(reqWithCookie)).toBe(token);
+
+      // From Authorization header
+      const reqWithBearer = new Request('http://localhost/api/test', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      expect(getSessionTokenFromRequest(reqWithBearer)).toBe(token);
+
+      // Empty request
+      const emptyReq = new Request('http://localhost/api/test');
+      expect(getSessionTokenFromRequest(emptyReq)).toBeNull();
     });
 
     it('registers local user and securely hashes password with bcrypt', () => {

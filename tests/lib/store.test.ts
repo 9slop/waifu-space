@@ -388,7 +388,7 @@ describe('Global Store & RPG State (store.ts)', () => {
   });
 
   describe('LocalStorage Hydration & Migration', () => {
-    it('persists and loads state correctly from localStorage', () => {
+    it('persists and loads client state correctly from localStorage while excluding game state', () => {
       addCoins(350);
       unlockCosmetic('outfits', 'armor');
       saveState();
@@ -398,8 +398,9 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.coins).toBe(DEFAULT_RPG.coins);
 
       loadState();
-      expect(state.rpg.coins).toBe(DEFAULT_RPG.coins + 350);
-      expect(isCosmeticUnlocked('armor')).toBe(true);
+      // Game state (coins, cosmetics) is server-authoritative and not persisted in localStorage
+      expect(state.rpg.coins).toBe(DEFAULT_RPG.coins);
+      expect(isCosmeticUnlocked('armor')).toBe(false);
     });
 
     it('safely handles legacy or incomplete localStorage data without crashing', () => {

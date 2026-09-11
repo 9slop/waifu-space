@@ -1,5 +1,21 @@
-﻿import { describe, it, expect, beforeEach } from 'vitest';
-import { t, getLocale, setLanguage, formatDate, formatTime, SUPPORTED_LANGUAGES } from '../../src/lib/i18n';
+import { describe, it, expect, beforeEach } from 'vitest';
+import {
+  t,
+  getLocale,
+  setLanguage,
+  formatDate,
+  formatTime,
+  SUPPORTED_LANGUAGES,
+  getCosmeticName,
+  getCosmeticDesc,
+  getCategoryName,
+  getRarityName,
+  getPersonalityName,
+  getMilestoneTitle,
+  getMilestoneDesc,
+  getMilestoneRewardLabel,
+  getMoodName
+} from '../../src/lib/i18n';
 
 describe('i18n Localization Engine', () => {
   beforeEach(() => {
@@ -56,4 +72,43 @@ describe('i18n Localization Engine', () => {
     const jaFormatted = formatDate(testDate);
     expect(jaFormatted).toBeTruthy();
   });
+
+  it('translates cosmetic names, descriptions, categories, and rarities into Japanese and English', () => {
+    setLanguage('en');
+    expect(getCosmeticName('seifuku')).toBe('Sailor Seifuku');
+    expect(getCosmeticDesc('seifuku')).toContain('Classic Japanese school uniform');
+    expect(getCategoryName('outfit')).toBe('Outfit');
+    expect(getRarityName('legendary')).toBe('Legendary');
+
+    setLanguage('ja');
+    expect(getCosmeticName('seifuku')).toBe('セーラー服');
+    expect(getCosmeticDesc('seifuku')).toContain('学生制服');
+    expect(getCategoryName('outfit')).toBe('衣装');
+    expect(getRarityName('legendary')).toBe('レジェンダリー');
+  });
+
+  it('translates companion personality archetypes into Japanese and English', () => {
+    setLanguage('en');
+    expect(getPersonalityName('tsundere')).toBe('Tsundere');
+    expect(getPersonalityName('kuudere')).toBe('Kuudere');
+
+    setLanguage('ja');
+    expect(getPersonalityName('tsundere')).toBe('ツンデレ');
+    expect(getPersonalityName('kuudere')).toBe('クーデレ');
+  });
+
+  it('translates affection road milestones, rewards, and moods into Japanese and English', () => {
+    setLanguage('en');
+    expect(getMilestoneTitle(2)).toBe('Acquaintance');
+    expect(getMilestoneRewardLabel(3)).toBe('Sakura Hairpin');
+    expect(getMilestoneDesc(2, { name: 'Asuka' })).toContain('Asuka begins to look forward');
+    expect(getMoodName('happy')).toBe('Happy');
+
+    setLanguage('ja');
+    expect(getMilestoneTitle(2)).toBe('知人');
+    expect(getMilestoneRewardLabel(3)).toBe('桜のヘアピン');
+    expect(getMilestoneDesc(2, { name: 'アスカ' })).toContain('アスカがあなたの存在を意識し始めます');
+    expect(getMoodName('happy')).toBe('笑顔');
+  });
 });
+

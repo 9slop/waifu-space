@@ -35,7 +35,7 @@
 /* TOP DASHBOARD HEADER */
 .rpg-dashboard-header {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 20px;
   background: var(--surface-1);
   backdrop-filter: blur(16px);
@@ -112,7 +112,7 @@
 
 .rpg-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 12px;
 }
 
@@ -124,26 +124,33 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 12px;
+  min-width: 0;
 }
 
 .chip-icon {
   font-size: 24px;
+  flex-shrink: 0;
 }
 
 .chip-content {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .chip-label {
   font-size: 11px;
   color: var(--text-muted);
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .chip-val {
   font-size: 15px;
   font-weight: 700;
   color: #fff;
+  white-space: nowrap;
 }
 
 /* NAVIGATION TABS */
@@ -152,6 +159,99 @@
   gap: 10px;
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 10px;
+}
+
+/* GAMEMODE SELECTOR SUBMENU */
+.games-mode-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gamemode-selector-bar {
+  display: flex;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 8px 12px;
+  align-items: center;
+}
+
+.gamemode-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.gamemode-chip-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.gamemode-chip-btn.active {
+  background: rgba(255, 105, 180, 0.18);
+  border-color: var(--primary-accent);
+  color: #fff;
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.gamemode-chip-btn.coming-soon {
+  opacity: 0.75;
+}
+
+.gamemode-badge {
+  background: #38ef7d;
+  color: #000;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 6px;
+  text-transform: uppercase;
+}
+
+.gamemode-badge.soon {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text-secondary);
+}
+
+.future-games-card {
+  background: var(--surface-1);
+  backdrop-filter: blur(16px);
+  border: 1px dashed var(--border-color);
+  border-radius: 16px;
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 540px;
+  margin: 30px auto;
+}
+
+.future-icon {
+  font-size: 48px;
+}
+
+.future-games-card h3 {
+  font-size: 20px;
+  color: #fff;
+}
+
+.future-games-card p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .rpg-tab-btn {
@@ -455,6 +555,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .tower-meta strong {
@@ -531,6 +632,7 @@
 .tower-action-btns {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .btn-upgrade {
@@ -541,6 +643,14 @@
   padding: 8px 14px;
   border-radius: 8px;
   cursor: pointer;
+}
+
+.btn-upgrade:disabled {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transform: none;
 }
 
 .btn-sell {

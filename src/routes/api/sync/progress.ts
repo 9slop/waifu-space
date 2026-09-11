@@ -1,7 +1,7 @@
-﻿import { json } from '@solidjs/router';
-import { verifySessionToken } from '../../../lib/server/auth';
+import { json } from '@solidjs/router';
+import { verifySessionToken, getSessionTokenFromRequest } from '../../../lib/server/auth';
 import { getSupabaseServerClient, isSupabaseConfigured } from '../../../lib/server/supabase';
-import { COSMETIC_CATALOG } from '../../../lib/store';
+import { COSMETIC_CATALOG, AFFECTION_MILESTONES } from '../../../lib/store';
 import { MAX_COINS } from '../../../lib/economy';
 import { EVENT_TYPES, RECURRENCE_RULES, isHexColor } from '../../../lib/validation';
 import { sanitizeOccurrenceOverride, type CalendarOccurrenceOverride } from '../../../lib/validate';
@@ -15,10 +15,26 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
   return Math.max(min, Math.min(max, n));
 }
 
+/**
+ * ARCHITECTURAL NOTE: 401 responses on /api/sync/progress
+ * 401 Unauthorized is INTENTIONAL when an unauthenticated request is received,
+ * because progress synchronization is an authenticated-only endpoint.
+ *
+ * The previous issue with unexpected 401s was caused by:
+ * 1. Clients attempting to sync progress using fake guest tokens (e.g. 'ws_guest_token')
+ *    or mock demo tokens (e.g. 'ws_demo_token') which lack valid cryptographic signatures.
+ * 2. Stale or expired session tokens where the client did not handle 401 by clearing the
+ *    session and prompting for login.
+ *
+ * Resolution:
+ * - Guest accounts are completely removed;
+ * - The client only syncs when authenticated with a cryptographically verified token;
+ * - On 401, the client immediately invalidates the stale session and redirects to login.
+ */
+
 // Sync progress to cloud database
 export async function POST(event: { request: Request }) {
-  const authHeader = event.request.headers.get('authorization');
-  const token = authHeader?.replace(/^Bearer\s+/i, '');
+  const token = getSessionTokenFromRequest(event.request);
   const session = verifySessionToken(token);
 
   if (!session) {
@@ -27,40 +43,68 @@ export async function POST(event: { request: Request }) {
 
   try {
     const payload = await event.request.json();
-    const { waifu, rpg, settings } = payload;
+
+    // Security Audit: Reject any request attempting to submit client-defined reward or progression values
+    // Covers top-level, nested objects, tasks/calendar items, and milestone reward tampering.
+    const hasClientRewards =
+      payload.coins !== undefined ||
+      payload.currentCoins !== undefined ||
+      payload.rpg?.coins !== undefined ||
+      payload.rpg?.defenseHighWave !== undefined ||
+      payload.defenseHighWave !== undefined ||
+      payload.unlockedOutfits !== undefined ||
+      payload.rpg?.unlockedOutfits !== undefined ||
+      payload.unlockedAccessories !== undefined ||
+      payload.rpg?.unlockedAccessories !== undefined ||
+      payload.unlockedHairstyles !== undefined ||
+      payload.rpg?.unlockedHairstyles !== undefined ||
+      payload.bondExp !== undefined ||
+      payload.waifu?.bondExp !== undefined ||
+      payload.bondLevel !== undefined ||
+      payload.waifu?.bondLevel !== undefined ||
+      payload.xp !== undefined ||
+      payload.exp !== undefined ||
+      payload.reward !== undefined ||
+      payload.rewards !== undefined ||
+      payload.trust !== undefined ||
+      (Array.isArray(payload.calendar) && payload.calendar.some((e: any) =>
+        e && (e.xp !== undefined || e.coins !== undefined || e.reward !== undefined || e.bondExp !== undefined)
+      )) ||
+      (Array.isArray(payload.tasks) && payload.tasks.some((t: any) =>
+        t && (t.xp !== undefined || t.coins !== undefined || t.reward !== undefined || t.bondExp !== undefined)
+      )) ||
+      (payload.milestoneRewards !== undefined || payload.rpg?.milestoneRewards !== undefined);
+
+    if (hasClientRewards) {
+      return json(
+        { success: false, error: 'Client-defined reward, balance, and progression values are strictly forbidden.' },
+        { status: 400 }
+      );
+    }
+
+    const { waifu, settings, showcaseItems } = payload;
 
     if (isSupabaseConfigured()) {
       const supabase = getSupabaseServerClient()!;
 
-      // Fetch current server-side progress so we can reconcile monotonic fields
+      // Fetch existing bond level to securely validate any claimed milestones
       const { data: existing } = await supabase
-        .from('user_progress').select('coins, defense_high_wave, bond_level').eq('user_id', session.userId).single();
+        .from('user_progress')
+        .select('bond_level, claimed_milestones')
+        .eq('user_id', session.userId)
+        .single();
+      const dbBondLevel = existing?.bond_level ?? 1;
 
-      const incomingCoins = clampInt(rpg?.coins, 0, MAX_COINS, 0);
-      const existingCoins = clampInt(existing?.coins, 0, MAX_COINS, 0);
-      // Coins are increase-only: a stale client cannot roll back the server balance.
-      const dbCoins = Math.min(MAX_COINS, Math.max(existingCoins, incomingCoins));
-
-      const incomingHighWave = clampInt(rpg?.defenseHighWave, 0, 200, 0);
-      const existingHighWave = clampInt(existing?.defense_high_wave, 0, 200, 0);
-      const dbHighWave = Math.max(existingHighWave, incomingHighWave);
-
-      const incomingBondLevel = clampInt(waifu?.bondLevel, 1, 99999, 1);
-      const dbBondLevel = incomingBondLevel;
-      const incomingBondExp = clampInt(waifu?.bondExp, 0, Number.MAX_SAFE_INTEGER, 0);
-
-      // Only accept claimed milestones that the current bond level actually grants
-      const incomingMilestones = Array.isArray(rpg?.claimedAffectionMilestones)
-        ? rpg.claimedAffectionMilestones
+      const rawMilestones = payload.rpg?.claimedAffectionMilestones ?? payload.claimedMilestones;
+      const incomingMilestones = Array.isArray(rawMilestones)
+        ? rawMilestones
             .filter((m: unknown) => typeof m === 'number' && Number.isInteger(m) && m >= 0 && m <= dbBondLevel)
             .slice(0, 200)
-        : [];
+        : existing?.claimed_milestones || [];
 
+      // Server is authoritative for coins, bond, and defense wave. Only update cosmetic appearances, settings, and verified milestones.
       await supabase.from('user_progress').upsert({
         user_id: session.userId,
-        coins: dbCoins,
-        bond_exp: incomingBondExp,
-        bond_level: dbBondLevel,
         waifu_name: typeof waifu?.name === 'string' ? waifu.name.slice(0, 40) : 'Akari',
         waifu_personality: typeof waifu?.personality === 'string' ? waifu.personality.slice(0, 40) : 'tsundere',
         worn_outfit: typeof waifu?.appearance?.outfit === 'string' ? waifu.appearance.outfit : 'seifuku',
@@ -69,17 +113,37 @@ export async function POST(event: { request: Request }) {
         appearance_data: waifu?.appearance && typeof waifu.appearance === 'object' ? waifu.appearance : {},
         settings_data: settings && typeof settings === 'object' ? settings : {},
         claimed_milestones: incomingMilestones,
-        defense_high_wave: dbHighWave,
-        defense_victories: clampInt(rpg?.defenseStats?.totalVictories, 0, 1000000, 0),
-        goblins_defeated: clampInt(rpg?.defenseStats?.goblinsDefeated, 0, 1000000, 0),
         updated_at: new Date().toISOString()
       });
 
-      // Update showcase slots
-      if (Array.isArray(rpg?.showcaseItems)) {
+      // Grant unlocked milestone cosmetics to user_inventory so they are permanent across devices/reloads
+      if (incomingMilestones.length > 0) {
+        const cosmeticInserts: Array<{ user_id: string; item_id: string; category: string; rarity: string }> = [];
+        for (const level of incomingMilestones) {
+          const ms = AFFECTION_MILESTONES.find(m => m.level === level);
+          if (ms && ms.rewardType === 'cosmetic' && typeof ms.rewardValue === 'string') {
+            const item = COSMETIC_CATALOG.find(c => c.id === ms.rewardValue);
+            if (item) {
+              cosmeticInserts.push({
+                user_id: session.userId,
+                item_id: item.id,
+                category: item.category,
+                rarity: item.rarity
+              });
+            }
+          }
+        }
+        if (cosmeticInserts.length > 0) {
+          await supabase.from('user_inventory').upsert(cosmeticInserts, { onConflict: 'user_id,item_id', ignoreDuplicates: true });
+        }
+      }
+
+      // Update showcase slots from validated inventory items
+      const rawShowcase = Array.isArray(showcaseItems) ? showcaseItems : Array.isArray(payload.rpg?.showcaseItems) ? payload.rpg.showcaseItems : null;
+      if (Array.isArray(rawShowcase)) {
         await supabase.from('user_showcase').delete().eq('user_id', session.userId);
         const validIds = new Set(COSMETIC_CATALOG.map(c => c.id));
-        const inserts = rpg.showcaseItems.slice(0, 6)
+        const inserts = rawShowcase.slice(0, 6)
           .filter((itemId: unknown) => typeof itemId === 'string' && validIds.has(itemId))
           .map((itemId: string, slotIndex: number) => ({
             user_id: session.userId,
@@ -89,30 +153,6 @@ export async function POST(event: { request: Request }) {
         if (inserts.length > 0) {
           await supabase.from('user_showcase').insert(inserts);
         }
-      }
-
-      // Update inventory (all unlocked cosmetics) - only accept catalog-valid ids
-      const validCatalog = new Set(COSMETIC_CATALOG.map(c => c.id));
-      const unlockedOutfits: string[] = Array.isArray(rpg?.unlockedOutfits) ? rpg.unlockedOutfits.filter((id: unknown) => typeof id === 'string' && validCatalog.has(id)) : [];
-      const unlockedAccessories: string[] = Array.isArray(rpg?.unlockedAccessories) ? rpg.unlockedAccessories.filter((id: unknown) => typeof id === 'string' && validCatalog.has(id)) : [];
-      const unlockedHairstyles: string[] = Array.isArray(rpg?.unlockedHairstyles) ? rpg.unlockedHairstyles.filter((id: unknown) => typeof id === 'string' && validCatalog.has(id)) : [];
-
-      const allUnlocked = [
-        ...unlockedOutfits.filter(id => id !== 'none').map(id => ({ item_id: id, category: 'outfit' })),
-        ...unlockedAccessories.filter(id => id !== 'none').map(id => ({ item_id: id, category: 'accessory' })),
-        ...unlockedHairstyles.filter(id => id !== 'none').map(id => ({ item_id: id, category: 'hairstyle' }))
-      ];
-
-      if (allUnlocked.length > 0) {
-        await supabase.from('user_inventory').delete().eq('user_id', session.userId);
-        await supabase.from('user_inventory').insert(
-          allUnlocked.map(entry => ({
-            user_id: session.userId,
-            item_id: entry.item_id,
-            category: entry.category,
-            rarity: itemRarity(entry.item_id)
-          }))
-        );
       }
 
       // Sync calendar events/tasks. The client's calendar list is private and
@@ -174,29 +214,33 @@ export async function POST(event: { request: Request }) {
   }
 }
 
-// Fetch progress from cloud database
+// Fetch progress from cloud database with optional scope support (?scope=all|profile|calendar|rpg)
 export async function GET(event: { request: Request }) {
-  const authHeader = event.request.headers.get('authorization');
-  const token = authHeader?.replace(/^Bearer\s+/i, '');
+  const token = getSessionTokenFromRequest(event.request);
   const session = verifySessionToken(token);
 
   if (!session) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
+  const url = new URL(event.request.url);
+  const scope = url.searchParams.get('scope') || 'all';
+
   if (isSupabaseConfigured()) {
     const supabase = getSupabaseServerClient()!;
-    const { data: progress } = await supabase.from('user_progress').select('*').eq('user_id', session.userId).single();
-    const { data: showcase } = await supabase.from('user_showcase').select('*').eq('user_id', session.userId).order('slot_index');
-    const { data: inventory } = await supabase.from('user_inventory').select('item_id, category, rarity').eq('user_id', session.userId);
-    const { data: calendarItems } = await supabase.from('calendar_items').select('*').eq('user_id', session.userId).order('start_at');
 
-    return json({
-      success: true,
-      progress,
-      showcaseItems: showcase ? showcase.map((s: any) => s.item_id) : [],
-      inventory: inventory || [],
-      calendarItems: (calendarItems || []).map((r: any) => ({
+    let progress: any = null;
+    let showcaseItems: string[] = [];
+    let inventory: any[] = [];
+    let calendarItems: any[] = [];
+    let calendarOverrides: any[] = [];
+
+    if (scope === 'calendar') {
+      const [{ data: cal }, { data: p }] = await Promise.all([
+        supabase.from('calendar_items').select('*').eq('user_id', session.userId).order('start_at'),
+        supabase.from('user_progress').select('calendar_overrides').eq('user_id', session.userId).maybeSingle()
+      ]);
+      calendarItems = (cal || []).map((r: any) => ({
         id: r.item_id,
         title: r.title,
         start: r.start_at,
@@ -208,8 +252,71 @@ export async function GET(event: { request: Request }) {
         description: r.description || undefined,
         location: r.location || undefined,
         recurrence: r.recurrence
-      })),
-      calendarOverrides: progress?.calendar_overrides ?? []
+      }));
+      calendarOverrides = p?.calendar_overrides ?? [];
+
+      return json({
+        success: true,
+        progress: null,
+        showcaseItems: [],
+        inventory: [],
+        calendarItems,
+        calendarOverrides
+      });
+    }
+
+    if (scope === 'rpg') {
+      const [{ data: p }, { data: inv }, { data: sc }] = await Promise.all([
+        supabase.from('user_progress').select('coins, bond_level, bond_exp, claimed_milestones, defense_high_wave, defense_victories, goblins_defeated').eq('user_id', session.userId).maybeSingle(),
+        supabase.from('user_inventory').select('item_id, category, rarity').eq('user_id', session.userId),
+        supabase.from('user_showcase').select('item_id').eq('user_id', session.userId).order('slot_index')
+      ]);
+
+      return json({
+        success: true,
+        progress: p || null,
+        showcaseItems: sc ? sc.map((s: any) => s.item_id) : [],
+        inventory: inv || [],
+        calendarItems: [],
+        calendarOverrides: []
+      });
+    }
+
+    // Default: 'all' or 'profile'
+    const [progressRes, showcaseRes, inventoryRes, calendarRes] = await Promise.all([
+      supabase.from('user_progress').select('*').eq('user_id', session.userId).maybeSingle(),
+      supabase.from('user_showcase').select('*').eq('user_id', session.userId).order('slot_index'),
+      supabase.from('user_inventory').select('item_id, category, rarity').eq('user_id', session.userId),
+      scope === 'profile'
+        ? Promise.resolve({ data: [] })
+        : supabase.from('calendar_items').select('*').eq('user_id', session.userId).order('start_at')
+    ]);
+
+    progress = progressRes.data;
+    showcaseItems = showcaseRes.data ? showcaseRes.data.map((s: any) => s.item_id) : [];
+    inventory = inventoryRes.data || [];
+    calendarItems = (calendarRes.data || []).map((r: any) => ({
+      id: r.item_id,
+      title: r.title,
+      start: r.start_at,
+      end: r.end_at,
+      allDay: r.all_day,
+      type: r.type,
+      completed: r.completed,
+      color: r.color,
+      description: r.description || undefined,
+      location: r.location || undefined,
+      recurrence: r.recurrence
+    }));
+    calendarOverrides = progress?.calendar_overrides ?? [];
+
+    return json({
+      success: true,
+      progress,
+      showcaseItems,
+      inventory,
+      calendarItems,
+      calendarOverrides
     });
   }
 
