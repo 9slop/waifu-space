@@ -20,6 +20,7 @@ import {
   pokeAvatar,
   headpatWaifu,
   loadCloudProgress,
+  resetAccountProgress,
   DEFAULT_STATE,
   DEFAULT_RPG,
   STORAGE_KEY,
@@ -151,7 +152,10 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.defenseHighWave).toBe(3);
       expect(state.rpg.defenseStats.totalVictories).toBe(1);
       expect(state.rpg.defenseStats.goblinsDefeated).toBe(15);
-      expect(state.rpg.coins).toBe(initialCoins + 100);
+      // Startup from a fresh level 1: wave reward (100) + bond level-up bonus (2 * 25)
+      expect(state.rpg.coins).toBe(initialCoins + 150);
+      expect(state.waifu.bondLevel).toBe(2);
+      expect(state.waifu.bondExp).toBe(30);
     });
 
     it('uses the shared defense formula by default and clamps out-of-range waves', () => {
@@ -263,6 +267,83 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg).toBeDefined();
       expect(Array.isArray(state.rpg.unlockedOutfits)).toBe(true);
       expect(state.rpg.coins).toBe(DEFAULT_RPG.coins);
+    });
+  });
+
+  describe('Fresh Player Defaults & Account Reset', () => {
+    it('defaults a brand-new player to bond level 1 with no XP and starter coins', () => {
+      expect(DEFAULT_STATE.waifu.bondLevel).toBe(1);
+      expect(DEFAULT_STATE.waifu.bondExp).toBe(0);
+      expect(state.waifu.bondLevel).toBe(1);
+      expect(state.waifu.bondExp).toBe(0);
+      expect(state.rpg.coins).toBe(DEFAULT_RPG.coins);
+    });
+
+    it('resetAccountProgress wipes all carried-over progress back to the fresh defaults', () => {
+      // Simulate a returning player with real progress left in the session
+      setState('user', { id: 'old', username: 'test123', token: 'ws_old' });
+      setState('waifu', 'bondLevel', 12);
+      setState('waifu', 'bondExp', 45);
+      setState('rpg', 'coins', 3450);
+      unlockCosmetic('outfits', 'armor');
+      addCalendarEvent({ title: 'Old Account Event', type: 'task', start: new Date().toISOString() });
+      toggleTask('evt-1');
+
+      resetAccountProgress();
+
+      expect(state.user).toBeNull();
+      expect(state.waifu.bondLevel).toBe(1);
+      expect(state.waifu.bondExp).toBe(0);
+      expect(state.rpg.coins).toBe(DEFAULT_RPG.coins);
+      expect(isCosmeticUnlocked('armor')).toBe(false);
+      expect(state.rpg.defenseHighWave).toBe(0);
+      expect(state.calendar.events).toEqual(DEFAULT_STATE.calendar.events);
+    });
+
+    it('keeps a newly registered account at starter values after loading cloud progress', async () => {
+      // Leftover high values from a previous account
+      setState('user', { id: 'old', username: 'test123', token: 'ws_old' });
+      setState('waifu', 'bondLevel', 12);
+      setState('waifu', 'bondExp', 45);
+      setState('rpg', 'coins', 3450);
+
+      // Registration resets to a clean slate before the fresh cloud snapshot loads
+      resetAccountProgress();
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          progress: {
+            coins: 200,
+            bond_level: 1,
+            bond_exp: 0,
+            waifu_name: 'Akari',
+            waifu_personality: 'tsundere',
+            worn_outfit: 'seifuku',
+            worn_accessory: 'none',
+            worn_hairstyle: 'twintails',
+            appearance_data: {},
+            settings_data: {},
+            claimed_milestones: [],
+            defense_high_wave: 0,
+            defense_victories: 0,
+            goblins_defeated: 0
+          },
+          showcaseItems: [],
+          inventory: []
+        })
+      }));
+
+      await loadCloudProgress('ws_fresh');
+
+      expect(state.rpg.coins).toBe(200);
+      expect(state.waifu.bondLevel).toBe(1);
+      expect(state.waifu.bondExp).toBe(0);
+      expect(state.rpg.unlockedOutfits).toEqual(DEFAULT_RPG.unlockedOutfits);
+      expect(state.rpg.showcaseItems).toEqual(DEFAULT_RPG.showcaseItems);
+
+      vi.unstubAllGlobals();
     });
   });
 

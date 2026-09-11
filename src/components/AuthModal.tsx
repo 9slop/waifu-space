@@ -1,5 +1,5 @@
 import { createSignal, Show } from 'solid-js';
-import { setUserAccount, showToast, loadCloudProgress } from '../lib/store';
+import { setUserAccount, resetAccountProgress, showToast, loadCloudProgress } from '../lib/store';
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
 
@@ -56,6 +56,10 @@ export function AuthModal(props: { isOpen: boolean; onClose: () => void; initial
         setErrorMessage(data.error || t('auth.loginFailed'));
         setIsLoading(false);
         return;
+      }
+
+      if (mode() === 'register') {
+        resetAccountProgress();
       }
 
       setUserAccount({

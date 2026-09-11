@@ -260,8 +260,8 @@ export const DEFAULT_STATE: AppState = {
       avatarMode: 'svg'
     },
     mood: 'neutral',
-    bondLevel: 12,
-    bondExp: 45
+    bondLevel: 1,
+    bondExp: 0
   },
   rpg: DEFAULT_RPG,
   calendar: {
@@ -937,6 +937,18 @@ export function toggleShowcaseItem(itemId: string): boolean {
 
 export function setUserAccount(user: UserAccount | null) {
   setState('user', user);
+  saveState();
+}
+
+/**
+ * Resets all per-account progress (waifu bond, RPG economy/inventory, calendar,
+ * chat history) back to the fresh-player defaults. Used when registering a brand
+ * new account so leftover state from a previous session/account can never leak
+ * into the new player's save. The user account itself is not touched here; call
+ * `setUserAccount` afterwards to attach the new profile.
+ */
+export function resetAccountProgress() {
+  setState(JSON.parse(JSON.stringify(DEFAULT_STATE)) as AppState);
   saveState();
 }
 
