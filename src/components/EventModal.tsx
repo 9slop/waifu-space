@@ -2,6 +2,8 @@ import { createSignal, createEffect, For } from 'solid-js';
 import { CalendarEventItem, RecurrenceRule } from '../lib/ical';
 import { addCalendarEvent, updateCalendarEvent, deleteCalendarEvent, showToast } from '../lib/store';
 import { t } from '../lib/i18n';
+import { useFocusTrap } from '../lib/accessibility';
+import { validateCalendarEventInput, EVENT_TITLE_MAX_LENGTH } from '../lib/validation';
 
 export function EventModal(props: {
   isOpen: boolean;
@@ -24,6 +26,28 @@ export function EventModal(props: {
   const [description, setDescription] = createSignal('');
 
   const colors = ['#ff6584', '#6c5ce7', '#00cec9', '#fdcb6e', '#e84393', '#0984e3'];
+
+  const [fieldErrors, setFieldErrors] = createSignal<Record<string, string>>({});
+
+  const issueField: Record<string, 'title' | 'start' | 'end' | 'type' | 'recurrence' | 'color'> = {
+    'calendar.validation.titleRequired': 'title',
+    'calendar.validation.titleTooLong': 'title',
+    'calendar.validation.invalidStart': 'start',
+    'calendar.validation.invalidEnd': 'end',
+    'calendar.validation.endBeforeStart': 'end',
+    'calendar.validation.invalidType': 'type',
+    'calendar.validation.invalidRecurrence': 'recurrence',
+    'calendar.validation.invalidColor': 'color'
+  };
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors(prev => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   const formatDateForInput = (d: Date) => {
     const y = d.getFullYear();
@@ -82,7 +106,6 @@ export function EventModal(props: {
   const handleSubmit = (e: Event) => {
     e.preventDefault();
     const trimmedTitle = title().trim();
-    if (!trimmedTitle) return;
 
     const startIso = allDay()
       ? new Date(startDate() + 'T00:00:00').toISOString()
@@ -91,6 +114,26 @@ export function EventModal(props: {
     const endIso = allDay()
       ? new Date(endDate() + 'T23:59:59').toISOString()
       : new Date(`${endDate()}T${endTime()}:00`).toISOString();
+
+    const validation = validateCalendarEventInput({
+      title: trimmedTitle,
+      type: type(),
+      recurrence: recurrence(),
+      color: color(),
+      start: startIso,
+      end: endIso
+    });
+
+    if (!validation.ok) {
+      const errors: Record<string, string> = {};
+      validation.issues.forEach(issue => {
+        const field = issueField[issue.key];
+        if (field && !errors[field]) errors[field] = t(issue.key, { max: EVENT_TITLE_MAX_LENGTH });
+      });
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
 
     const payload = {
       title: trimmedTitle,
@@ -125,14 +168,18 @@ export function EventModal(props: {
 
   return (
     <div
+      ref={useFocusTrap(() => props.isOpen, props.onClose)}
       class={`gcal-modal-overlay ${props.isOpen ? 'active' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="event-modal-title"
       onClick={e => {
         if (e.target === e.currentTarget) props.onClose();
       }}
     >
       <div class="gcal-modal">
         <div class="modal-header">
-          <h3>
+          <h3 id="event-modal-title">
             {props.event
               ? type() === 'task'
                 ? t('calendar.modal.editTask')
@@ -141,7 +188,7 @@ export function EventModal(props: {
               ? t('calendar.modal.addTask')
               : t('calendar.modal.addEvent')}
           </h3>
-          <button class="modal-close-btn" type="button" onClick={props.onClose}>
+          <button class="modal-close-btn" type="button" onClick={props.onClose} aria-label={t('common.close')}>
             ✕
           </button>
         </div>
@@ -153,9 +200,18 @@ export function EventModal(props: {
               placeholder={t('calendar.modal.addTitle')}
               class="modal-title-input"
               value={title()}
-              onInput={e => setTitle(e.currentTarget.value)}
+              aria-invalid={fieldErrors().title ? true : undefined}
+              onInput={e => {
+                setTitle(e.currentTarget.value);
+                clearFieldError('title');
+              }}
               required
             />
+            {fieldErrors().title && (
+              <p class="validation-error" role="alert" style={{ color: 'var(--danger, #e84393)', 'font-size': '0.85rem', 'margin-top': '4px' }}>
+                {fieldErrors().title}
+              </p>
+            )}
           </div>
 
           <div class="form-group-row">
@@ -163,12 +219,21 @@ export function EventModal(props: {
             <select
               class="modal-select"
               value={type()}
-              onChange={e => setType(e.currentTarget.value as any)}
+              aria-invalid={fieldErrors().type ? true : undefined}
+              onChange={e => {
+                setType(e.currentTarget.value as any);
+                clearFieldError('type');
+              }}
             >
               <option value="event">{t('calendar.menu.event')}</option>
               <option value="task">{t('calendar.menu.task')}</option>
               <option value="birthday">{t('calendar.menu.birthday')} 🎂</option>
             </select>
+            {fieldErrors().type && (
+              <p class="validation-error" role="alert" style={{ color: 'var(--danger, #e84393)', 'font-size': '0.85rem', 'margin-top': '4px' }}>
+                {fieldErrors().type}
+              </p>
+            )}
           </div>
 
           <div class="form-group-row">
@@ -176,7 +241,11 @@ export function EventModal(props: {
             <select
               class="modal-select"
               value={recurrence()}
-              onChange={e => setRecurrence(e.currentTarget.value as any)}
+              aria-invalid={fieldErrors().recurrence ? true : undefined}
+              onChange={e => {
+                setRecurrence(e.currentTarget.value as any);
+                clearFieldError('recurrence');
+              }}
             >
               <option value="none">{t('calendar.recurrence.none')}</option>
               <option value="daily">{t('calendar.recurrence.daily')}</option>
@@ -184,6 +253,11 @@ export function EventModal(props: {
               <option value="weekdays">{t('calendar.recurrence.weekdays')}</option>
               <option value="monthly">{t('calendar.recurrence.monthly')}</option>
             </select>
+            {fieldErrors().recurrence && (
+              <p class="validation-error" role="alert" style={{ color: 'var(--danger, #e84393)', 'font-size': '0.85rem', 'margin-top': '4px' }}>
+                {fieldErrors().recurrence}
+              </p>
+            )}
           </div>
 
           <div class="form-group-row">
@@ -202,7 +276,11 @@ export function EventModal(props: {
                 type="date"
                 class="modal-input"
                 value={startDate()}
-                onInput={e => setStartDate(e.currentTarget.value)}
+                aria-invalid={fieldErrors().start ? true : undefined}
+                onInput={e => {
+                  setStartDate(e.currentTarget.value);
+                  clearFieldError('start');
+                }}
                 required
               />
               {!allDay() && (
@@ -211,8 +289,16 @@ export function EventModal(props: {
                   class="modal-input"
                   style={{ 'margin-top': '4px' }}
                   value={startTime()}
-                  onInput={e => setStartTime(e.currentTarget.value)}
+                  onInput={e => {
+                    setStartTime(e.currentTarget.value);
+                    clearFieldError('start');
+                  }}
                 />
+              )}
+              {fieldErrors().start && (
+                <p class="validation-error" role="alert" style={{ color: 'var(--danger, #e84393)', 'font-size': '0.85rem', 'margin-top': '4px' }}>
+                  {fieldErrors().start}
+                </p>
               )}
             </div>
             <div class="time-col" style={{ flex: 1 }}>
@@ -221,7 +307,11 @@ export function EventModal(props: {
                 type="date"
                 class="modal-input"
                 value={endDate()}
-                onInput={e => setEndDate(e.currentTarget.value)}
+                aria-invalid={fieldErrors().end ? true : undefined}
+                onInput={e => {
+                  setEndDate(e.currentTarget.value);
+                  clearFieldError('end');
+                }}
                 required
               />
               {!allDay() && (
@@ -230,8 +320,16 @@ export function EventModal(props: {
                   class="modal-input"
                   style={{ 'margin-top': '4px' }}
                   value={endTime()}
-                  onInput={e => setEndTime(e.currentTarget.value)}
+                  onInput={e => {
+                    setEndTime(e.currentTarget.value);
+                    clearFieldError('end');
+                  }}
                 />
+              )}
+              {fieldErrors().end && (
+                <p class="validation-error" role="alert" style={{ color: 'var(--danger, #e84393)', 'font-size': '0.85rem', 'margin-top': '4px' }}>
+                  {fieldErrors().end}
+                </p>
               )}
             </div>
           </div>
@@ -245,11 +343,20 @@ export function EventModal(props: {
                     type="button"
                     class={`color-dot ${color() === c ? 'active' : ''}`}
                     style={{ background: c }}
-                    onClick={() => setColor(c)}
+                    aria-label={t('calendar.modal.colorBadge')}
+                    onClick={() => {
+                      setColor(c);
+                      clearFieldError('color');
+                    }}
                   />
                 )}
               </For>
             </div>
+            {fieldErrors().color && (
+              <p class="validation-error" role="alert" style={{ color: 'var(--danger, #e84393)', 'font-size': '0.85rem', 'margin-top': '4px' }}>
+                {fieldErrors().color}
+              </p>
+            )}
           </div>
 
           <div class="form-group">

@@ -19,6 +19,7 @@ import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarWeekView } from './CalendarWeekView';
 import { CalendarDayView } from './CalendarDayView';
 import { t, getLocale } from '../lib/i18n';
+import { onActivateKey } from '../lib/accessibility';
 
 export function CalendarPlanner() {
   const [currentDate, setCurrentDate] = createSignal(new Date());
@@ -442,6 +443,7 @@ export function CalendarPlanner() {
               <input
                 type="text"
                 placeholder={t('calendar.sidebar.quickTaskPlaceholder')}
+                aria-label={t('calendar.a11y.quickTask')}
                 value={quickTaskInput()}
                 onInput={e => setQuickTaskInput(e.currentTarget.value)}
                 required
@@ -469,7 +471,10 @@ export function CalendarPlanner() {
                     <span
                       class="task-item-text"
                       title={tk.title}
+                      role="button"
+                      tabindex="0"
                       onClick={() => openEditModal(tk)}
+                      onKeyDown={e => onActivateKey(e, () => openEditModal(tk))}
                     >
                       {tk.title}
                       {tk.recurrence && tk.recurrence !== 'none' && (

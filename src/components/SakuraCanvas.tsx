@@ -86,5 +86,5 @@ export function SakuraCanvas() {
     });
   });
 
-  return <canvas ref={canvasRef} class="particles-canvas" id="particles-canvas" />;
+  return <canvas ref={canvasRef} class="particles-canvas" id="particles-canvas" aria-hidden="true" />;
 }

@@ -57,6 +57,7 @@ export function ChatStage() {
             class="chat-icon-btn"
             id="clear-chat-btn"
             title={t('chat.clearTooltip')}
+            aria-label={t('chat.clearTooltip')}
             onClick={clearChatHistory}
           >
             🗑️
@@ -65,7 +66,15 @@ export function ChatStage() {
       </div>
 
       {/* MESSAGES SCROLL AREA */}
-      <div class="chat-messages" id="chat-messages" ref={messagesContainerRef}>
+      <div
+        class="chat-messages"
+        id="chat-messages"
+        ref={messagesContainerRef}
+        role="log"
+        aria-live="polite"
+        aria-label={t('chat.messagesRegion')}
+        tabindex="0"
+      >
         <For each={state.chat.messages}>
           {(msg: ChatMessage) => (
             <div class={`chat-bubble-row ${msg.sender === 'user' ? 'user-row' : 'waifu-row'}`}>
@@ -116,10 +125,16 @@ export function ChatStage() {
           type="text"
           class="chat-input"
           placeholder={t('chat.placeholder', { name: state.waifu.name })}
+          aria-label={t('chat.inputLabel', { name: state.waifu.name })}
           value={inputText()}
           onInput={e => setInputText(e.currentTarget.value)}
         />
-        <button type="submit" class="chat-send-btn" title={t('chat.sendTooltip')}>
+        <button
+          type="submit"
+          class="chat-send-btn"
+          title={t('chat.sendTooltip')}
+          aria-label={t('chat.sendTooltip')}
+        >
           <span>➤</span>
         </button>
       </form>

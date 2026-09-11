@@ -1,5 +1,6 @@
 import { createSignal, For } from 'solid-js';
 import { t, getLocale } from '../lib/i18n';
+import { onActivateKey } from '../lib/accessibility';
 
 export function MiniCalendar(props: {
   selectedDate: Date;
@@ -64,14 +65,14 @@ export function MiniCalendar(props: {
   const today = new Date();
 
   return (
-    <div class="mini-cal-card">
+    <div class="mini-cal-card" role="group" aria-label={t('calendar.a11y.miniCalendar')}>
       <div class="mini-cal-header">
         <span>
           {navDate().toLocaleDateString(getLocale(), { month: 'short', year: 'numeric' })}
         </span>
         <div class="mini-nav">
-          <button type="button" onClick={prevMonth}>◀</button>
-          <button type="button" onClick={nextMonth}>▶</button>
+          <button type="button" aria-label={t('calendar.a11y.prevMonth')} onClick={prevMonth}>◀</button>
+          <button type="button" aria-label={t('calendar.a11y.nextMonth')} onClick={nextMonth}>▶</button>
         </div>
       </div>
       <div class="mini-cal-grid">
@@ -88,15 +89,24 @@ export function MiniCalendar(props: {
             const isToday = isSameDay(item.date, today);
             const isSelected = isSameDay(item.date, props.selectedDate);
             return (
-              <div
+              <button
+                type="button"
                 class={`mini-day ${item.currentMonth ? '' : 'outside'} ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`}
                 style={{ opacity: item.currentMonth ? '1' : '0.35' }}
+                aria-label={t('calendar.a11y.selectDay', {
+                  date: item.date.toLocaleDateString(getLocale(), {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })
+                })}
+                aria-pressed={isSelected}
                 onClick={() => {
                   props.onSelectDate(item.date);
                 }}
               >
                 {item.date.getDate()}
-              </div>
+              </button>
             );
           }}
         </For>

@@ -1,6 +1,7 @@
 import { createSignal, Show } from 'solid-js';
 import { setUserAccount, showToast, loadCloudProgress } from '../lib/store';
 import { t } from '../lib/i18n';
+import { useFocusTrap } from '../lib/accessibility';
 
 export function AuthModal(props: { isOpen: boolean; onClose: () => void; initialMode?: 'login' | 'register' }) {
   const [mode, setMode] = createSignal<'login' | 'register'>(props.initialMode || 'login');
@@ -99,13 +100,21 @@ export function AuthModal(props: { isOpen: boolean; onClose: () => void; initial
 
   return (
     <Show when={props.isOpen}>
-      <div class="auth-modal-backdrop" onClick={props.onClose} data-testid="auth-modal">
+      <div
+        ref={useFocusTrap(() => props.isOpen, props.onClose)}
+        class="auth-modal-backdrop"
+        onClick={props.onClose}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        data-testid="auth-modal"
+      >
         <div class="auth-modal-card" onClick={e => e.stopPropagation()}>
-          <button class="modal-close-btn" onClick={props.onClose}>✕</button>
+          <button class="modal-close-btn" onClick={props.onClose} aria-label={t('common.close')}>✕</button>
 
           <div class="auth-modal-header">
             <span class="auth-logo">🌸</span>
-            <h2>{mode() === 'login' ? t('auth.loginTitle') : t('auth.registerTitle')}</h2>
+            <h2 id="auth-modal-title">{mode() === 'login' ? t('auth.loginTitle') : t('auth.registerTitle')}</h2>
             <p>{mode() === 'login' ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}</p>
           </div>
 
@@ -127,7 +136,7 @@ export function AuthModal(props: { isOpen: boolean; onClose: () => void; initial
           </div>
 
           <Show when={errorMessage()}>
-            <div class="auth-error-banner" data-testid="auth-error">{errorMessage()}</div>
+            <div class="auth-error-banner" role="alert" data-testid="auth-error">{errorMessage()}</div>
           </Show>
 
           <form onSubmit={handleSubmit} class="auth-form">

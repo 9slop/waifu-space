@@ -86,7 +86,8 @@
     "headpat": "Headpat",
     "poke": "Poke",
     "reviewSchedule": "Review Today's Schedule",
-    "cute": "You look cute!"
+    "cute": "You look cute!",
+    "stageLabel": "Interactive avatar stage. Press Enter or click to interact with {name}."
   },
   "chat": {
     "headerTitle": "Chat with {name}",
@@ -94,6 +95,8 @@
     "you": "You",
     "placeholder": "Talk to {name}...",
     "sendTooltip": "Send message",
+    "messagesRegion": "Chat messages. New messages are announced automatically.",
+    "inputLabel": "Your message to {name}",
     "schedulePrompt": "Review today's schedule",
     "cutePrompt": "You look cute today",
     "pokePrompt": "Poke",
@@ -205,6 +208,25 @@
       "noValidEvents": "No valid events found in .ics file",
       "rescheduled": "Rescheduled \"{title}\" to {date}",
       "waifuBriefing": "Waifu Briefing: {text}"
+    },
+    "validation": {
+      "titleRequired": "Please enter a title.",
+      "titleTooLong": "Title must be {max} characters or fewer.",
+      "invalidStart": "Start time is invalid.",
+      "invalidEnd": "End time is invalid.",
+      "endBeforeStart": "End time must be after the start time.",
+      "invalidType": "Event type is invalid.",
+      "invalidRecurrence": "Recurrence rule is invalid.",
+      "invalidColor": "Color must be a valid hex value."
+    },
+    "a11y": {
+      "miniCalendar": "Mini calendar",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "selectDay": "Select {date}",
+      "openEvent": "Open {title}",
+      "quickTask": "Add a quick task",
+      "closeDialog": "Close dialog"
     }
   },
   "rpg": {
@@ -328,6 +350,14 @@
       "voice": "Voice & AI",
       "data": "Data & Backup",
       "language": "Language"
+    },
+    "a11y": {
+      "hairColorOption": "Select hair color {color}",
+      "eyeColorOption": "Select eye color {color}",
+      "wallpaperOption": "Select wallpaper {name}",
+      "themeOption": "Select theme {name}",
+      "languageOption": "Select language {name}",
+      "personalityOption": "Select personality {name}"
     },
     "language": {
       "title": "Language Settings",
