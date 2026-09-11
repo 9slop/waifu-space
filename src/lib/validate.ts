@@ -6,7 +6,8 @@
 // `loadState` and backup imports can never crash or poison the UI.
 
 import type { AppState, ChatMessage, RpgState, UserAccount } from './store';
-import type { CalendarEventItem } from './ical';
+import type { CalendarEventItem, CalendarOccurrenceOverride } from './ical';
+export type { CalendarOccurrenceOverride } from './ical';
 import { PERSONALITIES } from './personality';
 import {
   sanitizeSettings,
@@ -79,7 +80,7 @@ function syntheticId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function sanitizeEvent(raw: unknown): CalendarEventItem | null {
+export function sanitizeEvent(raw: unknown): CalendarEventItem | null {
   if (!isRecord(raw)) return null;
   const fallbackStart = nowIso();
   let start = validDateString(raw.start, fallbackStart);
@@ -112,6 +113,38 @@ function sanitizeEvent(raw: unknown): CalendarEventItem | null {
     ...(typeof raw._notified === 'boolean' ? { _notified: raw._notified } : {}),
     ...(typeof raw._rewarded === 'boolean' ? { _rewarded: raw._rewarded } : {})
   };
+}
+
+export function sanitizeOccurrenceOverride(raw: unknown): CalendarOccurrenceOverride | null {
+  if (!isRecord(raw) || typeof raw.parentId !== 'string' || !raw.parentId) return null;
+  if (!isValidDateString(raw.dateKey)) return null;
+
+  let start: string | undefined;
+  let end: string | undefined;
+  if (isValidDateString(raw.start)) {
+    start = new Date(raw.start as string).toISOString();
+    if (isValidDateString(raw.end) && new Date(raw.end as string).getTime() >= new Date(start).getTime()) {
+      end = new Date(raw.end as string).toISOString();
+    }
+  }
+
+  const out: CalendarOccurrenceOverride = {
+    id: toStr(raw.id, syntheticId('occ')),
+    parentId: raw.parentId,
+    dateKey: raw.dateKey as string,
+    updatedAt: validDateString(raw.updatedAt, nowIso())
+  };
+  if (start) out.start = start;
+  if (end) out.end = end;
+  if (typeof raw.deleted === 'boolean') out.deleted = raw.deleted;
+  if (typeof raw.completed === 'boolean') out.completed = raw.completed;
+  if (typeof raw.rewarded === 'boolean') out.rewarded = raw.rewarded;
+  if (typeof raw.title === 'string') out.title = raw.title;
+  if (typeof raw.allDay === 'boolean') out.allDay = raw.allDay;
+  if (isHexColor(raw.color)) out.color = raw.color as string;
+  if (typeof raw.location === 'string') out.location = raw.location;
+  if (typeof raw.description === 'string') out.description = raw.description;
+  return out;
 }
 
 function sanitizeMessage(raw: unknown): ChatMessage | null {
@@ -211,9 +244,12 @@ export function sanitizeRawState(raw: unknown): SanitizeResult {
       ? raw.calendar.events.map(sanitizeEvent).filter((e): e is CalendarEventItem => e !== null)
       : [];
     data.calendar = {
-      view: (VALID_VIEWS as readonly string[]).includes(raw.calendar.view as string) ? (raw.calendar.view as AppState['calendar']['view']) : 'month',
+      view: (VALID_VIEWS as readonly string[]).includes(raw.calendar.view as string) ? (raw.calendar.view as AppState['calendar']['view']) : 'week',
       selectedDate: validDateString(raw.calendar.selectedDate, nowIso()),
       events,
+      occurrenceOverrides: Array.isArray(raw.calendar.occurrenceOverrides)
+        ? raw.calendar.occurrenceOverrides.map(sanitizeOccurrenceOverride).filter((o): o is CalendarOccurrenceOverride => o !== null)
+        : [],
       filterEvents: toBool(raw.calendar.filterEvents, true),
       filterTasks: toBool(raw.calendar.filterTasks, true),
       filterBirthdays: toBool(raw.calendar.filterBirthdays, true),

@@ -28,6 +28,18 @@ describe('CalendarPlanner Component & SSR Safety (Issue #11)', () => {
     expect(screen.getByPlaceholderText('+ Add a task & press Enter')).toBeInTheDocument();
   });
 
+  it('removes the search input and waifu briefing button from the toolbar', () => {
+    setState('calendar', 'searchQuery', 'stale-query');
+    const { container } = render(() => <CalendarPlanner />);
+
+    expect(container.querySelector('.gcal-search-wrap')).toBeNull();
+    expect(container.querySelector('.gcal-search-input')).toBeNull();
+    expect(container.querySelector('.gcal-btn-waifu')).toBeNull();
+
+    // Stale queries are cleared on mount so they can no longer hide events.
+    expect(state.calendar.searchQuery).toBe('');
+  });
+
   it('opens event popover when an event card is clicked', () => {
     const testEvt = addCalendarEvent({
       title: 'Waifu Date Night',
@@ -93,6 +105,7 @@ describe('CalendarPlanner Component & SSR Safety (Issue #11)', () => {
       type: 'event'
     });
 
+    setState('calendar', 'view', 'month');
     const { container } = render(() => <CalendarPlanner />);
 
     const dropTargetCell = container.querySelectorAll('.month-day-cell')[15] as HTMLElement;

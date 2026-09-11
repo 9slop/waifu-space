@@ -173,6 +173,15 @@
       "close": "閉じる",
       "completed": "完了済み"
     },
+    "repeatScope": {
+      "title": "繰り返し予定の変更",
+      "subtitle": "変更する範囲を選択してください",
+      "thisEvent": "この予定のみ",
+      "thisEventDesc": "{date} のこの1回だけ変更",
+      "allEvents": "すべての予定",
+      "allEventsDesc": "この予定を含む全シリーズを変更",
+      "cancel": "キャンセル"
+    },
     "weekdays": {
       "sun": "日",
       "mon": "月",
@@ -201,6 +210,7 @@
       "sat": "土"
     },
     "moreEvents": "他 {count} 件",
+    "alldayLabel": "終日",
     "toasts": {
       "taskAdded": "タスク「{title}」を追加しました",
       "eventUpdated": "「{title}」を更新しました",
@@ -471,6 +481,15 @@
       "restoreBackup": "バックアップを復元",
       "restoreBackupDesc": "出力済みのJSONバックアップファイルを読み込みます",
       "importBtn": "バックアップを読み込む (.json)",
+      "exportCalendar": "カレンダーをエクスポート (.ics)",
+      "exportCalendarDesc": "予定やタスクを iCalendar 形式で外部アプリ用にダウンロードします",
+      "exportCalendarBtn": "カレンダーを保存 (.ics)",
+      "importCalendar": "カレンダーをインポート (.ics)",
+      "importCalendarDesc": "外部のiCalendarファイルから予定を追加します",
+      "importCalendarBtn": "インポート (.ics)",
+      "exportCalendarSuccess": "カレンダーをエクスポートしました！",
+      "importCalendarSuccess": "{{count}}件のイベントをインポートしました！",
+      "importCalendarFailed": ".icsファイルに有効なイベントが見つかりません",
       "factoryReset": "初期設定に戻す (リセット)",
       "factoryResetDesc": "すべての予定を削除し、初期状態にリセットします",
       "resetBtn": "すべてリセット",

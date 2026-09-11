@@ -17,6 +17,10 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
   toggleTask,
+  getEventsForDate,
+  getOccurrenceForDate,
+  moveCalendarEvent,
+  dateKeyOf,
   pokeAvatar,
   headpatWaifu,
   loadCloudProgress,
@@ -241,6 +245,148 @@ describe('Global Store & RPG State (store.ts)', () => {
     });
   });
 
+  describe('Recurring Event Occurrence Overrides', () => {
+    beforeEach(() => {
+      setState('calendar', 'events', []);
+    });
+
+    const localIso = (y: number, m: number, d: number, h = 0, min = 0): string =>
+      new Date(y, m, d, h, min, 0, 0).toISOString();
+
+    const addDailyTask = (day: number): ReturnType<typeof addCalendarEvent> =>
+      addCalendarEvent({
+        title: 'Daily Kanji Rep',
+        type: 'task',
+        start: localIso(2026, 8, day, 18),
+        end: localIso(2026, 8, day, 18, 30),
+        recurrence: 'daily'
+      });
+
+    it('attaches a parentId + local dateKey to every occurrence', () => {
+      const ev = addCalendarEvent({ title: 'One Shots', type: 'event', start: localIso(2026, 8, 10, 9) });
+      const occ = getOccurrenceForDate(ev, new Date(2026, 8, 10, 12));
+      expect(occ.parentId).toBe(ev.id);
+      expect(occ.dateKey).toBe('2026-09-10');
+      expect(dateKeyOf(new Date(2026, 8, 10, 12))).toBe('2026-09-10');
+
+      const moved = getOccurrenceForDate(ev, new Date(2026, 8, 15, 12));
+      expect(moved.dateKey).toBe('2026-09-15');
+      expect(moved.start).toBe(localIso(2026, 8, 15, 9));
+    });
+
+    it('toggling one occurrence does not complete the rest of the series', () => {
+      const task = addDailyTask(10);
+      const dayA = () => getEventsForDate(state.calendar.events, new Date(2026, 8, 10, 12));
+      const dayB = () => getEventsForDate(state.calendar.events, new Date(2026, 8, 11, 12));
+      expect(dayA()[0].completed).toBe(false);
+      expect(dayB()[0].completed).toBe(false);
+
+      toggleTask(task.id, '2026-09-10');
+
+      expect(dayA()[0].completed).toBe(true);
+      expect(dayB()[0].completed).toBe(false);
+      // The base event itself is untouched.
+      expect(state.calendar.events.find(e => e.id === task.id)?.completed).toBe(false);
+    });
+
+    it('rewards each occurrence once, but never twice for the same occurrence', () => {
+      const task = addDailyTask(10);
+      const initialCoins = state.rpg.coins;
+
+      toggleTask(task.id, '2026-09-10');
+      expect(state.rpg.coins).toBe(initialCoins + 15);
+
+      const coinsAfterFirst = state.rpg.coins;
+      toggleTask(task.id, '2026-09-10'); // un-complete
+      toggleTask(task.id, '2026-09-10'); // re-complete -> no second reward
+      expect(state.rpg.coins).toBe(coinsAfterFirst);
+
+      // A different day is a fresh occurrence and rewards again.
+      toggleTask(task.id, '2026-09-11');
+      expect(state.rpg.coins).toBe(coinsAfterFirst + 15);
+    });
+
+    it('updating one occurrence only affects that occurrence', () => {
+      const task = addDailyTask(10);
+      updateCalendarEvent(task.id, { title: 'Renamed Just Today' }, '2026-09-15');
+
+      expect(getEventsForDate(state.calendar.events, new Date(2026, 8, 15, 12))[0].title).toBe('Renamed Just Today');
+      expect(getEventsForDate(state.calendar.events, new Date(2026, 8, 16, 12))[0].title).toBe('Daily Kanji Rep');
+      // Series stays intact.
+      expect(state.calendar.events.find(e => e.id === task.id)?.title).toBe('Daily Kanji Rep');
+    });
+
+    it('updating the series without a dateKey changes the whole series', () => {
+      const task = addDailyTask(10);
+      updateCalendarEvent(task.id, { title: 'Series-Wide' });
+
+      expect(getEventsForDate(state.calendar.events, new Date(2026, 8, 15, 12))[0].title).toBe('Series-Wide');
+      expect(getEventsForDate(state.calendar.events, new Date(2026, 8, 16, 12))[0].title).toBe('Series-Wide');
+    });
+
+    it('deleting one occurrence hides only that day but keeps the series', () => {
+      const task = addDailyTask(10);
+      deleteCalendarEvent(task.id, '2026-09-15');
+
+      expect(getEventsForDate(state.calendar.events, new Date(2026, 8, 15, 12))).toHaveLength(0);
+      expect(getEventsForDate(state.calendar.events, new Date(2026, 8, 16, 12))).toHaveLength(1);
+      expect(state.calendar.events.find(e => e.id === task.id)).toBeDefined();
+    });
+
+    it('deleting the series removes its events and all of its overrides', () => {
+      const task = addDailyTask(10);
+      deleteCalendarEvent(task.id, '2026-09-15');
+      deleteCalendarEvent(task.id, '2026-09-16');
+      expect(state.calendar.occurrenceOverrides.filter(o => o.parentId === task.id)).toHaveLength(2);
+
+      deleteCalendarEvent(task.id);
+
+      expect(state.calendar.events.some(e => e.id === task.id)).toBe(false);
+      expect(state.calendar.occurrenceOverrides.some(o => o.parentId === task.id)).toBe(false);
+    });
+
+    it('moving an occurrence relocates only that instance to the new day', () => {
+      const task = addDailyTask(10);
+      expect(getEventsForDate(state.calendar.events, new Date(2026, 8, 12, 12))).toHaveLength(1);
+
+      const moved = moveCalendarEvent(
+        task.id,
+        '2026-09-12',
+        localIso(2026, 8, 13, 14),
+        localIso(2026, 8, 13, 15)
+      );
+      expect(moved).toBe(true);
+
+      const day12 = getEventsForDate(state.calendar.events, new Date(2026, 8, 12, 12));
+      const day13 = getEventsForDate(state.calendar.events, new Date(2026, 8, 13, 12));
+      expect(day12).toHaveLength(0);
+      expect(day13).toHaveLength(1);
+      expect(day13[0].start).toBe(localIso(2026, 8, 13, 14));
+      expect(day13[0].end).toBe(localIso(2026, 8, 13, 15));
+
+      // A fresh date in the same series still renders normally.
+      expect(getEventsForDate(state.calendar.events, new Date(2026, 8, 14, 12))).toHaveLength(1);
+    });
+
+    it('rescheduling within the same day updates the time without deleting it', () => {
+      const task = addDailyTask(10);
+      moveCalendarEvent(task.id, '2026-09-12', localIso(2026, 8, 12, 20), localIso(2026, 8, 12, 21));
+
+      const day12 = getEventsForDate(state.calendar.events, new Date(2026, 8, 12, 12));
+      expect(day12).toHaveLength(1);
+      expect(day12[0].start).toBe(localIso(2026, 8, 12, 20));
+    });
+
+    it('ignores occurrence paths for non-recurring events', () => {
+      const ev = addCalendarEvent({ title: 'Single', type: 'event', start: localIso(2026, 8, 10, 9) });
+      // A per-occurrence delete on a non-recurring event falls back to the
+      // full delete path instead of creating an orphan override.
+      deleteCalendarEvent(ev.id, '2026-09-10');
+      expect(state.calendar.events.some(e => e.id === ev.id)).toBe(false);
+      expect(state.calendar.occurrenceOverrides).toHaveLength(0);
+    });
+  });
+
   describe('LocalStorage Hydration & Migration', () => {
     it('persists and loads state correctly from localStorage', () => {
       addCoins(350);
@@ -297,7 +443,8 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.coins).toBe(DEFAULT_RPG.coins);
       expect(isCosmeticUnlocked('armor')).toBe(false);
       expect(state.rpg.defenseHighWave).toBe(0);
-      expect(state.calendar.events).toEqual(DEFAULT_STATE.calendar.events);
+      // New accounts start with an empty calendar - no demo events/tasks.
+      expect(state.calendar.events).toEqual([]);
     });
 
     it('keeps a newly registered account at starter values after loading cloud progress', async () => {
@@ -398,6 +545,48 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.unlockedAccessories).toContain('cat_ears');
       expect(state.rpg.unlockedHairstyles).toContain('wavy');
       expect(state.rpg.showcaseItems).toEqual(['kimono']);
+    });
+
+    it('adopts the server calendar list when the cloud has calendar items', async () => {
+      setState('user', { id: 'u1', username: 'CloudCal', token: 'ws_cloud' });
+      setState('calendar', 'events', []);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          progress: { coins: 200 },
+          inventory: [],
+          showcaseItems: [],
+          calendarItems: [
+            { id: 'c1', title: 'Cloud Sunset', start: '2026-09-12T19:00:00Z', end: '2026-09-12T20:00:00Z', allDay: false, type: 'event', completed: false, color: '#6c5ce7', recurrence: 'none' },
+            { id: 'c2', title: 'Kanji Rep', start: '2026-09-12T18:00:00Z', end: '2026-09-12T18:30:00Z', allDay: false, type: 'task', completed: true, color: 'not-a-hex', recurrence: 'daily' }
+          ]
+        })
+      }));
+
+      await loadCloudProgress('ws_cloud');
+
+      expect(state.calendar.events).toHaveLength(2);
+      expect(state.calendar.events.map(e => e.id)).toEqual(['c1', 'c2']);
+      expect(state.calendar.events[0].title).toBe('Cloud Sunset');
+      // Invalid hex is sanitized to the default color.
+      expect(state.calendar.events[1].color).toBe('#ff6584');
+      expect(state.calendar.events[1].completed).toBe(true);
+    });
+
+    it('keeps the local calendar when the cloud has no calendar items', async () => {
+      setState('user', { id: 'u1', username: 'LocalCal', token: 'ws_cloud' });
+      setState('calendar', 'events', [{ id: 'local-1', title: 'Local Event', start: new Date().toISOString(), end: new Date().toISOString(), allDay: false, type: 'event', completed: false, color: '#ff6584', recurrence: 'none' }]);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, progress: { coins: 200 }, inventory: [], showcaseItems: [], calendarItems: [] })
+      }));
+
+      await loadCloudProgress('ws_cloud');
+
+      expect(state.calendar.events.map(e => e.id)).toEqual(['local-1']);
     });
 
     it('does not clobber a richer local balance with the default 200 snapshot', async () => {

@@ -1,6 +1,6 @@
 import { Show } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
-import { toggleTask, deleteCalendarEvent, showToast } from '../lib/store';
+import { toggleTask } from '../lib/store';
 import { t, getLocale } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
 
@@ -10,6 +10,7 @@ export function CalendarPopover(props: {
   event: CalendarEventItem | null;
   position: { top: number; left: number } | null;
   onEdit: (ev: CalendarEventItem) => void;
+  onDeleteEvent: (ev: CalendarEventItem) => void;
   onClose: () => void;
 }) {
   const dialogRef = useFocusTrap(() => !!props.event, () => props.onClose());
@@ -29,13 +30,11 @@ export function CalendarPopover(props: {
             : `${s().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${e().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
         const handleDelete = () => {
-          deleteCalendarEvent(ev().id);
-          showToast(t('calendar.toasts.eventDeleted', { title: ev().title }));
-          props.onClose();
+          props.onDeleteEvent(ev());
         };
 
         const handleToggle = () => {
-          toggleTask(ev().id);
+          toggleTask(ev().id, ev().dateKey);
         };
 
         return (

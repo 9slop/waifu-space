@@ -148,7 +148,11 @@ export function EventModal(props: {
     };
 
     if (props.event) {
-      updateCalendarEvent(props.event.id, payload);
+      updateCalendarEvent(
+        props.event.parentId || props.event.id,
+        payload,
+        props.event.dateKey
+      );
       showToast(t('calendar.toasts.eventUpdated', { title: trimmedTitle }));
     } else {
       addCalendarEvent(payload);
@@ -160,7 +164,10 @@ export function EventModal(props: {
 
   const handleDelete = () => {
     if (props.event) {
-      deleteCalendarEvent(props.event.id);
+      deleteCalendarEvent(
+        props.event.parentId || props.event.id,
+        props.event.dateKey
+      );
       showToast(t('calendar.toasts.eventDeleted', { title: props.event.title }));
       props.onClose();
     }

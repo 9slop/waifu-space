@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS public.user_progress (
   defense_high_wave INT DEFAULT 0 NOT NULL,
   defense_victories INT DEFAULT 0 NOT NULL,
   goblins_defeated INT DEFAULT 0 NOT NULL,
-  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  calendar_overrides JSONB DEFAULT '[]'::jsonb NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_progress_defense_wave ON public.user_progress(defense_high_wave DESC);
@@ -66,7 +67,29 @@ CREATE TABLE IF NOT EXISTS public.user_showcase (
 
 CREATE INDEX IF NOT EXISTS idx_showcase_user_id ON public.user_showcase(user_id);
 
--- 5. Audit & Action Logs (tracks server rolls & anti-cheat records)
+-- 5. Calendar Items Table (the user's calendar events & tasks)
+-- A full copy of the client's calendar list, synchronized on every progress
+-- push. Calendar data is private to its owner, unlike leaderboard stats.
+CREATE TABLE IF NOT EXISTS public.calendar_items (
+  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  item_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  start_at TIMESTAMPTZ NOT NULL,
+  end_at TIMESTAMPTZ NOT NULL,
+  all_day BOOLEAN DEFAULT FALSE NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('event', 'task', 'birthday')),
+  completed BOOLEAN DEFAULT FALSE NOT NULL,
+  color TEXT DEFAULT '#ff6584' NOT NULL,
+  description TEXT DEFAULT '' NOT NULL,
+  location TEXT DEFAULT '' NOT NULL,
+  recurrence TEXT DEFAULT 'none' NOT NULL CHECK (recurrence IN ('none', 'daily', 'weekly', 'monthly', 'weekdays')),
+  updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  PRIMARY KEY (user_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_calendar_items_user_start ON public.calendar_items(user_id, start_at);
+
+-- 6. Audit & Action Logs (tracks server rolls & anti-cheat records)
 CREATE TABLE IF NOT EXISTS public.action_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
@@ -86,6 +109,7 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_showcase ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.calendar_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.action_logs ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Anyone can view usernames and avatars
@@ -143,6 +167,13 @@ CREATE POLICY "Public can view showcase"
 DROP POLICY IF EXISTS "Users manage own showcase" ON public.user_showcase;
 CREATE POLICY "Users manage own showcase"
   ON public.user_showcase FOR ALL
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Calendar Items: private to the owner (no public leaderboard read here)
+DROP POLICY IF EXISTS "Users manage own calendar items" ON public.calendar_items;
+CREATE POLICY "Users manage own calendar items"
+  ON public.calendar_items FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 

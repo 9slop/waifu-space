@@ -173,6 +173,15 @@
       "close": "Close",
       "completed": "COMPLETED"
     },
+    "repeatScope": {
+      "title": "Change repeating event",
+      "subtitle": "What should be changed?",
+      "thisEvent": "This event",
+      "thisEventDesc": "Only this occurrence on {date}",
+      "allEvents": "All events",
+      "allEventsDesc": "This and every occurrence of the series",
+      "cancel": "Cancel"
+    },
     "weekdays": {
       "sun": "SUN",
       "mon": "MON",
@@ -201,6 +210,7 @@
       "sat": "S"
     },
     "moreEvents": "+{count} more",
+    "alldayLabel": "All day",
     "toasts": {
       "taskAdded": "Added task \"{title}\"",
       "eventUpdated": "Updated \"{title}\"",
@@ -471,6 +481,15 @@
       "restoreBackup": "Restore Backup",
       "restoreBackupDesc": "Import a previously exported JSON backup",
       "importBtn": "Import Backup (.json)",
+      "exportCalendar": "Export Calendar (.ics)",
+      "exportCalendarDesc": "Download your events and tasks as an iCalendar file for external apps",
+      "exportCalendarBtn": "Export Calendar (.ics)",
+      "importCalendar": "Import Calendar (.ics)",
+      "importCalendarDesc": "Add events from an external iCalendar file",
+      "importCalendarBtn": "Import (.ics)",
+      "exportCalendarSuccess": "Calendar exported successfully!",
+      "importCalendarSuccess": "Imported {{count}} events!",
+      "importCalendarFailed": "No valid events found in the .ics file",
       "factoryReset": "Factory Reset",
       "factoryResetDesc": "Erase all calendar events and reset companion to initial state",
       "resetBtn": "Reset Everything",

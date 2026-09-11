@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { createSignal } from 'solid-js';
 import { render, screen, fireEvent } from '@solidjs/testing-library';
 import { CalendarMonthView } from '../../src/components/CalendarMonthView';
 import { CalendarEventItem } from '../../src/lib/ical';
@@ -83,5 +84,58 @@ describe('CalendarMonthView Component (CalendarMonthView.tsx)', () => {
 
     expect(onOpenEvent).toHaveBeenCalledTimes(1);
     expect(onOpenEvent.mock.calls[0][0].id).toBe('oct-15-evt');
+  });
+
+  it('reactively updates pills when the events prop changes without changing the visible month', () => {
+    const [events, setEvents] = createSignal<CalendarEventItem[]>(mockEvents);
+
+    const { container } = render(() => (
+      <CalendarMonthView
+        currentDate={mockDate}
+        events={events()}
+        onSelectDay={() => {}}
+        onOpenEvent={() => {}}
+      />
+    ));
+
+    const task: CalendarEventItem = {
+      id: 'oct-15-task',
+      title: 'Finish Kanji Sheet',
+      start: new Date(2026, 9, 15, 18, 0, 0).toISOString(),
+      end: new Date(2026, 9, 15, 18, 30, 0).toISOString(),
+      allDay: false,
+      type: 'task',
+      completed: false,
+      color: '#00cec9'
+    };
+
+    // Inject a new event into the same day (as a filter toggle / store change would).
+    setEvents([...mockEvents, task]);
+    expect(screen.getByText('Finish Kanji Sheet')).toBeInTheDocument();
+
+    // A task completion toggle must reflect immediately in the pill checkbox.
+    setEvents([...mockEvents, { ...task, completed: true }]);
+    const checkboxes = container.querySelectorAll('.pill-task-check');
+    expect(checkboxes).toHaveLength(1);
+    expect((checkboxes[0] as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('reactively drops hidden events after a category filter hides them', () => {
+    const [events, setEvents] = createSignal<CalendarEventItem[]>(mockEvents);
+
+    render(() => (
+      <CalendarMonthView
+        currentDate={mockDate}
+        events={events()}
+        onSelectDay={() => {}}
+        onOpenEvent={() => {}}
+      />
+    ));
+
+    expect(screen.getByText('Anime Fest 2026')).toBeInTheDocument();
+
+    // Simulate the parent filter memo returning an empty list.
+    setEvents([]);
+    expect(screen.queryByText('Anime Fest 2026')).not.toBeInTheDocument();
   });
 });

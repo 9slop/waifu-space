@@ -75,9 +75,9 @@ describe('State hydration sanitizer (validate.ts)', () => {
     expect(out.data.rpg?.unlockedOutfits).toEqual(['a', 'b']);
   });
 
-  it('defaults calendar view to month for invalid values', () => {
+  it('defaults calendar view to week for invalid values', () => {
     const out = sanitizeRawState({ calendar: { view: 'grid' } });
-    expect(out.data.calendar?.view).toBe('month');
+    expect(out.data.calendar?.view).toBe('week');
   });
 
   it('deduplicates claimedAffectionMilestones and floors floats', () => {
@@ -97,5 +97,47 @@ describe('State hydration sanitizer (validate.ts)', () => {
     });
     expect(out.data.chat?.messages?.length).toBe(1);
     expect(out.data.chat?.suggestions).toEqual(['a', 'b']);
+  });
+
+  it('preserves valid calendar occurrence overrides and drops malformed ones', () => {
+    const out = sanitizeRawState({
+      calendar: {
+        occurrenceOverrides: [
+          {
+            id: 'occ-1',
+            parentId: 'evt-1',
+            dateKey: '2026-09-10',
+            completed: true,
+            rewarded: true,
+            updatedAt: '2026-09-10T12:00:00Z'
+          },
+          { parentId: '', dateKey: '2026-09-10' }, // missing parentId -> dropped
+          { parentId: 'evt-2', dateKey: 'not-a-date' } // bad dateKey -> dropped
+        ]
+      }
+    });
+    expect(out.data.calendar?.occurrenceOverrides).toHaveLength(1);
+    const ovr = out.data.calendar?.occurrenceOverrides?.[0];
+    expect(ovr).toMatchObject({ id: 'occ-1', parentId: 'evt-1', dateKey: '2026-09-10', completed: true, rewarded: true });
+  });
+
+  it('sanitizes moved occurrence overrides with explicit start/end times', () => {
+    const out = sanitizeRawState({
+      calendar: {
+        occurrenceOverrides: [
+          { parentId: 'evt-1', dateKey: '2026-09-12', start: '2026-09-13T14:00:00Z', end: '2026-09-13T09:00:00Z' }
+        ]
+      }
+    });
+    const ovr = out.data.calendar?.occurrenceOverrides?.[0];
+    expect(ovr).toBeDefined();
+    expect(ovr!.start).toBe('2026-09-13T14:00:00.000Z');
+    // End before start is dropped rather than persisted.
+    expect(ovr!.end).toBeUndefined();
+  });
+
+  it('defaults occurrence overrides to an empty array when absent', () => {
+    const out = sanitizeRawState({ calendar: { events: [] } });
+    expect(out.data.calendar?.occurrenceOverrides).toEqual([]);
   });
 });

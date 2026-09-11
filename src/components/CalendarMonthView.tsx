@@ -9,6 +9,7 @@ export function CalendarMonthView(props: {
   events: CalendarEventItem[];
   onSelectDay: (d: Date) => void;
   onOpenEvent: (ev: CalendarEventItem, anchorRect?: DOMRect) => void;
+  onRequestMove?: (ev: CalendarEventItem, start: Date, end: Date, dateKey?: string) => void;
 }) {
   const year = () => props.currentDate.getFullYear();
   const month = () => props.currentDate.getMonth();
@@ -54,7 +55,7 @@ export function CalendarMonthView(props: {
 
   const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
     if (!e.dataTransfer) return;
-    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'calendar-event', id: ev.id }));
+    e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'calendar-event', id: ev.id, dateKey: ev.dateKey }));
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -77,6 +78,12 @@ export function CalendarMonthView(props: {
         const newStart = new Date(targetDate);
         newStart.setHours(oldStart.getHours(), oldStart.getMinutes(), 0, 0);
         const newEnd = new Date(newStart.getTime() + (duration > 0 ? duration : 3600000));
+
+        if (data.dateKey && ev.recurrence && ev.recurrence !== 'none' && props.onRequestMove) {
+          props.onRequestMove(ev, newStart, newEnd, data.dateKey);
+          showToast(t('calendar.toasts.rescheduled', { title: ev.title, date: formatDate(targetDate) }));
+          return;
+        }
 
         updateCalendarEvent(ev.id, {
           start: newStart.toISOString(),
@@ -106,7 +113,7 @@ export function CalendarMonthView(props: {
           {dayObj => {
             const d = dayObj.date;
             const isToday = isSameDay(d, today);
-            const dayEvents = getEventsForDate(props.events, d);
+            const dayEvts = () => getEventsForDate(props.events, d);
 
             return (
               <div
@@ -126,7 +133,7 @@ export function CalendarMonthView(props: {
                 </div>
 
                 <div class="day-events-wrapper">
-                  <For each={dayEvents.slice(0, 4)}>
+                  <For each={dayEvts().slice(0, 4)}>
                     {ev => {
                       const startTime = ev.allDay
                         ? ''
@@ -157,7 +164,7 @@ export function CalendarMonthView(props: {
                               checked={ev.completed}
                               onClick={e => {
                                 e.stopPropagation();
-                                toggleTask(ev.id);
+                                toggleTask(ev.id, ev.dateKey);
                               }}
                             />
                           )}
@@ -173,8 +180,8 @@ export function CalendarMonthView(props: {
                       );
                     }}
                   </For>
-                  {dayEvents.length > 4 && (
-                    <div class="more-events-tag">{t('calendar.moreEvents', { count: dayEvents.length - 4 })}</div>
+                  {dayEvts().length > 4 && (
+                    <div class="more-events-tag">{t('calendar.moreEvents', { count: dayEvts().length - 4 })}</div>
                   )}
                 </div>
               </div>

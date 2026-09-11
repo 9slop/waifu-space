@@ -1,14 +1,32 @@
 import { createStore, produce } from 'solid-js/store';
 import { createSignal } from 'solid-js';
-import { CalendarEventItem } from './ical';
+import { CalendarEventItem, CalendarOccurrenceOverride } from './ical';
 import { getPersonality, getRandomGreeting, PersonalityArchetype } from './personality';
 import { callLLM } from './llm';
 import { parseIntent, hasIntent, DialogIntent } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
-import { sanitizeRawState } from './validate';
+import { sanitizeRawState, sanitizeEvent, sanitizeOccurrenceOverride } from './validate';
 import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
+
+const ACTIVE_USER_KEY = 'waifu_space_active_user_v1';
+const GUEST_ID_PREFIX = 'guest_';
+
+/**
+ * Registered accounts keep their own localStorage bucket so one account can
+ * never see (or clobber) another account's locally saved state, even when they
+ * are used in the same browser. Guests / logged-out sessions share the legacy
+ * global key.
+ */
+function isRegisteredAccount(user: UserAccount | null | undefined): boolean {
+  return !!user && !!user.id && !user.id.startsWith(GUEST_ID_PREFIX);
+}
+
+function scopedStorageKey(userId: string | null | undefined): string {
+  if (!userId || userId.startsWith(GUEST_ID_PREFIX)) return STORAGE_KEY;
+  return `${STORAGE_KEY}_acct_${userId}`;
+}
 
 export interface ChatMessage {
   id: string;
@@ -135,6 +153,7 @@ export interface AppState {
     view: 'month' | 'week' | 'day';
     selectedDate: string;
     events: CalendarEventItem[];
+    occurrenceOverrides: CalendarOccurrenceOverride[];
     filterEvents: boolean;
     filterTasks: boolean;
     filterBirthdays: boolean;
@@ -265,9 +284,10 @@ export const DEFAULT_STATE: AppState = {
   },
   rpg: DEFAULT_RPG,
   calendar: {
-    view: 'month',
+    view: 'week',
     selectedDate: new Date().toISOString(),
     events: DEFAULT_EVENTS,
+    occurrenceOverrides: [],
     filterEvents: true,
     filterTasks: true,
     filterBirthdays: true,
@@ -340,7 +360,14 @@ export function showToast(message: string) {
 export function saveState() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(scopedStorageKey(state.user?.id), JSON.stringify(state));
+    // Remember which registered account owns the save so a page reload restores
+    // the right bucket while the persisted session is still active.
+    if (isRegisteredAccount(state.user)) {
+      localStorage.setItem(ACTIVE_USER_KEY, state.user!.id);
+    } else {
+      localStorage.removeItem(ACTIVE_USER_KEY);
+    }
   } catch (e) {
     console.error('Failed to save state to localStorage', e);
   }
@@ -382,7 +409,9 @@ function buildSyncSnapshot() {
       defenseStats: state.rpg.defenseStats,
       showcaseItems: state.rpg.showcaseItems
     },
-    settings: state.settings
+    settings: state.settings,
+    calendar: state.calendar.events.map(e => ({ ...e })),
+    calendarOverrides: state.calendar.occurrenceOverrides.map(o => ({ ...o }))
   };
 }
 
@@ -392,7 +421,16 @@ function readPendingSync(): Record<string, unknown> | null {
     const raw = localStorage.getItem(PENDING_SYNC_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    // A queued snapshot belongs to whatever account produced it. Never let an
+    // offline snapshot bleed into a different account's cloud state.
+    const ownerId: unknown = (parsed as any).userId;
+    const currentId = state.user?.id ?? null;
+    if (ownerId !== currentId) {
+      clearPendingSync();
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -401,7 +439,7 @@ function readPendingSync(): Record<string, unknown> | null {
 function queuePendingSync() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify({ payload: buildSyncSnapshot(), updatedAt: Date.now() }));
+    localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify({ userId: state.user?.id ?? null, payload: buildSyncSnapshot(), updatedAt: Date.now() }));
   } catch (e) {
     console.error('Failed to queue pending cloud sync', e);
   }
@@ -525,6 +563,28 @@ export async function loadCloudProgress(token?: string): Promise<void> {
     const inventory: Array<{ item_id: string; category: string }> = Array.isArray(data.inventory) ? data.inventory : [];
     const showcaseItems: string[] = Array.isArray(data.showcaseItems) ? data.showcaseItems : [];
 
+    // The server calendar is authoritative when it holds items (a brand-new
+    // account has none, in which case the local - equally empty - list stays).
+    const serverCalendarItems: unknown[] = Array.isArray(data.calendarItems) ? data.calendarItems : [];
+    if (serverCalendarItems.length > 0) {
+      const sanitized = serverCalendarItems
+        .map(sanitizeEvent)
+        .filter((e): e is CalendarEventItem => e !== null);
+      if (sanitized.length > 0) {
+        setState('calendar', 'events', sanitized);
+      }
+    }
+
+    const serverCalendarOverrides: unknown[] = Array.isArray(data.calendarOverrides) ? data.calendarOverrides : [];
+    if (serverCalendarOverrides.length > 0) {
+      const sanitized = serverCalendarOverrides
+        .map(sanitizeOccurrenceOverride)
+        .filter((o): o is CalendarOccurrenceOverride => o !== null && o.parentId !== '');
+      if (sanitized.length > 0) {
+        setState('calendar', 'occurrenceOverrides', sanitized);
+      }
+    }
+
     // Never lose currency: the cloud can hold a stale snapshot (e.g. an older
     // session), so the merge always keeps the larger balance on both sides.
     const coins = Math.max(state.rpg.coins, typeof p.coins === 'number' ? p.coins : 0);
@@ -580,52 +640,69 @@ function unionStrings(a: string[] | undefined, b: string[] | undefined): string[
   return Array.from(new Set([...(a || []), ...(b || [])]));
 }
 
+/**
+ * Sanitizes and applies a parsed localStorage payload onto the reactive store.
+ * Used both by boot-time `loadState` and when restoring a specific account's
+ * save after an account switch.
+ */
+function applyStoredState(parsed: unknown) {
+  if (!parsed || typeof parsed !== 'object') return;
+  const rawHadEvents = (parsed as any).calendar !== null && typeof (parsed as any).calendar === 'object' && Array.isArray((parsed as any).calendar.events);
+  const rawHadMessages = (parsed as any).chat !== null && typeof (parsed as any).chat === 'object' && Array.isArray((parsed as any).chat.messages);
+
+  // Schema validation & sanitization of possibly-corrupt, legacy, or
+  // future-shaped data before it ever reaches the reactive store.
+  const { data, issues } = sanitizeRawState(parsed);
+  if (issues.length > 0) console.warn('State hydration issues:', issues);
+
+  setState(
+    produce(s => {
+      Object.assign(s, {
+        ...DEFAULT_STATE,
+        ...data,
+        user: data.user,
+        waifu: {
+          ...DEFAULT_STATE.waifu,
+          ...(data.waifu || {}),
+          appearance: { ...DEFAULT_STATE.waifu.appearance, ...(data.waifu?.appearance || {}) }
+        },
+        rpg: {
+          ...DEFAULT_RPG,
+          ...(data.rpg || {}),
+          unlockedOutfits: unionStrings(DEFAULT_RPG.unlockedOutfits, data.rpg?.unlockedOutfits),
+          unlockedAccessories: unionStrings(DEFAULT_RPG.unlockedAccessories, data.rpg?.unlockedAccessories),
+          unlockedHairstyles: unionStrings(DEFAULT_RPG.unlockedHairstyles, data.rpg?.unlockedHairstyles)
+        },
+        calendar: {
+          ...DEFAULT_STATE.calendar,
+          ...(data.calendar || {}),
+          events: rawHadEvents ? data.calendar?.events || [] : DEFAULT_STATE.calendar.events,
+          occurrenceOverrides: Array.isArray(data.calendar?.occurrenceOverrides)
+            ? data.calendar.occurrenceOverrides
+            : DEFAULT_STATE.calendar.occurrenceOverrides
+        },
+        settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
+        chat: {
+          ...DEFAULT_STATE.chat,
+          ...(data.chat || {}),
+          messages: rawHadMessages ? data.chat?.messages || [] : DEFAULT_STATE.chat.messages
+        }
+      });
+    })
+  );
+}
+
 export function loadState() {
   if (typeof window === 'undefined') return;
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    // Restore the last active account's own bucket when a session is persisted,
+    // falling back to the shared guest/demo bucket otherwise.
+    const activeId = localStorage.getItem(ACTIVE_USER_KEY);
+    const saved =
+      (activeId && localStorage.getItem(scopedStorageKey(activeId))) ||
+      localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      const rawHadEvents = typeof parsed.calendar === 'object' && parsed.calendar !== null && Array.isArray(parsed.calendar.events);
-      const rawHadMessages = typeof parsed.chat === 'object' && parsed.chat !== null && Array.isArray(parsed.chat.messages);
-
-      // Schema validation & sanitization of possibly-corrupt, legacy, or
-      // future-shaped data before it ever reaches the reactive store.
-      const { data, issues } = sanitizeRawState(parsed);
-      if (issues.length > 0) console.warn('State hydration issues:', issues);
-
-      setState(
-        produce(s => {
-          Object.assign(s, {
-            ...DEFAULT_STATE,
-            ...data,
-            user: data.user,
-            waifu: {
-              ...DEFAULT_STATE.waifu,
-              ...(data.waifu || {}),
-              appearance: { ...DEFAULT_STATE.waifu.appearance, ...(data.waifu?.appearance || {}) }
-            },
-            rpg: {
-              ...DEFAULT_RPG,
-              ...(data.rpg || {}),
-              unlockedOutfits: unionStrings(DEFAULT_RPG.unlockedOutfits, data.rpg?.unlockedOutfits),
-              unlockedAccessories: unionStrings(DEFAULT_RPG.unlockedAccessories, data.rpg?.unlockedAccessories),
-              unlockedHairstyles: unionStrings(DEFAULT_RPG.unlockedHairstyles, data.rpg?.unlockedHairstyles)
-            },
-            calendar: {
-              ...DEFAULT_STATE.calendar,
-              ...(data.calendar || {}),
-              events: rawHadEvents ? data.calendar?.events || [] : DEFAULT_STATE.calendar.events
-            },
-            settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
-            chat: {
-              ...DEFAULT_STATE.chat,
-              ...(data.chat || {}),
-              messages: rawHadMessages ? data.chat?.messages || [] : DEFAULT_STATE.chat.messages
-            }
-          });
-        })
-      );
+      applyStoredState(JSON.parse(saved));
     }
   } catch (e) {
     console.warn('Failed to load state from localStorage', e);
@@ -935,20 +1012,57 @@ export function toggleShowcaseItem(itemId: string): boolean {
   return true;
 }
 
-export function setUserAccount(user: UserAccount | null) {
-  setState('user', user);
+/**
+ * Wipes all per-account progress (waifu bond, RPG economy/inventory, calendar,
+ * chat history) back to the fresh-player defaults. Used when registering a brand
+ * new account and when switching accounts, so leftover state from a previous
+ * session/account can never leak into the next player's save.
+ */
+function resetStateInMemory() {
+  const fresh = JSON.parse(JSON.stringify(DEFAULT_STATE)) as AppState;
+  fresh.calendar.events = [];
+  fresh.calendar.occurrenceOverrides = [];
+  setState(fresh);
+}
+
+export function resetAccountProgress() {
+  resetStateInMemory();
   saveState();
 }
 
-/**
- * Resets all per-account progress (waifu bond, RPG economy/inventory, calendar,
- * chat history) back to the fresh-player defaults. Used when registering a brand
- * new account so leftover state from a previous session/account can never leak
- * into the new player's save. The user account itself is not touched here; call
- * `setUserAccount` afterwards to attach the new profile.
- */
-export function resetAccountProgress() {
-  setState(JSON.parse(JSON.stringify(DEFAULT_STATE)) as AppState);
+export function setUserAccount(user: UserAccount | null) {
+  const prevId = state.user?.id;
+  const nextId = user?.id;
+  const prevRegistered = isRegisteredAccount(state.user);
+  const nextRegistered = isRegisteredAccount(user);
+
+  if (prevRegistered || nextRegistered) {
+    if (prevId !== nextId) {
+      // Persist the outgoing account's state under its own bucket first, then
+      // wipe the in-memory state so no data leaks into the next account.
+      saveState();
+      if (prevRegistered) {
+        localStorage.removeItem(ACTIVE_USER_KEY);
+      }
+      resetStateInMemory();
+    }
+    setState('user', user);
+
+    // Restore this account's own local save (if this browser has one) so a
+    // re-login works even before the cloud pull completes.
+    if (nextRegistered && nextId) {
+      const saved = localStorage.getItem(scopedStorageKey(nextId));
+      if (saved) applyStoredState(JSON.parse(saved));
+      // Keep the freshly-issued session/account from the auth response.
+      setState('user', user);
+    }
+
+    saveState();
+    return;
+  }
+
+  // Both sides are guests/logged-out: no account isolation in play.
+  setState('user', user);
   saveState();
 }
 
@@ -1067,9 +1181,17 @@ export function isEventOnDate(ev: CalendarEventItem, targetDate: Date): boolean 
   return isSameDay(s, targetDate);
 }
 
+export function dateKeyOf(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function getOccurrenceForDate(ev: CalendarEventItem, targetDate: Date): CalendarEventItem {
+  const dateKey = dateKeyOf(targetDate);
   if (isSameDay(new Date(ev.start), targetDate)) {
-    return ev;
+    return { ...ev, parentId: ev.parentId || ev.id, dateKey };
   }
   const s = new Date(ev.start);
   const e = new Date(ev.end || ev.start);
@@ -1081,19 +1203,87 @@ export function getOccurrenceForDate(ev: CalendarEventItem, targetDate: Date): C
 
   return {
     ...ev,
+    parentId: ev.parentId || ev.id,
+    dateKey,
     start: occStart.toISOString(),
     end: occEnd.toISOString()
   };
 }
 
-export function getEventsForDate(events: CalendarEventItem[], targetDate: Date): CalendarEventItem[] {
+function occurrenceOverrideFor(parentId: string, dateKey: string): CalendarOccurrenceOverride | undefined {
+  return state.calendar.occurrenceOverrides.find(o => o.parentId === parentId && o.dateKey === dateKey);
+}
+
+function applyOccurrenceOverride(occ: CalendarEventItem, ovr: CalendarOccurrenceOverride): CalendarEventItem {
+  return {
+    ...occ,
+    parentId: occ.parentId || ovr.parentId,
+    dateKey: occ.dateKey || ovr.dateKey,
+    title: ovr.title !== undefined ? ovr.title : occ.title,
+    start: ovr.start !== undefined ? ovr.start : occ.start,
+    end: ovr.end !== undefined ? ovr.end : occ.end,
+    allDay: ovr.allDay !== undefined ? ovr.allDay : occ.allDay,
+    color: ovr.color !== undefined ? ovr.color : occ.color,
+    location: ovr.location !== undefined ? ovr.location : occ.location,
+    description: ovr.description !== undefined ? ovr.description : occ.description,
+    completed: ovr.completed !== undefined ? ovr.completed : occ.completed,
+    _rewarded: ovr.rewarded !== undefined ? ovr.rewarded : occ._rewarded
+  };
+}
+
+export function getEventsForDate(
+  events: CalendarEventItem[],
+  targetDate: Date,
+  overrides: CalendarOccurrenceOverride[] = state.calendar.occurrenceOverrides
+): CalendarEventItem[] {
+  const targetKey = dateKeyOf(targetDate);
   const res: CalendarEventItem[] = [];
+
   for (const ev of events) {
-    if (isEventOnDate(ev, targetDate)) {
-      res.push(getOccurrenceForDate(ev, targetDate));
-    }
+    if (!isEventOnDate(ev, targetDate)) continue;
+    const ovr = occurrenceOverrideFor(ev.id, targetKey);
+    if (ovr?.deleted) continue;
+    res.push(ovr ? applyOccurrenceOverride(getOccurrenceForDate(ev, targetDate), ovr) : getOccurrenceForDate(ev, targetDate));
   }
+
+  // Moved occurrences: an override carrying an explicit start that lands on
+  // this day for a series that does not itself recur on this day.
+  for (const ovr of overrides) {
+    if (ovr.deleted || !ovr.start) continue;
+    if (dateKeyOf(new Date(ovr.start)) !== targetKey) continue;
+    const base = events.find(e => e.id === ovr.parentId);
+    if (!base || !base.recurrence || base.recurrence === 'none') continue;
+    if (isEventOnDate(base, targetDate)) continue;
+    res.push(applyOccurrenceOverride(getOccurrenceForDate(base, targetDate), ovr));
+  }
+
   return res;
+}
+
+export function upsertOccurrenceOverride(parentId: string, dateKey: string, fields: Partial<CalendarOccurrenceOverride>) {
+  const baseEvent = state.calendar.events.find(e => e.id === parentId);
+  // Only recurring events have per-occurrence overrides.
+  if (!baseEvent || !baseEvent.recurrence || baseEvent.recurrence === 'none') return;
+
+  const existing = occurrenceOverrideFor(parentId, dateKey);
+  const record: CalendarOccurrenceOverride = {
+    ...(existing ||
+      ({
+        id: `occ-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        parentId,
+        dateKey
+      } as CalendarOccurrenceOverride)),
+    ...fields
+  };
+  record.updatedAt = new Date().toISOString();
+
+  const idx = state.calendar.occurrenceOverrides.findIndex(o => o.parentId === parentId && o.dateKey === dateKey);
+  if (idx >= 0) {
+    setState('calendar', 'occurrenceOverrides', overrides => overrides.map((o, i) => (i === idx ? record : o)));
+  } else {
+    setState('calendar', 'occurrenceOverrides', overrides => [...overrides, record]);
+  }
+  saveState();
 }
 
 // Calendar event operations
@@ -1133,9 +1323,32 @@ export function addCalendarEvent(event: Partial<CalendarEventItem>): CalendarEve
   return newEvent;
 }
 
-export function updateCalendarEvent(id: string, updates: Partial<CalendarEventItem>): boolean {
+export function updateCalendarEvent(id: string, updates: Partial<CalendarEventItem>, dateKey?: string): boolean {
   const existing = state.calendar.events.find(ev => ev.id === id);
   if (!existing) return false;
+
+  if (dateKey && existing.recurrence && existing.recurrence !== 'none') {
+    const occ = getOccurrenceForDate(existing, new Date(`${dateKey}T00:00:00`));
+    const merged: CalendarEventItem = { ...occ, ...updates };
+    const validation = validateCalendarEventInput(merged);
+    if (!validation.ok) {
+      console.warn('updateCalendarEvent rejected occurrence update:', validation.issues);
+      showToast(validation.issues[0].message);
+      return false;
+    }
+    const delta: Partial<CalendarOccurrenceOverride> = {};
+    if ('title' in updates) delta.title = updates.title;
+    if ('start' in updates) delta.start = updates.start;
+    if ('end' in updates) delta.end = updates.end;
+    if ('allDay' in updates) delta.allDay = updates.allDay;
+    if ('color' in updates) delta.color = updates.color;
+    if ('location' in updates) delta.location = updates.location;
+    if ('description' in updates) delta.description = updates.description;
+    if ('completed' in updates) delta.completed = updates.completed;
+    if ('_rewarded' in updates) delta.rewarded = updates._rewarded;
+    upsertOccurrenceOverride(id, dateKey, delta);
+    return true;
+  }
 
   const merged: Partial<CalendarEventItem> = { ...existing, ...updates };
   const validation = validateCalendarEventInput(merged);
@@ -1152,19 +1365,68 @@ export function updateCalendarEvent(id: string, updates: Partial<CalendarEventIt
   return true;
 }
 
-export function deleteCalendarEvent(id: string) {
+export function deleteCalendarEvent(id: string, dateKey?: string) {
+  const existing = state.calendar.events.find(ev => ev.id === id);
+  if (dateKey && existing?.recurrence && existing.recurrence !== 'none') {
+    upsertOccurrenceOverride(id, dateKey, { deleted: true });
+    return;
+  }
   setState('calendar', 'events', events => events.filter(ev => ev.id !== id));
+  setState('calendar', 'occurrenceOverrides', overrides => overrides.filter(o => o.parentId !== id));
   saveState();
 }
 
-export function toggleTask(id: string) {
-  const target = state.calendar.events.find(e => e.id === id);
-  if (!target) return;
-  const isNowCompleted = !target.completed;
+/**
+ * Moves a single occurrence of a repeating event to a new start time. The old
+ * occurrence is marked deleted and a fresh override carries the new absolute
+ * start/end so only that one instance is affected.
+ */
+export function moveCalendarEvent(id: string, oldDateKey: string, start: string, end: string): boolean {
+  const base = state.calendar.events.find(e => e.id === id);
+  if (!base || !base.recurrence || base.recurrence === 'none') return false;
+  const newDateKey = dateKeyOf(new Date(start));
+  if (newDateKey === oldDateKey) {
+    upsertOccurrenceOverride(id, oldDateKey, { start, end });
+    return true;
+  }
+  upsertOccurrenceOverride(id, oldDateKey, { deleted: true });
+  upsertOccurrenceOverride(id, newDateKey, { start, end });
+  return true;
+}
+
+export function toggleTask(id: string, dateKey?: string) {
+  const base = state.calendar.events.find(e => e.id === id);
+  if (!base) return;
+  const isRecurring = !!base.recurrence && base.recurrence !== 'none';
+
+  if (isRecurring && dateKey) {
+    const ovr = occurrenceOverrideFor(id, dateKey);
+    const occ = getOccurrenceForDate(base, new Date(`${dateKey}T00:00:00`));
+    const wasCompleted = ovr?.completed ?? occ.completed;
+    const isNowCompleted = !wasCompleted;
+    const firstCompletion = isNowCompleted && !(ovr?.rewarded ?? occ._rewarded ?? false);
+
+    upsertOccurrenceOverride(id, dateKey, {
+      completed: isNowCompleted,
+      rewarded: ovr?.rewarded ?? occ._rewarded ?? firstCompletion
+    });
+
+    if (firstCompletion) {
+      gainBondExp(12);
+      addCoins(15);
+      const persona = getPersonality(state.waifu.personality);
+      const praises = persona.taskComplete;
+      const praise = praises[Math.floor(Math.random() * praises.length)];
+      triggerWaifuResponse(praise.text, praise.mood);
+    }
+    return;
+  }
+
+  const isNowCompleted = !base.completed;
   updateCalendarEvent(id, { completed: isNowCompleted });
 
   if (isNowCompleted) {
-    if (!target._rewarded) {
+    if (!base._rewarded) {
       updateCalendarEvent(id, { _rewarded: true });
       gainBondExp(12);
       addCoins(15);

@@ -16,6 +16,33 @@ export interface CalendarEventItem {
   recurrence?: RecurrenceRule;
   _notified?: boolean;
   _rewarded?: boolean;
+  // Set when this item represents a single occurrence of a repeating parent
+  // event: `parentId` references the series and `dateKey` is its local date.
+  parentId?: string;
+  dateKey?: string;
+}
+
+/**
+ * Per-occurrence override for recurring calendar events. The base event stays
+ * untouched; an override records what happened to one specific occurrence
+ * (completed, deleted, moved, retitled, ...) so changes never bleed across the
+ * whole series.
+ */
+export interface CalendarOccurrenceOverride {
+  id: string;
+  parentId: string;
+  dateKey: string;
+  deleted?: boolean;
+  completed?: boolean;
+  rewarded?: boolean;
+  title?: string;
+  start?: string;
+  end?: string;
+  allDay?: boolean;
+  color?: string;
+  location?: string;
+  description?: string;
+  updatedAt: string;
 }
 
 export function generateICSString(events: CalendarEventItem[]): string {
@@ -43,15 +70,18 @@ export function generateICSString(events: CalendarEventItem[]): string {
       lines.push(`DTEND:${formatICSDate(new Date(ev.end || ev.start))}`);
     }
 
-    if (ev.recurrence && ev.recurrence !== 'none') {
-      if (ev.recurrence === 'daily') lines.push('RRULE:FREQ=DAILY');
-      else if (ev.recurrence === 'weekly') lines.push('RRULE:FREQ=WEEKLY');
-      else if (ev.recurrence === 'monthly') lines.push('RRULE:FREQ=MONTHLY');
-      else if (ev.recurrence === 'weekdays') lines.push('RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
-    }
+    if (ev.recurrence && ev.recurrence !== 'none') {
+      if (ev.recurrence === 'daily') lines.push('RRULE:FREQ=DAILY');
+      else if (ev.recurrence === 'weekly') lines.push('RRULE:FREQ=WEEKLY');
+      else if (ev.recurrence === 'monthly') lines.push('RRULE:FREQ=MONTHLY');
+      else if (ev.recurrence === 'weekdays') lines.push('RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
+    }
 
-    lines.push(`STATUS:${ev.completed ? 'COMPLETED' : 'CONFIRMED'}`);
-    lines.push('END:VEVENT');
+    lines.push(`STATUS:${ev.completed ? 'COMPLETED' : 'CONFIRMED'}`);
+    if (ev.type === 'task') {
+      lines.push('X-Task: TRUE'); // Custom property for tasks
+    }
+    lines.push('END:VEVENT');
   });
 
   lines.push('END:VCALENDAR');

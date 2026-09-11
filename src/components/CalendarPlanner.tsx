@@ -5,20 +5,21 @@ import {
   addCalendarEvent,
   toggleTask,
   deleteCalendarEvent,
+  updateCalendarEvent,
+  moveCalendarEvent,
+  getEventsForDate,
+  dateKeyOf,
   showToast,
-  triggerWaifuResponse,
-  isSameDay,
-  getEventsForDate
 } from '../lib/store';
-import { CalendarEventItem, exportToICS, importFromICS } from '../lib/ical';
-import { getPersonality } from '../lib/personality';
+import { CalendarEventItem } from '../lib/ical';
 import { MiniCalendar } from './MiniCalendar';
 import { EventModal } from './EventModal';
 import { CalendarPopover } from './CalendarPopover';
+import { RepeatScopeDialog, RepeatScopeRequest } from './RepeatScopeDialog';
 import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarWeekView } from './CalendarWeekView';
 import { CalendarDayView } from './CalendarDayView';
-import { t, getLocale } from '../lib/i18n';
+import { t, getLocale, formatDate } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
 
 export function CalendarPlanner() {
@@ -39,19 +40,14 @@ export function CalendarPlanner() {
   const [popoverEvent, setPopoverEvent] = createSignal<CalendarEventItem | null>(null);
   const [popoverPos, setPopoverPos] = createSignal<{ top: number; left: number } | null>(null);
 
+  const [repeatScopeRequest, setRepeatScopeRequest] = createSignal<RepeatScopeRequest | null>(null);
+
   // Filtered events
   const filteredEvents = createMemo(() => {
-    const q = state.calendar.searchQuery.toLowerCase().trim();
     return state.calendar.events.filter(e => {
       if (e.type === 'event' && !state.calendar.filterEvents) return false;
       if (e.type === 'task' && !state.calendar.filterTasks) return false;
       if (e.type === 'birthday' && !state.calendar.filterBirthdays) return false;
-      if (q) {
-        const titleMatch = (e.title || '').toLowerCase().includes(q);
-        const locMatch = (e.location || '').toLowerCase().includes(q);
-        const descMatch = (e.description || '').toLowerCase().includes(q);
-        if (!titleMatch && !locMatch && !descMatch) return false;
-      }
       return true;
     });
   });
@@ -113,8 +109,63 @@ export function CalendarPlanner() {
 
   const openEditModal = (ev: CalendarEventItem) => {
     closePopover();
+    if (ev.parentId && ev.dateKey && ev.recurrence && ev.recurrence !== 'none') {
+      setRepeatScopeRequest({ action: 'edit', event: ev, dateKey: ev.dateKey });
+      return;
+    }
     setModalEvent(ev);
     setIsModalOpen(true);
+  };
+
+  const handleDeleteEvent = (ev: CalendarEventItem) => {
+    if (ev.parentId && ev.dateKey && ev.recurrence && ev.recurrence !== 'none') {
+      setRepeatScopeRequest({ action: 'delete', event: ev, dateKey: ev.dateKey });
+      return;
+    }
+    deleteCalendarEvent(ev.id);
+    showToast(t('calendar.toasts.eventDeleted', { title: ev.title }));
+    closePopover();
+  };
+
+  const handleRequestMove = (
+    ev: CalendarEventItem,
+    start: Date,
+    end: Date,
+    dateKey?: string
+  ) => {
+    if (dateKey && ev.recurrence && ev.recurrence !== 'none') {
+      setRepeatScopeRequest({ action: 'move', event: ev, dateKey, moveRange: { start, end } });
+      return;
+    }
+    updateCalendarEvent(ev.id, { start: start.toISOString(), end: end.toISOString() });
+    closePopover();
+  };
+
+  const resolveRepeatScope = (scope: 'this' | 'all') => {
+    const req = repeatScopeRequest();
+    if (!req) return;
+    setRepeatScopeRequest(null);
+    const { action, event, dateKey, moveRange } = req;
+    const baseId = event.parentId || event.id;
+    const base = state.calendar.events.find(e => e.id === baseId) || event;
+
+    if (action === 'edit') {
+      closePopover();
+      setModalEvent(scope === 'this' ? event : base);
+      setIsModalOpen(true);
+    } else if (action === 'delete') {
+      deleteCalendarEvent(baseId, scope === 'this' ? dateKey : undefined);
+      showToast(t('calendar.toasts.eventDeleted', { title: base.title }));
+      closePopover();
+    } else if (action === 'move' && moveRange) {
+      if (scope === 'this') {
+        moveCalendarEvent(baseId, dateKey, moveRange.start.toISOString(), moveRange.end.toISOString());
+      } else {
+        updateCalendarEvent(baseId, { start: moveRange.start.toISOString(), end: moveRange.end.toISOString() });
+      }
+      showToast(t('calendar.toasts.rescheduled', { title: base.title, date: formatDate(moveRange.start) }));
+      closePopover();
+    }
   };
 
   const openPopover = (ev: CalendarEventItem, anchorRect?: DOMRect) => {
@@ -142,19 +193,6 @@ export function CalendarPlanner() {
     setPopoverPos(null);
   };
 
-  // Waifu Briefing
-  const triggerBriefing = () => {
-    const today = new Date();
-    const todayEvents = getEventsForDate(state.calendar.events, today);
-    const evCount = todayEvents.filter(e => e.type === 'event').length;
-    const tkCount = todayEvents.filter(e => e.type === 'task' && !e.completed).length;
-
-    const persona = getPersonality(state.waifu.personality);
-    const review = persona.scheduleReview(evCount, tkCount);
-    showToast(`🌸 ${t('calendar.toasts.waifuBriefing', { text: review.text })}`);
-    triggerWaifuResponse(review.text, review.mood);
-  };
-
   // Quick Task Submit
   const handleQuickTask = (e: Event) => {
     e.preventDefault();
@@ -170,28 +208,6 @@ export function CalendarPlanner() {
       allDay: false
     });
     showToast(t('calendar.toasts.taskAdded', { title: taskTitle }));
-  };
-
-  // iCal Import
-  const handleFileImport = (e: Event) => {
-    const input = e.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-    const file = input.files[0];
-    const reader = new FileReader();
-    reader.onload = evt => {
-      const text = evt.target?.result as string;
-      if (text) {
-        const imported = importFromICS(text);
-        if (imported.length > 0) {
-          setState('calendar', 'events', evs => [...imported, ...evs]);
-          showToast(t('calendar.toasts.importedEvents', { count: imported.length, file: file.name }));
-        } else {
-          showToast(t('calendar.toasts.noValidEvents'));
-        }
-      }
-    };
-    reader.readAsText(file);
-    input.value = '';
   };
 
   // Keyboard shortcuts
@@ -222,6 +238,11 @@ export function CalendarPlanner() {
   };
 
   onMount(() => {
+    // Search UI was removed; make sure a stale query can't hide events.
+    if (state.calendar.searchQuery) {
+      setState('calendar', 'searchQuery', '');
+    }
+
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', handleKeyDown);
       window.addEventListener('click', handleDocClick);
@@ -313,29 +334,7 @@ export function CalendarPlanner() {
           <h2 class="gcal-title">{getTitleDisplay()}</h2>
         </div>
 
-        {/* SEARCH BAR */}
-        <div class="gcal-search-wrap">
-          <span class="search-icon">🔍</span>
-          <input
-            type="text"
-            class="gcal-search-input"
-            placeholder={t('calendar.toolbar.searchPlaceholder')}
-            value={state.calendar.searchQuery}
-            onInput={e => setState('calendar', 'searchQuery', e.currentTarget.value)}
-          />
-        </div>
-
         <div class="gcal-toolbar-right">
-          <button
-            type="button"
-            class="gcal-btn gcal-btn-waifu"
-            onClick={triggerBriefing}
-            title={t('calendar.toolbar.waifuBriefingTooltip')}
-          >
-            <span class="btn-icon">🌸</span>
-            <span class="btn-text">{t('calendar.toolbar.waifuBriefing')}</span>
-          </button>
-
           <div class="gcal-view-selector">
             <button
               type="button"
@@ -361,30 +360,6 @@ export function CalendarPlanner() {
             >
               {t('calendar.views.day')}
             </button>
-          </div>
-
-          <div class="gcal-more-actions">
-            <button
-              type="button"
-              class="gcal-icon-btn"
-              onClick={() => exportToICS(state.calendar.events)}
-              title={t('calendar.toolbar.exportIcs')}
-            >
-              📅 ⬇️
-            </button>
-            <label
-              class="gcal-icon-btn"
-              title={t('calendar.toolbar.importIcs')}
-              style={{ cursor: 'pointer' }}
-            >
-              📅 ⬆️
-              <input
-                type="file"
-                accept=".ics"
-                style={{ display: 'none' }}
-                onChange={handleFileImport}
-              />
-            </label>
           </div>
         </div>
       </header>
@@ -451,45 +426,58 @@ export function CalendarPlanner() {
             </form>
             <div class="tasks-list-container">
               <For each={sidebarTasks()}>
-                {tk => (
-                  <div
-                    class={`sidebar-task-item ${tk.completed ? 'completed' : ''}`}
-                    draggable={true}
-                    onDragStart={e => {
-                      if (!e.dataTransfer) return;
-                      e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'sidebar-task', id: tk.id }));
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={tk.completed}
-                      onClick={e => {
-                        e.stopPropagation();
-                        toggleTask(tk.id);
+                {tk => {
+                  const todayOccurrence = () =>
+                    tk.recurrence && tk.recurrence !== 'none'
+                      ? getEventsForDate([tk], new Date())[0]
+                      : tk;
+                  const toggle = () => {
+                    if (tk.recurrence && tk.recurrence !== 'none') {
+                      toggleTask(tk.id, dateKeyOf(new Date()));
+                    } else {
+                      toggleTask(tk.id);
+                    }
+                  };
+                  return (
+                    <div
+                      class={`sidebar-task-item ${todayOccurrence().completed ? 'completed' : ''}`}
+                      draggable={true}
+                      onDragStart={e => {
+                        if (!e.dataTransfer) return;
+                        e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'sidebar-task', id: tk.id }));
                       }}
-                    />
-                    <span
-                      class="task-item-text"
-                      title={tk.title}
-                      role="button"
-                      tabindex="0"
-                      onClick={() => openEditModal(tk)}
-                      onKeyDown={e => onActivateKey(e, () => openEditModal(tk))}
                     >
-                      {tk.title}
-                      {tk.recurrence && tk.recurrence !== 'none' && (
-                        <span class="task-repeat-badge" title={t('calendar.sidebar.repeats', { rule: tk.recurrence })}> 🔁</span>
-                      )}
-                    </span>
-                    <button
-                      type="button"
-                      class="task-del-btn"
-                      onClick={() => deleteCalendarEvent(tk.id)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
+                      <input
+                        type="checkbox"
+                        checked={todayOccurrence().completed}
+                        onClick={e => {
+                          e.stopPropagation();
+                          toggle();
+                        }}
+                      />
+                      <span
+                        class="task-item-text"
+                        title={tk.title}
+                        role="button"
+                        tabindex="0"
+                        onClick={() => openEditModal(tk)}
+                        onKeyDown={e => onActivateKey(e, () => openEditModal(tk))}
+                      >
+                        {tk.title}
+                        {tk.recurrence && tk.recurrence !== 'none' && (
+                          <span class="task-repeat-badge" title={t('calendar.sidebar.repeats', { rule: tk.recurrence })}> 🔁</span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        class="task-del-btn"
+                        onClick={() => deleteCalendarEvent(tk.id)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                }}
               </For>
             </div>
           </div>
@@ -503,6 +491,7 @@ export function CalendarPlanner() {
               events={filteredEvents()}
               onSelectDay={d => openCreateModal(d, 'event')}
               onOpenEvent={(ev, rect) => openPopover(ev, rect)}
+              onRequestMove={handleRequestMove}
             />
           </Show>
 
@@ -513,6 +502,7 @@ export function CalendarPlanner() {
               onSelectSlot={d => openCreateModal(d, 'event')}
               onSelectRange={range => openCreateModal(range.start, 'event', range)}
               onOpenEvent={(ev, rect) => openPopover(ev, rect)}
+              onRequestMove={handleRequestMove}
             />
           </Show>
 
@@ -523,6 +513,7 @@ export function CalendarPlanner() {
               onSelectSlot={d => openCreateModal(d, 'event')}
               onSelectRange={range => openCreateModal(range.start, 'event', range)}
               onOpenEvent={(ev, rect) => openPopover(ev, rect)}
+              onRequestMove={handleRequestMove}
             />
           </Show>
         </main>
@@ -533,6 +524,7 @@ export function CalendarPlanner() {
         event={popoverEvent()}
         position={popoverPos()}
         onEdit={ev => openEditModal(ev)}
+        onDeleteEvent={ev => handleDeleteEvent(ev)}
         onClose={closePopover}
       />
 
@@ -544,6 +536,13 @@ export function CalendarPlanner() {
         initialType={modalInitialType()}
         prefilledRange={modalPrefilledRange()}
         onClose={() => setIsModalOpen(false)}
+      />
+
+      {/* REPEAT SCOPE PROMPT */}
+      <RepeatScopeDialog
+        request={repeatScopeRequest()}
+        onSelect={resolveRepeatScope}
+        onClose={() => setRepeatScopeRequest(null)}
       />
     </div>
   );
