@@ -2,6 +2,7 @@ import { createSignal, Show, For } from 'solid-js';
 import { state, setState, openLootbox, RpgCosmeticItem, showToast, isCosmeticUnlocked, gainBondExp, unlockCosmetic } from '../lib/store';
 import { t } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
+import { getLootboxCost } from '../lib/economy';
 
 export function LootboxModal() {
   const [selectedChest, setSelectedChest] = createSignal<'standard' | 'royal'>('standard');
@@ -11,9 +12,12 @@ export function LootboxModal() {
   const [history, setHistory] = createSignal<Array<{ item: RpgCosmeticItem; wasDup: boolean; date: string }>>([]);
 
   const userCoins = () => state.rpg?.coins ?? 0;
+  const standardCost = () => getLootboxCost('standard');
+  const royalCost = () => getLootboxCost('royal');
+  const selectedCost = () => getLootboxCost(selectedChest());
 
   const handleOpenChest = async () => {
-    const cost = selectedChest() === 'standard' ? 100 : 250;
+    const cost = selectedCost();
     if (userCoins() < cost) {
       showToast(t('gacha.notEnoughCoins', { cost, balance: userCoins() }));
       return;
@@ -146,7 +150,7 @@ export function LootboxModal() {
           <div class="chest-name">{t('gacha.silverChest')}</div>
           <div class="chest-rates">{t('gacha.silverRates')}</div>
           <div class="chest-cost">
-            <span>{t('gacha.price')}</span> <strong>🪙 100</strong>
+            <span>{t('gacha.price')}</span> <strong>🪙 {standardCost()}</strong>
           </div>
         </div>
 
@@ -164,7 +168,7 @@ export function LootboxModal() {
           <div class="chest-name">{t('gacha.royalChest')}</div>
           <div class="chest-rates">{t('gacha.royalRates')}</div>
           <div class="chest-cost">
-            <span>{t('gacha.price')}</span> <strong>🪙 250</strong>
+            <span>{t('gacha.price')}</span> <strong>🪙 {royalCost()}</strong>
           </div>
         </div>
       </div>
@@ -173,7 +177,7 @@ export function LootboxModal() {
       <div class="chest-action-center">
         <button
           class="btn-open-chest"
-          disabled={isOpening() || userCoins() < (selectedChest() === 'standard' ? 100 : 250)}
+          disabled={isOpening() || userCoins() < selectedCost()}
           onClick={handleOpenChest}
         >
           {isOpening() ? (

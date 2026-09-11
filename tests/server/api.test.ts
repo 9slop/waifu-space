@@ -88,7 +88,7 @@ describe('Server APIs & Backend Logic', () => {
     it('processes roll, deducts cost, and awards item', () => {
       const result = rollLootboxServer('standard', 200, []);
       expect(result.success).toBe(true);
-      expect(result.newCoins).toBe(100); // 200 - 100
+      expect(result.newCoins).toBe(80); // 200 - 120
       expect(result.result).toBeDefined();
       expect(result.result?.item.id).toBeDefined();
       expect(result.isDuplicate).toBe(false);
@@ -122,8 +122,8 @@ describe('Server APIs & Backend Logic', () => {
     it('validates legitimate wave clears and computes server rewards', () => {
       const valid = verifyDefenseWaveServer(5, 15000);
       expect(valid.verified).toBe(true);
-      expect(valid.coinsReward).toBe(30 + 5 * 15); // 105
-      expect(valid.expReward).toBe(45 + 5 * 20); // 145
+      expect(valid.coinsReward).toBe(15 + 5 * 8); // 55
+      expect(valid.expReward).toBe(20 + 5 * 10); // 70
     });
 
     it('rejects negative or zero wave numbers', () => {

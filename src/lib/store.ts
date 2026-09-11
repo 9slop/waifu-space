@@ -6,6 +6,7 @@ import { callLLM } from './llm';
 import { parseIntent, hasIntent, DialogIntent } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
 import { sanitizeRawState } from './validate';
+import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION } from './economy';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
 
@@ -947,27 +948,13 @@ export function updateSettings(partial: Record<string, unknown>) {
 }
 
 export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null {
-  const cost = boxType === 'standard' ? 100 : 250;
+  const cost = getLootboxCost(boxType);
   if (!spendCoins(cost)) {
     showToast('Not enough coins to open this chest!');
     return null;
   }
 
-  const rand = Math.random() * 100;
-  let targetRarity: 'common' | 'rare' | 'epic' | 'legendary' | 'mystical';
-
-  if (boxType === 'standard') {
-    if (rand < 50) targetRarity = 'common';
-    else if (rand < 83) targetRarity = 'rare';
-    else if (rand < 96) targetRarity = 'epic';
-    else if (rand < 99.5) targetRarity = 'legendary';
-    else targetRarity = 'mystical';
-  } else {
-    if (rand < 40) targetRarity = 'rare';
-    else if (rand < 80) targetRarity = 'epic';
-    else if (rand < 97) targetRarity = 'legendary';
-    else targetRarity = 'mystical';
-  }
+  const targetRarity = rollLootRarity(boxType);
 
   let candidates = COSMETIC_CATALOG.filter(c => c.id !== 'none' && c.rarity === targetRarity);
   if (candidates.length === 0) candidates = COSMETIC_CATALOG.filter(c => c.id !== 'none');
@@ -981,11 +968,9 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
   let duplicateExp = 0;
 
   if (isDuplicate) {
-    if (picked.rarity === 'common') { duplicateCoins = 40; duplicateExp = 25; }
-    else if (picked.rarity === 'rare') { duplicateCoins = 80; duplicateExp = 50; }
-    else if (picked.rarity === 'epic') { duplicateCoins = 160; duplicateExp = 100; }
-    else if (picked.rarity === 'legendary') { duplicateCoins = 300; duplicateExp = 200; }
-    else { duplicateCoins = 600; duplicateExp = 400; }
+    const comp = DUPLICATE_COMPENSATION[picked.rarity];
+    duplicateCoins = comp.coins;
+    duplicateExp = comp.exp;
 
     addCoins(duplicateCoins);
     gainBondExp(duplicateExp);
