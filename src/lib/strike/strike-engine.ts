@@ -20,6 +20,8 @@ export interface StrikeEngineCallbacks {
   onLocalShoot: (ray: HitscanRay, isHeadshot: boolean, targetId: number | null) => void;
   onKillAnnouncement: (text: string) => void;
   onScoreboardToggle: (visible: boolean) => void;
+  onScopeChange?: (isScoped: boolean) => void;
+  onPlayerDeath?: (attackerName: string) => void;
 }
 
 export class StrikeEngine {
@@ -45,6 +47,7 @@ export class StrikeEngine {
 
   // Weapon State
   public activeWeaponId: WeaponId = 'rifle';
+  public lastWeaponId: WeaponId = 'pistol';
   public ammoMag: Record<WeaponId, number> = {
     rifle: 30,
     sniper: 5,
@@ -75,6 +78,16 @@ export class StrikeEngine {
   private mouseButtons: Record<number, boolean> = {};
   public mouseSensitivity = 0.0022;
   public fov = 85;
+
+  // Bound event listener references for leak-free cleanup
+  private boundPointerLockChange: (() => void) | null = null;
+  private boundKeyDown: ((e: KeyboardEvent) => void) | null = null;
+  private boundKeyUp: ((e: KeyboardEvent) => void) | null = null;
+  private boundMouseMove: ((e: MouseEvent) => void) | null = null;
+  private boundMouseDown: ((e: MouseEvent) => void) | null = null;
+  private boundMouseUp: ((e: MouseEvent) => void) | null = null;
+  private boundContextMenu: ((e: MouseEvent) => void) | null = null;
+  private boundWheel: ((e: WheelEvent) => void) | null = null;
 
   // Viewmodel & Rendering
   private viewmodel: FirstPersonViewmodel;
@@ -147,6 +160,41 @@ export class StrikeEngine {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
     }
+
+    // Detach all DOM event listeners cleanly to prevent memory leaks and ghost inputs
+    if (this.boundPointerLockChange) {
+      document.removeEventListener('pointerlockchange', this.boundPointerLockChange);
+      this.boundPointerLockChange = null;
+    }
+    if (this.boundKeyDown) {
+      window.removeEventListener('keydown', this.boundKeyDown);
+      this.boundKeyDown = null;
+    }
+    if (this.boundKeyUp) {
+      window.removeEventListener('keyup', this.boundKeyUp);
+      this.boundKeyUp = null;
+    }
+    if (this.boundMouseMove) {
+      window.removeEventListener('mousemove', this.boundMouseMove);
+      this.boundMouseMove = null;
+    }
+    if (this.boundMouseDown) {
+      window.removeEventListener('mousedown', this.boundMouseDown);
+      this.boundMouseDown = null;
+    }
+    if (this.boundMouseUp) {
+      window.removeEventListener('mouseup', this.boundMouseUp);
+      this.boundMouseUp = null;
+    }
+    if (this.boundContextMenu) {
+      window.removeEventListener('contextmenu', this.boundContextMenu);
+      this.boundContextMenu = null;
+    }
+    if (this.boundWheel) {
+      window.removeEventListener('wheel', this.boundWheel);
+      this.boundWheel = null;
+    }
+
     if (this.renderer && this.renderer.domElement.parentElement) {
       this.renderer.domElement.parentElement.removeChild(this.renderer.domElement);
       this.renderer.dispose();
@@ -165,57 +213,96 @@ export class StrikeEngine {
   }
 
   private setupInputListeners(canvas: HTMLCanvasElement) {
-    document.addEventListener('pointerlockchange', () => {
+    this.boundPointerLockChange = () => {
       this.isPointerLocked = document.pointerLockElement === canvas;
-    });
+      if (!this.isPointerLocked) {
+        this.keysDown = {};
+        this.mouseButtons = {};
+      }
+    };
+    document.addEventListener('pointerlockchange', this.boundPointerLockChange);
 
-    window.addEventListener('keydown', e => {
+    this.boundKeyDown = e => {
+      if (!this.isPointerLocked) return;
       this.keysDown[e.code] = true;
       if (e.code === 'KeyR') this.reload();
       if (e.code === 'Digit1') this.switchWeapon('rifle');
       if (e.code === 'Digit2') this.switchWeapon('sniper');
       if (e.code === 'Digit3') this.switchWeapon('pistol');
       if (e.code === 'Digit4') this.switchWeapon('knife');
+      if (e.code === 'KeyQ') this.switchWeapon(this.lastWeaponId);
       if (e.code === 'Tab') {
         e.preventDefault();
         this.callbacks.onScoreboardToggle(true);
       }
-    });
+    };
+    window.addEventListener('keydown', this.boundKeyDown);
 
-    window.addEventListener('keyup', e => {
-      this.keysDown[e.code] = false;
+    this.boundKeyUp = e => {
+      if (this.keysDown[e.code]) {
+        this.keysDown[e.code] = false;
+      }
       if (e.code === 'Tab') {
         this.callbacks.onScoreboardToggle(false);
       }
-    });
+    };
+    window.addEventListener('keyup', this.boundKeyUp);
 
-    window.addEventListener('mousemove', e => {
+    this.boundMouseMove = e => {
       if (!this.isPointerLocked) return;
-      this.yaw -= e.movementX * this.mouseSensitivity;
-      this.pitch -= e.movementY * this.mouseSensitivity;
+      const sens = this.isScoped ? this.mouseSensitivity * 0.4 : this.mouseSensitivity;
+      this.yaw -= e.movementX * sens;
+      this.pitch -= e.movementY * sens;
 
       // Clamp pitch to [-89 deg, 89 deg]
       const maxPitch = (89 * Math.PI) / 180;
       this.pitch = Math.max(-maxPitch, Math.min(maxPitch, this.pitch));
-    });
+    };
+    window.addEventListener('mousemove', this.boundMouseMove);
 
-    window.addEventListener('mousedown', e => {
+    this.boundMouseDown = e => {
       if (!this.isPointerLocked) {
-        this.requestPointerLock();
+        if (e.target === canvas) {
+          this.requestPointerLock();
+        }
         return;
       }
       this.mouseButtons[e.button] = true;
-      if (e.button === 2) {
+      if (e.button === 0) {
+        // Instant trigger on click for semi-automatic weapons (AWP sniper, Neo Deagle) & first shot
+        this.shoot();
+      } else if (e.button === 2) {
         // Right click: Scope toggle for sniper
         this.toggleScope();
       }
-    });
+    };
+    window.addEventListener('mousedown', this.boundMouseDown);
 
-    window.addEventListener('mouseup', e => {
+    this.boundMouseUp = e => {
       this.mouseButtons[e.button] = false;
-    });
+    };
+    window.addEventListener('mouseup', this.boundMouseUp);
 
-    window.addEventListener('contextmenu', e => e.preventDefault());
+    this.boundContextMenu = e => {
+      if (this.isPointerLocked) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('contextmenu', this.boundContextMenu);
+
+    // Mouse wheel weapon cycling
+    const weaponCycle: WeaponId[] = ['rifle', 'sniper', 'pistol', 'knife'];
+    this.boundWheel = e => {
+      if (!this.isPointerLocked) return;
+      e.preventDefault();
+      const curIdx = weaponCycle.indexOf(this.activeWeaponId);
+      if (curIdx === -1) return;
+      const nextIdx = e.deltaY > 0
+        ? (curIdx + 1) % weaponCycle.length
+        : (curIdx - 1 + weaponCycle.length) % weaponCycle.length;
+      this.switchWeapon(weaponCycle[nextIdx]);
+    };
+    window.addEventListener('wheel', this.boundWheel, { passive: false });
   }
 
   public respawnLocalPlayer() {
@@ -229,6 +316,7 @@ export class StrikeEngine {
     this.health = 100;
     this.isDead = false;
     this.isScoped = false;
+    this.callbacks.onScopeChange?.(false);
     this.isReloading = false;
 
     // Replenish ammo
@@ -241,9 +329,11 @@ export class StrikeEngine {
 
   public switchWeapon(id: WeaponId) {
     if (this.activeWeaponId === id || this.isDead) return;
+    this.lastWeaponId = this.activeWeaponId;
     this.activeWeaponId = id;
     this.isReloading = false;
     this.isScoped = false;
+    this.callbacks.onScopeChange?.(false);
     this.camera.fov = this.fov;
     this.camera.updateProjectionMatrix();
 
@@ -258,6 +348,7 @@ export class StrikeEngine {
     this.isScoped = !this.isScoped;
     this.camera.fov = this.isScoped ? this.fov * def.scopeZoom : this.fov;
     this.camera.updateProjectionMatrix();
+    this.callbacks.onScopeChange?.(this.isScoped);
   }
 
   public reload() {
@@ -265,6 +356,13 @@ export class StrikeEngine {
     const def = WEAPON_CATALOG[this.activeWeaponId];
     const needed = def.magazineSize - this.ammoMag[this.activeWeaponId];
     if (needed <= 0 || this.ammoReserve[this.activeWeaponId] <= 0) return;
+
+    if (this.isScoped) {
+      this.isScoped = false;
+      this.camera.fov = this.fov;
+      this.camera.updateProjectionMatrix();
+      this.callbacks.onScopeChange?.(false);
+    }
 
     this.isReloading = true;
     this.reloadEndTime = performance.now() + def.reloadTimeMs;
@@ -441,7 +539,10 @@ export class StrikeEngine {
 
     if (this.health <= 0) {
       this.isDead = true;
+      this.isScoped = false;
+      this.callbacks.onScopeChange?.(false);
       this.callbacks.onKillAnnouncement(`Killed by ${attackerName}!`);
+      this.callbacks.onPlayerDeath?.(attackerName);
       setTimeout(() => {
         this.respawnLocalPlayer();
       }, 2500);
@@ -565,6 +666,18 @@ export class StrikeEngine {
       pitch: this.pitch,
       weaponId: this.activeWeaponId
     };
+  }
+
+  public setSensitivity(sens: number) {
+    this.mouseSensitivity = Math.max(0.0005, Math.min(0.01, sens * 0.001));
+  }
+
+  public setFov(fov: number) {
+    this.fov = Math.max(60, Math.min(120, fov));
+    if (!this.isScoped) {
+      this.camera.fov = this.fov;
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   public handleResize() {

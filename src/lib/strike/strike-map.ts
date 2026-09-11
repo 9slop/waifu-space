@@ -80,6 +80,7 @@ export function createCyberShrineMap(): StrikeMapData {
   const woodMat = new THREE.MeshLambertMaterial({ color: 0x8b3a3a }); // Shrine vermilion red
   const goldMat = new THREE.MeshLambertMaterial({ color: 0xe1b12c });
   const crateMat = new THREE.MeshLambertMaterial({ color: 0xd35400 });
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x57606f });
   const neonCyanMat = new THREE.MeshBasicMaterial({ color: 0x00cec9 });
   const neonPinkMat = new THREE.MeshBasicMaterial({ color: 0xff7597 });
 
@@ -305,36 +306,32 @@ export function resolveMovementCollision(
     // Check X and Z wall collisions
     const withinY = nextPos.y < c.max.y && nextPos.y + playerHeight > c.min.y;
     if (withinY) {
-      // X collision
-      if (
-        nextPos.z + playerRadius > c.min.z &&
-        nextPos.z - playerRadius < c.max.z
-      ) {
-        // Hitting west face of obstacle
-        if (position.x + playerRadius <= c.min.x && nextPos.x + playerRadius > c.min.x) {
-          nextPos.x = c.min.x - playerRadius;
-          velocity.x = 0;
-        }
-        // Hitting east face of obstacle
-        else if (position.x - playerRadius >= c.max.x && nextPos.x - playerRadius < c.max.x) {
-          nextPos.x = c.max.x + playerRadius;
-          velocity.x = 0;
-        }
-      }
+      const overlapX = nextPos.x + playerRadius > c.min.x && nextPos.x - playerRadius < c.max.x;
+      const overlapZ = nextPos.z + playerRadius > c.min.z && nextPos.z - playerRadius < c.max.z;
 
-      // Z collision
-      if (
-        nextPos.x + playerRadius > c.min.x &&
-        nextPos.x - playerRadius < c.max.x
-      ) {
-        // Hitting north face of obstacle
-        if (position.z + playerRadius <= c.min.z && nextPos.z + playerRadius > c.min.z) {
-          nextPos.z = c.min.z - playerRadius;
-          velocity.z = 0;
-        }
-        // Hitting south face of obstacle
-        else if (position.z - playerRadius >= c.max.z && nextPos.z - playerRadius < c.max.z) {
-          nextPos.z = c.max.z + playerRadius;
+      if (overlapX && overlapZ) {
+        // Minimum Translation Vector (MTV) penetration resolution
+        const overlapWest = (nextPos.x + playerRadius) - c.min.x;
+        const overlapEast = c.max.x - (nextPos.x - playerRadius);
+        const overlapNorth = (nextPos.z + playerRadius) - c.min.z;
+        const overlapSouth = c.max.z - (nextPos.z - playerRadius);
+
+        const minOverlapX = Math.min(overlapWest, overlapEast);
+        const minOverlapZ = Math.min(overlapNorth, overlapSouth);
+
+        if (minOverlapX < minOverlapZ) {
+          if (overlapWest < overlapEast) {
+            nextPos.x = c.min.x - playerRadius;
+          } else {
+            nextPos.x = c.max.x + playerRadius;
+          }
+          velocity.x = 0;
+        } else {
+          if (overlapNorth < overlapSouth) {
+            nextPos.z = c.min.z - playerRadius;
+          } else {
+            nextPos.z = c.max.z + playerRadius;
+          }
           velocity.z = 0;
         }
       }

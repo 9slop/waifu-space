@@ -49,12 +49,13 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   onMount(() => {
     matchStartTime = Date.now();
 
+    let net: StrikeNetworkManager | null = null;
+
     const eng = new StrikeEngine({
       onHealthChange: (hp) => setHealth(hp),
       onAmmoChange: (mag, reserve) => setAmmo({ mag, reserve }),
       onWeaponChange: (w) => {
         setActiveWeapon(w);
-        setIsScoped(false);
       },
       onHitmarker: (isHeadshot) => {
         setHitmarker({ isHeadshot, id: Date.now() });
@@ -69,10 +70,16 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       },
       onScoreboardToggle: (visible) => {
         setShowScoreboard(visible);
+      },
+      onScopeChange: (scoped) => {
+        setIsScoped(scoped);
+      },
+      onPlayerDeath: (attacker) => {
+        net?.registerPlayerDeath(attacker);
       }
     });
 
-    const net = new StrikeNetworkManager(eng, {
+    net = new StrikeNetworkManager(eng, {
       onScoreboardUpdate: (players) => setScoreboard(players),
       onKillfeedEntry: (entry) => {
         setKillfeed((prev) => [entry, ...prev.slice(0, 4)]);
@@ -109,6 +116,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   };
 
   const handleLeaveMatch = async () => {
+    if (typeof document !== 'undefined' && document.pointerLockElement) {
+      document.exitPointerLock?.();
+    }
     const net = network();
     const duration = Math.max(1, Math.round((Date.now() - matchStartTime) / 1000));
     const kills = net?.localKills || 0;
@@ -220,6 +230,25 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         <span class="strike-room-tag">⚡ {t('strike.modeTitle') || 'Waifu Strike DM'}</span>
         <span>⛩️ {t('strike.mapName') || 'Cyber Shrine'}</span>
         <span>📶 {ping()}ms</span>
+        <button
+          class="btn-controls-toggle"
+          style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            color: '#fff',
+            padding: '2px 10px',
+            'border-radius': '6px',
+            cursor: 'pointer'
+          }}
+          onClick={() => {
+            if (typeof document !== 'undefined' && document.pointerLockElement) {
+              document.exitPointerLock?.();
+            }
+            setShowControlsOverlay(true);
+          }}
+        >
+          ⚙️ Controls
+        </button>
         <button
           class="btn-leave-match"
           style={{
@@ -360,8 +389,53 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                 <span class="strike-ctrl-key">R</span>
               </div>
               <div class="strike-ctrl-pill">
+                <span>Quickswitch</span>
+                <span class="strike-ctrl-key">Q</span>
+              </div>
+              <div class="strike-ctrl-pill">
+                <span>Cycle Weapons</span>
+                <span class="strike-ctrl-key">Scroll / 1-4</span>
+              </div>
+              <div class="strike-ctrl-pill">
                 <span>Scoreboard</span>
                 <span class="strike-ctrl-key">Hold Tab</span>
+              </div>
+            </div>
+
+            {/* In-Game Sensitivity & Audio Sliders */}
+            <div style={{ 'margin-top': '16px', 'border-top': '1px solid rgba(255, 255, 255, 0.1)', 'padding-top': '14px', display: 'flex', 'flex-direction': 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center', 'font-size': '0.85rem' }}>
+                <span>Mouse Sensitivity ({mouseSens().toFixed(1)})</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="6.0"
+                  step="0.1"
+                  value={mouseSens()}
+                  onInput={(e) => {
+                    const val = parseFloat(e.currentTarget.value);
+                    setMouseSens(val);
+                    engine()?.setSensitivity(val);
+                  }}
+                  style={{ width: '130px', cursor: 'pointer' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center', 'font-size': '0.85rem' }}>
+                <span>SFX Volume ({audioVol()}%)</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={audioVol()}
+                  onInput={(e) => {
+                    const val = parseInt(e.currentTarget.value, 10);
+                    setAudioVol(val);
+                    strikeAudio.setVolume(val / 100);
+                  }}
+                  style={{ width: '130px', cursor: 'pointer' }}
+                />
               </div>
             </div>
 
@@ -376,7 +450,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                 'font-weight': 'bold',
                 'font-size': '1.1rem',
                 cursor: 'pointer',
-                'margin-top': '8px'
+                'margin-top': '14px'
               }}
               onClick={handleStartPlay}
             >

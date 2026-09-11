@@ -5,5 +5,13 @@ export default defineConfig({
     prerender: {
       crawlLinks: false
     }
+  },
+  vite: {
+    build: {
+      chunkSizeWarningLimit: 1200
+    },
+    optimizeDeps: {
+      include: ['three']
+    }
   }
 });

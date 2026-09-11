@@ -334,6 +334,29 @@ export class StrikeNetworkManager {
     }
   }
 
+  public registerPlayerDeath(attackerName: string) {
+    this.localDeaths++;
+    this.localCurrentStreak = 0;
+
+    const killerBot = this.bots.find(b => b.name === attackerName);
+    if (killerBot) {
+      killerBot.kills++;
+      killerBot.streak++;
+    }
+
+    const entry: KillfeedEntry = {
+      id: `death_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      killerName: attackerName,
+      victimName: 'You',
+      weaponId: killerBot?.weaponId || 'rifle',
+      isHeadshot: false,
+      timestamp: Date.now()
+    };
+    this.callbacks.onKillfeedEntry(entry);
+
+    this.publishScoreboard();
+  }
+
   private publishScoreboard() {
     const players: ScoreboardPlayer[] = [
       {
