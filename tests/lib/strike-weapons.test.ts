@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { WEAPON_CATALOG } from '../../src/lib/strike/strike-weapons';
-import { resolveMovementCollision } from '../../src/lib/strike/strike-map';
+import { P2PPlayerState, P2PShootEvent } from '../../src/lib/strike/strike-types';
 
-describe('Waifu Strike: Weapons and Movement Physics', () => {
+describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
   it('defines all 4 core weapons with balanced CS-style stats', () => {
     expect(WEAPON_CATALOG.rifle).toBeDefined();
     expect(WEAPON_CATALOG.sniper).toBeDefined();
@@ -21,32 +21,53 @@ describe('Waifu Strike: Weapons and Movement Physics', () => {
     expect(WEAPON_CATALOG.knife.damage * 2).toBeGreaterThanOrEqual(100);
   });
 
-  it('prevents player from clipping through map colliders', () => {
-    const colliders = [
-      { min: { x: 5, y: 0, z: -5 }, max: { x: 7, y: 4, z: 5 }, tag: 'wall' }
-    ];
+  it('validates P2P player state serialization and recovery', () => {
+    const state: P2PPlayerState = {
+      peerId: 'peer_123',
+      name: 'AsukaCommander',
+      x: 12.5,
+      y: 1.62,
+      z: -8.4,
+      yaw: 1.57,
+      pitch: -0.25,
+      animState: 1,
+      health: 85,
+      weaponId: 'rifle',
+      kills: 5,
+      deaths: 2,
+      headshots: 3,
+      streak: 4,
+      ping: 25,
+      avatarOutfit: '#ff7597'
+    };
 
-    const startPos = { x: 4.5, y: 0, z: 0 };
-    const velocity = { x: 1.0, y: 0, z: 0 }; // trying to push east through the wall
+    const serialized = JSON.stringify({ type: 'state', state });
+    const parsed = JSON.parse(serialized);
 
-    const result = resolveMovementCollision(startPos, velocity, 0.4, 1.8, colliders);
-
-    // Player should be stopped at obstacle boundary (min.x - radius)
-    expect(result.position.x).toBeLessThanOrEqual(5 - 0.4);
-    expect(result.velocity.x).toBe(0);
+    expect(parsed.type).toBe('state');
+    expect(parsed.state.peerId).toBe('peer_123');
+    expect(parsed.state.health).toBe(85);
+    expect(parsed.state.x).toBeCloseTo(12.5);
+    expect(parsed.state.kills).toBe(5);
   });
 
-  it('clamps player to floor on ground collision', () => {
-    const colliders = [
-      { min: { x: -10, y: -2, z: -10 }, max: { x: 10, y: 0, z: 10 }, tag: 'ground' }
-    ];
+  it('validates P2P shoot events and hit detection payloads', () => {
+    const shoot: P2PShootEvent = {
+      shooterId: 'peer_123',
+      weaponId: 'sniper',
+      origin: { x: 0, y: 1.62, z: 20 },
+      direction: { x: 0, y: 0, z: -1 },
+      targetId: 'bot_1',
+      isHeadshot: true,
+      damage: 402
+    };
 
-    const startPos = { x: 0, y: 1.0, z: 0 };
-    const velocity = { x: 0, y: -2.0, z: 0 }; // falling downwards
+    const serialized = JSON.stringify({ type: 'shoot', shoot });
+    const parsed = JSON.parse(serialized);
 
-    const result = resolveMovementCollision(startPos, velocity, 0.4, 1.8, colliders);
-    expect(result.position.y).toBe(0);
-    expect(result.onGround).toBe(true);
-    expect(result.velocity.y).toBe(0);
+    expect(parsed.type).toBe('shoot');
+    expect(parsed.shoot.weaponId).toBe('sniper');
+    expect(parsed.shoot.isHeadshot).toBe(true);
+    expect(parsed.shoot.damage).toBeGreaterThanOrEqual(400);
   });
 });

@@ -131,3 +131,43 @@ export const PACKET_OPCODES = {
   S2C_SCOREBOARD: 0x14,
   S2C_HIT_CONFIRM: 0x15
 } as const;
+
+export type P2PSignalType = 'offer' | 'answer' | 'ice-candidate';
+
+export interface P2PSignalPayload {
+  to: string;
+  from: string;
+  type: P2PSignalType;
+  sdp?: any;
+  candidate?: any;
+}
+
+export interface P2PPlayerState {
+  peerId: string;
+  name: string;
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  pitch: number;
+  animState: number;
+  health: number;
+  weaponId: WeaponId;
+  kills: number;
+  deaths: number;
+  headshots: number;
+  streak: number;
+  ping: number;
+  avatarOutfit: string;
+}
+
+export interface P2PShootEvent {
+  shooterId: string;
+  weaponId: WeaponId;
+  origin: Vector3D;
+  direction: Vector3D;
+  targetId: string | null;
+  isHeadshot: boolean;
+  damage: number;
+}
+

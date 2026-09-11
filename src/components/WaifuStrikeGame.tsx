@@ -1,10 +1,10 @@
 import { createSignal, onMount, onCleanup, For, Show } from 'solid-js';
-import { StrikeEngine } from '../lib/strike/strike-engine';
-import { StrikeNetworkManager } from '../lib/strike/strike-network';
+import { StrikeBabylonEngine } from '../lib/strike/strike-babylon-engine';
+import { StrikeP2PManager } from '../lib/strike/strike-p2p';
 import { WeaponDef, ScoreboardPlayer, KillfeedEntry, StrikeMatchStats } from '../lib/strike/strike-types';
 import { WEAPON_CATALOG, strikeAudio } from '../lib/strike/strike-weapons';
 import { t } from '../lib/i18n';
-import { state, addCoins, gainBondExp, showToast } from '../lib/store';
+import { state, addCoins, gainBondExp } from '../lib/store';
 import '../styles/strike.css';
 
 interface WaifuStrikeGameProps {
@@ -12,10 +12,10 @@ interface WaifuStrikeGameProps {
 }
 
 export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
-  let containerRef!: HTMLDivElement;
+  let canvasRef!: HTMLCanvasElement;
 
-  const [engine, setEngine] = createSignal<StrikeEngine | null>(null);
-  const [network, setNetwork] = createSignal<StrikeNetworkManager | null>(null);
+  const [engine, setEngine] = createSignal<StrikeBabylonEngine | null>(null);
+  const [network, setNetwork] = createSignal<StrikeP2PManager | null>(null);
 
   const [health, setHealth] = createSignal(100);
   const [maxHealth] = createSignal(100);
@@ -27,13 +27,13 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [showControlsOverlay, setShowControlsOverlay] = createSignal(true);
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [showSummaryModal, setShowSummaryModal] = createSignal(false);
-  const [showSettings, setShowSettings] = createSignal(false);
 
   const [killfeed, setKillfeed] = createSignal<KillfeedEntry[]>([]);
   const [medal, setMedal] = createSignal<{ title: string; sub: string } | null>(null);
   const [scoreboard, setScoreboard] = createSignal<ScoreboardPlayer[]>([]);
   const [ping, setPing] = createSignal(24);
   const [connected, setConnected] = createSignal(false);
+  const [peerCount, setPeerCount] = createSignal(0);
 
   // Match Summary Data
   const [matchSummary, setMatchSummary] = createSignal<StrikeMatchStats | null>(null);
@@ -42,16 +42,15 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   // Settings
   const [mouseSens, setMouseSens] = createSignal(2.2);
   const [audioVol, setAudioVol] = createSignal(50);
-  const [fovVal, setFovVal] = createSignal(85);
 
   let matchStartTime = Date.now();
 
   onMount(() => {
     matchStartTime = Date.now();
 
-    let net: StrikeNetworkManager | null = null;
+    let net: StrikeP2PManager | null = null;
 
-    const eng = new StrikeEngine({
+    const eng = new StrikeBabylonEngine(canvasRef, {
       onHealthChange: (hp) => setHealth(hp),
       onAmmoChange: (mag, reserve) => setAmmo({ mag, reserve }),
       onWeaponChange: (w) => {
@@ -79,7 +78,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       }
     });
 
-    net = new StrikeNetworkManager(eng, {
+    net = new StrikeP2PManager(eng, {
       onScoreboardUpdate: (players) => setScoreboard(players),
       onKillfeedEntry: (entry) => {
         setKillfeed((prev) => [entry, ...prev.slice(0, 4)]);
@@ -88,25 +87,33 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         setMedal({ title, sub });
         setTimeout(() => setMedal(null), 2000);
       },
-      onConnectionStatus: (conn, latency) => {
+      onConnectionStatus: (conn, latency, peers) => {
         setConnected(conn);
         setPing(latency);
+        setPeerCount(peers);
       }
     });
 
     setEngine(eng);
     setNetwork(net);
 
-    eng.init(containerRef);
-    net.start(state.user?.username || 'Commander');
+    // Fetch Supabase credentials for Realtime Matchmaking & P2P DataChannels
+    fetch('/api/strike/config')
+      .then((res) => res.json())
+      .then((cfg) => {
+        net?.start(state.user?.username || 'Commander', cfg?.supabaseUrl, cfg?.supabaseAnonKey);
+      })
+      .catch(() => {
+        net?.start(state.user?.username || 'Commander');
+      });
 
     const handleResize = () => eng.handleResize();
     window.addEventListener('resize', handleResize);
 
     onCleanup(() => {
       window.removeEventListener('resize', handleResize);
-      eng.destroy();
-      net.stop();
+      eng.dispose();
+      net?.stop();
     });
   });
 
@@ -143,7 +150,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     setMatchSummary(summary);
     setShowSummaryModal(true);
 
-    // Save stats via API
+    // Save match stats via API
     try {
       const res = await fetch('/api/strike/stats', {
         method: 'POST',
@@ -160,7 +167,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         addCoins(data.coinsEarned);
         gainBondExp(data.expEarned);
       } else {
-        // Fallback local calculation
         const coinsEarned = kills * 8 + (streak >= 5 ? 25 : 0);
         const expEarned = kills * 15 + headshots * 10;
         setMatchRewards({ coins: coinsEarned, exp: expEarned });
@@ -185,10 +191,17 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
   return (
     <div class="strike-viewport-container" role="region" aria-label="Waifu Strike FPS">
-      {/* 3D WebGL Canvas Viewport */}
-      <div
-        ref={containerRef}
+      {/* 3D Babylon.js WebGL Canvas Viewport */}
+      <canvas
+        ref={canvasRef}
         class="strike-canvas-wrapper"
+        tabindex="1"
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          outline: 'none'
+        }}
         onClick={() => {
           if (!showControlsOverlay() && !showSummaryModal()) {
             engine()?.requestPointerLock();
@@ -230,6 +243,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         <span class="strike-room-tag">⚡ {t('strike.modeTitle') || 'Waifu Strike DM'}</span>
         <span>⛩️ {t('strike.mapName') || 'Cyber Shrine'}</span>
         <span>📶 {ping()}ms</span>
+        <Show when={peerCount() > 0}>
+          <span style={{ color: '#2ed573' }}>👥 {peerCount()} P2P Peer{peerCount() > 1 ? 's' : ''}</span>
+        </Show>
         <button
           class="btn-controls-toggle"
           style={{
@@ -293,7 +309,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       <div class="strike-hud-bottom">
         {/* Health */}
         <div class="hud-health-card">
-          <div class={`hud-health-val ${health() <= 30 ? 'low' : ''}`}>
+          <div class={`hud-health-val ${health() <= 25 ? 'low' : ''}`}>
             + {health()}
           </div>
           <div class="hud-health-bar">
@@ -336,7 +352,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           </div>
         </div>
 
-        {/* Ammo */}
+        {/* Ammo & Active Weapon Card */}
         <div class="hud-ammo-card">
           <div>
             <span class="hud-ammo-mag">
@@ -466,7 +482,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           <div class="strike-scoreboard-modal">
             <div class="scoreboard-header">
               <h3>🏆 {t('strike.scoreboardTitle') || 'Deathmatch Leaderboard'}</h3>
-              <span style={{ color: '#00cec9' }}>Cyber Shrine Courtyard</span>
+              <span style={{ color: '#00cec9' }}>Cyber Shrine Courtyard (P2P)</span>
             </div>
 
             <table class="scoreboard-table">
@@ -512,8 +528,8 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
       {/* End-of-Session Match Summary Modal */}
       <Show when={showSummaryModal() && matchSummary()}>
-        <div class="strike-lock-overlay" style={{ cursor: 'default' }}>
-          <div class="strike-summary-modal">
+        <div class="strike-lock-overlay">
+          <div class="strike-summary-modal" onClick={(e) => e.stopPropagation()}>
             <h2>🎉 {t('strike.summaryTitle') || 'Match Report'}</h2>
             <p style={{ color: '#a4b0be' }}>
               {t('strike.summarySubtitle') || 'Endless casual deathmatch session results'}
@@ -521,25 +537,29 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
             <div class="strike-stat-grid">
               <div class="strike-stat-tile">
-                <div class="strike-stat-num">{matchSummary()?.kills}</div>
+                <div class="strike-stat-num">{matchSummary()!.kills}</div>
                 <div class="strike-stat-lbl">{t('strike.kills') || 'Kills'}</div>
               </div>
               <div class="strike-stat-tile">
-                <div class="strike-stat-num">
-                  {(matchSummary()!.kills / Math.max(1, matchSummary()!.deaths)).toFixed(2)}
+                <div class="strike-stat-num" style={{ color: '#ff7675' }}>
+                  {matchSummary()!.deaths}
                 </div>
-                <div class="strike-stat-lbl">K/D Ratio</div>
+                <div class="strike-stat-lbl">{t('strike.deaths') || 'Deaths'}</div>
               </div>
               <div class="strike-stat-tile">
-                <div class="strike-stat-num">{matchSummary()?.headshots}</div>
+                <div class="strike-stat-num" style={{ color: '#ffd32a' }}>
+                  {matchSummary()!.headshots}
+                </div>
                 <div class="strike-stat-lbl">{t('strike.headshots') || 'Headshots'}</div>
               </div>
               <div class="strike-stat-tile">
-                <div class="strike-stat-num">{matchSummary()?.bestStreak}</div>
+                <div class="strike-stat-num" style={{ color: '#ff7597' }}>
+                  {matchSummary()!.bestStreak}
+                </div>
                 <div class="strike-stat-lbl">{t('strike.bestStreak') || 'Best Streak'}</div>
               </div>
               <div class="strike-stat-tile">
-                <div class="strike-stat-num">{matchSummary()?.damageDealt}</div>
+                <div class="strike-stat-num">{matchSummary()!.damageDealt}</div>
                 <div class="strike-stat-lbl">{t('strike.damage') || 'Damage'}</div>
               </div>
               <div class="strike-stat-tile">
@@ -552,36 +572,47 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
               </div>
             </div>
 
+            {/* Rewards Card */}
             <Show when={matchRewards()}>
-              <div
-                style={{
-                  background: 'rgba(255, 215, 0, 0.1)',
-                  border: '1px solid rgba(255, 215, 0, 0.3)',
-                  padding: '12px',
-                  'border-radius': '10px',
-                  margin: '16px 0',
-                  color: '#ffd32a',
-                  'font-weight': 'bold'
-                }}
-              >
-                🪙 +{matchRewards()?.coins} Coins &nbsp;|&nbsp; 💖 +{matchRewards()?.exp} Bond EXP
+              <div style={{
+                background: 'rgba(255, 215, 0, 0.1)',
+                border: '1px solid rgba(255, 215, 0, 0.3)',
+                padding: '12px',
+                'border-radius': '12px',
+                margin: '16px 0',
+                display: 'flex',
+                'justify-content': 'space-around'
+              }}>
+                <div>
+                  <span style={{ 'font-size': '1.2rem', 'font-weight': 'bold', color: '#ffd700' }}>
+                    +{matchRewards()!.coins}
+                  </span>
+                  <div style={{ 'font-size': '0.75rem', color: '#a4b0be' }}>Gold Coins</div>
+                </div>
+                <div>
+                  <span style={{ 'font-size': '1.2rem', 'font-weight': 'bold', color: '#ff7597' }}>
+                    +{matchRewards()!.exp}
+                  </span>
+                  <div style={{ 'font-size': '0.75rem', color: '#a4b0be' }}>Bond EXP</div>
+                </div>
               </div>
             </Show>
 
             <button
-              class="btn-start-strike"
+              class="btn-primary"
               style={{
-                background: '#ff7597',
+                background: 'linear-gradient(135deg, #00cec9, #0984e3)',
                 color: '#fff',
                 border: 'none',
-                padding: '12px 28px',
-                'border-radius': '10px',
+                padding: '12px 36px',
+                'border-radius': '12px',
                 'font-weight': 'bold',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                'font-size': '1.1rem'
               }}
               onClick={handleFinishSummary}
             >
-              {t('common.done') || 'Done'}
+              ✓ Done & Return to Hub
             </button>
           </div>
         </div>
