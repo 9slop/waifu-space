@@ -1,6 +1,7 @@
 import { For, Show, onMount, createSignal } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
+import { layoutTimedEvents } from '../lib/calendar-layout';
 import { t, getLocale } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
 
@@ -24,6 +25,8 @@ export function CalendarDayView(props: {
   const isToday = () => isSameDay(props.currentDate, today);
 
   const dayEvents = () => getEventsForDate(props.events, props.currentDate);
+  const allDayEvents = () => dayEvents().filter(ev => ev.allDay);
+  const timedLayouts = () => layoutTimedEvents(dayEvents().filter(ev => !ev.allDay));
 
   const getCurrentTimePercent = () => {
     const now = new Date();
@@ -31,23 +34,7 @@ export function CalendarDayView(props: {
     return (minutes / 1440) * 100;
   };
 
-  const getEventPosition = (ev: CalendarEventItem) => {
-    const s = new Date(ev.start);
-    const e = new Date(ev.end || ev.start);
-    const startMin = s.getHours() * 60 + s.getMinutes();
-    let durationMin = (e.getTime() - s.getTime()) / 60000;
-    if (durationMin < 25) durationMin = 30;
-
-    const top = (startMin / 1440) * 100;
-    const height = Math.min((durationMin / 1440) * 100, 100 - top);
-
-    return {
-      top: `${top}%`,
-      height: `${Math.max(height, 2.5)}%`
-    };
-  };
-
-  const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
+const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
     if (!e.dataTransfer) return;
     e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'calendar-event', id: ev.id, dateKey: ev.dateKey }));
     e.dataTransfer.effectAllowed = 'move';
@@ -203,6 +190,44 @@ export function CalendarDayView(props: {
         </div>
       </div>
 
+      {/* All-Day Strip */}
+      <div class="week-allday-strip">
+        <div class="allday-gutter">{t('calendar.alldayLabel')}</div>
+        <div class="week-allday-day">
+          <For each={allDayEvents()}>
+            {ev => (
+              <div
+                class="allday-pill"
+                style={{ background: ev.color || '#ff6584' }}
+                role="button"
+                tabindex="0"
+                aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
+                draggable={true}
+                onDragStart={e => handleDragStart(e, ev)}
+                onClick={e => {
+                  e.stopPropagation();
+                  props.onOpenEvent(ev, e.currentTarget.getBoundingClientRect());
+                }}
+                onKeyDown={e => onActivateKey(e, () => props.onOpenEvent(ev))}
+              >
+                {ev.type === 'task' && (
+                  <input
+                    type="checkbox"
+                    class="pill-task-check"
+                    checked={ev.completed}
+                    onClick={e => {
+                      e.stopPropagation();
+                      toggleTask(ev.id, ev.dateKey);
+                    }}
+                  />
+                )}
+                <span class="allday-pill-title">{ev.title}</span>
+              </div>
+            )}
+          </For>
+        </div>
+      </div>
+
       <div class="week-time-grid" ref={scrollContainerRef}>
         <div class="time-gutter">
           <For each={Array.from({ length: 24 })}>
@@ -271,9 +296,9 @@ export function CalendarDayView(props: {
             </Show>
 
             <div class="week-events-layer">
-              <For each={dayEvents()}>
-                {ev => {
-                  const pos = getEventPosition(ev);
+              <For each={timedLayouts()}>
+                {layout => {
+                  const ev = layout.ev;
                   const s = new Date(ev.start);
                   const e = new Date(ev.end || ev.start);
                   const timeStr = `${s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -282,8 +307,10 @@ export function CalendarDayView(props: {
                     <div
                       class={`week-event-card ${ev.type === 'task' && ev.completed ? 'completed' : ''}`}
                       style={{
-                        top: pos.top,
-                        height: pos.height,
+                        top: `${layout.topPct}%`,
+                        height: `${layout.heightPct}%`,
+                        left: `calc(${layout.leftPct}% + 2px)`,
+                        width: `calc(${layout.widthPct}% - 4px)`,
                         background: ev.color || '#ff6584'
                       }}
                       role="button"
@@ -315,6 +342,7 @@ export function CalendarDayView(props: {
                         )}
                       </div>
                       <span class="card-time">{timeStr}</span>
+                      {ev.location && <span class="card-loc">📍 {ev.location}</span>}
                     </div>
                   );
                 }}

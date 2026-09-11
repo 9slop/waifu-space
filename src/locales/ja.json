@@ -210,6 +210,7 @@
       "sat": "土"
     },
     "moreEvents": "他 {count} 件",
+    "alldayLabel": "終日",
     "toasts": {
       "taskAdded": "タスク「{title}」を追加しました",
       "eventUpdated": "「{title}」を更新しました",

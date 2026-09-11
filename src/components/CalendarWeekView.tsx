@@ -1,6 +1,7 @@
 import { For, Show, onMount, createSignal } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
+import { layoutTimedEvents } from '../lib/calendar-layout';
 import { t, getLocale } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
 
@@ -43,22 +44,6 @@ export function CalendarWeekView(props: {
     const now = new Date();
     const minutes = now.getHours() * 60 + now.getMinutes();
     return (minutes / 1440) * 100;
-  };
-
-  const getEventPosition = (ev: CalendarEventItem) => {
-    const s = new Date(ev.start);
-    const e = new Date(ev.end || ev.start);
-    const startMin = s.getHours() * 60 + s.getMinutes();
-    let durationMin = (e.getTime() - s.getTime()) / 60000;
-    if (durationMin < 25) durationMin = 30;
-
-    const top = (startMin / 1440) * 100;
-    const height = Math.min((durationMin / 1440) * 100, 100 - top);
-
-    return {
-      top: `${top}%`,
-      height: `${Math.max(height, 2.2)}%`
-    };
   };
 
   const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
@@ -230,6 +215,51 @@ export function CalendarWeekView(props: {
         </For>
       </div>
 
+      {/* All-Day Strip */}
+      <div class="week-allday-strip">
+        <div class="allday-gutter">{t('calendar.alldayLabel')}</div>
+        <For each={weekDays()}>
+          {day => {
+            const alldayEvents = () => getEventsForDate(props.events, day).filter(ev => ev.allDay);
+            return (
+              <div class="week-allday-day">
+                <For each={alldayEvents()}>
+                  {ev => (
+                    <div
+                      class="allday-pill"
+                      style={{ background: ev.color || '#ff6584' }}
+                      role="button"
+                      tabindex="0"
+                      aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
+                      draggable={true}
+                      onDragStart={e => handleDragStart(e, ev)}
+                      onClick={e => {
+                        e.stopPropagation();
+                        props.onOpenEvent(ev, e.currentTarget.getBoundingClientRect());
+                      }}
+                      onKeyDown={e => onActivateKey(e, () => props.onOpenEvent(ev))}
+                    >
+                      {ev.type === 'task' && (
+                        <input
+                          type="checkbox"
+                          class="pill-task-check"
+                          checked={ev.completed}
+                          onClick={e => {
+                            e.stopPropagation();
+                            toggleTask(ev.id, ev.dateKey);
+                          }}
+                        />
+                      )}
+                      <span class="allday-pill-title">{ev.title}</span>
+                    </div>
+                  )}
+                </For>
+              </div>
+            );
+          }}
+        </For>
+      </div>
+
       {/* 24-Hour Time Grid */}
       <div class="week-time-grid" ref={scrollContainerRef}>
         <div class="time-gutter">
@@ -251,6 +281,7 @@ export function CalendarWeekView(props: {
             {day => {
               const isT = isSameDay(day, today);
               const dayEvents = () => getEventsForDate(props.events, day);
+              const timedLayouts = () => layoutTimedEvents(dayEvents().filter(ev => !ev.allDay));
 
               return (
                 <div
@@ -304,54 +335,57 @@ export function CalendarWeekView(props: {
                   </Show>
 
                   <div class="week-events-layer">
-                    <For each={dayEvents()}>
-                      {ev => {
-                        const pos = getEventPosition(ev);
-                        const s = new Date(ev.start);
-                        const timeStr = `${s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                    <For each={timedLayouts()}>
+                      {layout => {
+                            const ev = layout.ev;
+                            const s = new Date(ev.start);
+                            const timeStr = `${s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 
-                        return (
-                          <div
-                            class={`week-event-card ${ev.type === 'task' && ev.completed ? 'completed' : ''}`}
-                            style={{
-                              top: pos.top,
-                              height: pos.height,
-                              background: ev.color || '#ff6584'
-                            }}
-                            role="button"
-                            tabindex="0"
-                            aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
-                            draggable={true}
-                            onDragStart={e => handleDragStart(e, ev)}
-                            onClick={e => {
-                              e.stopPropagation();
-                              props.onOpenEvent(ev, e.currentTarget.getBoundingClientRect());
-                            }}
-                            onKeyDown={e => onActivateKey(e, () => props.onOpenEvent(ev))}
-                          >
-                            <div class="event-card-header">
-                              {ev.type === 'task' && (
-                                <input
-                                  type="checkbox"
-                                  class="card-task-check"
-                                  checked={ev.completed}
-                                  onClick={e => {
-                                    e.stopPropagation();
-                                    toggleTask(ev.id, ev.dateKey);
-                                  }}
-                                />
-                              )}
-                              <span class="card-title">{ev.title}</span>
-                              {ev.recurrence && ev.recurrence !== 'none' && (
-                                <span class="card-repeat-icon" title={`Repeats: ${ev.recurrence}`}>🔁</span>
-                              )}
-                            </div>
-                            <span class="card-time">{timeStr}</span>
-                          </div>
-                        );
-                      }}
-                    </For>
-                  </div>
+                            return (
+                              <div
+                                class={`week-event-card ${ev.type === 'task' && ev.completed ? 'completed' : ''}`}
+                                style={{
+                                  top: `${layout.topPct}%`,
+                                  height: `${layout.heightPct}%`,
+                                  left: `calc(${layout.leftPct}% + 2px)`,
+                                  width: `calc(${layout.widthPct}% - 4px)`,
+                                  background: ev.color || '#ff6584'
+                                }}
+                                role="button"
+                                tabindex="0"
+                                aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
+                                draggable={true}
+                                onDragStart={e => handleDragStart(e, ev)}
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  props.onOpenEvent(ev, e.currentTarget.getBoundingClientRect());
+                                }}
+                                onKeyDown={e => onActivateKey(e, () => props.onOpenEvent(ev))}
+                              >
+                                <div class="event-card-header">
+                                  {ev.type === 'task' && (
+                                    <input
+                                      type="checkbox"
+                                      class="card-task-check"
+                                      checked={ev.completed}
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        toggleTask(ev.id, ev.dateKey);
+                                      }}
+                                    />
+                                  )}
+                                  <span class="card-title">{ev.title}</span>
+                                  {ev.recurrence && ev.recurrence !== 'none' && (
+                                    <span class="card-repeat-icon" title={`Repeats: ${ev.recurrence}`}>🔁</span>
+                                  )}
+                                </div>
+                                <span class="card-time">{timeStr}</span>
+                                {ev.location && <span class="card-loc">📍 {ev.location}</span>}
+                              </div>
+                            );
+                          }}
+                        </For>
+                      </div>
                 </div>
               );
             }}
