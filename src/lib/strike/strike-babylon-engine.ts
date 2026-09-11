@@ -42,6 +42,9 @@ export class StrikeBabylonEngine {
   // Map Data
   public mapData: BabylonMapData | null = null;
 
+  // Player Physics Collider Body
+  public playerCollider: AbstractMesh;
+
   // Local Player Physics State
   public velocity = new Vector3(0, 0, 0);
   public onGround = true;
@@ -115,13 +118,20 @@ export class StrikeBabylonEngine {
     this.scene.clearColor = new Color4(0.08, 0.10, 0.14, 1.0);
     this.scene.collisionsEnabled = true;
 
-    // 2. Setup FPS Universal Camera
+    // 2. Setup FPS Universal Camera & Physics Collider
     this.camera = new UniversalCamera('fpsCamera', new Vector3(0, 1.62, 20), this.scene);
     this.camera.fov = this.defaultFov;
     this.camera.minZ = 0.05;
     this.camera.maxZ = 300;
-    this.camera.checkCollisions = true;
-    this.camera.ellipsoid = new Vector3(0.42, 0.85, 0.42);
+    this.camera.checkCollisions = false;
+
+    // Physics collider mesh for smooth swept-sphere / box collision against world geometry
+    this.playerCollider = MeshBuilder.CreateBox('playerCollider', { width: 0.84, height: 1.7, depth: 0.84 }, this.scene);
+    this.playerCollider.isVisible = false;
+    this.playerCollider.isPickable = false;
+    this.playerCollider.checkCollisions = true;
+    this.playerCollider.ellipsoid = new Vector3(0.42, 0.85, 0.42);
+    this.playerCollider.ellipsoidOffset = new Vector3(0, 0, 0);
 
     // 3. Build Cyber Shrine Map
     this.mapData = createCyberShrineMap(this.scene);
@@ -250,6 +260,9 @@ export class StrikeBabylonEngine {
     const spawns = this.mapData?.spawnPoints || [{ position: new Vector3(0, 1, 20), yaw: 0 }];
     const sp = spawns[Math.floor(Math.random() * spawns.length)];
 
+    if (this.playerCollider) {
+      this.playerCollider.position = new Vector3(sp.position.x, sp.position.y + 0.85, sp.position.z);
+    }
     this.camera.position = new Vector3(sp.position.x, sp.position.y + this.baseEyeHeight, sp.position.z);
     this.camera.rotation = new Vector3(0, sp.yaw, 0);
     this.velocity = Vector3.Zero();
@@ -477,20 +490,37 @@ export class StrikeBabylonEngine {
       this.velocity.y -= 19.6 * dt; // gravity
     }
 
-    // Native Babylon moveWithCollisions slides smoothly along walls & obstacles
+    // Native Babylon moveWithCollisions on playerCollider slides smoothly along walls & obstacles
     const displacement = new Vector3(
       this.velocity.x * dt,
       this.velocity.y * dt,
       this.velocity.z * dt
     );
-    this.camera.moveWithCollisions(displacement);
+    const prevY = this.playerCollider.position.y;
+    this.playerCollider.moveWithCollisions(displacement);
+    const deltaY = this.playerCollider.position.y - prevY;
 
-    // Check ground level
-    if (this.camera.position.y <= 1.62) {
-      this.camera.position.y = 1.62;
+    // Detect landing on elevated surfaces/stairs/boxes when moving downward
+    if (displacement.y < -0.01 && deltaY > displacement.y * 0.5) {
+      this.onGround = true;
+      this.velocity.y = 0;
+    }
+
+    // Safety ground floor limit (courtyard ground is y = 0, collider center is 0.85)
+    if (this.playerCollider.position.y <= 0.85) {
+      this.playerCollider.position.y = 0.85;
       this.velocity.y = 0;
       this.onGround = true;
     }
+
+    // Smooth crouching eye height transition
+    const targetEyeHeight = this.isCrouching ? 1.15 : 1.62;
+    this.currentEyeHeight += (targetEyeHeight - this.currentEyeHeight) * Math.min(1, dt * 14);
+
+    // Synchronize camera position to physics collider with dynamic eye height
+    this.camera.position.x = this.playerCollider.position.x;
+    this.camera.position.y = this.playerCollider.position.y + (this.currentEyeHeight - 0.85);
+    this.camera.position.z = this.playerCollider.position.z;
 
     // Viewmodel update
     const curSpeed = Math.hypot(this.velocity.x, this.velocity.z);
@@ -534,7 +564,8 @@ export class StrikeBabylonEngine {
     if (this.boundContextMenu) window.removeEventListener('contextmenu', this.boundContextMenu);
     if (this.boundWheel) window.removeEventListener('wheel', this.boundWheel);
 
-    // Dispose viewmodel & avatars
+    // Dispose collider, viewmodel & avatars
+    this.playerCollider?.dispose();
     this.viewmodel.dispose();
     this.remoteAvatars.forEach((av) => av.dispose());
     this.remoteAvatars.clear();
