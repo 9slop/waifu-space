@@ -152,10 +152,10 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.defenseHighWave).toBe(3);
       expect(state.rpg.defenseStats.totalVictories).toBe(1);
       expect(state.rpg.defenseStats.goblinsDefeated).toBe(15);
-      // Startup from a fresh level 1: wave reward (100) + bond level-up bonus (2 * 25)
-      expect(state.rpg.coins).toBe(initialCoins + 150);
+      // Startup from a fresh level 1: wave reward (100) + bond level-up bonus (2 * 20)
+      expect(state.rpg.coins).toBe(initialCoins + 140);
       expect(state.waifu.bondLevel).toBe(2);
-      expect(state.waifu.bondExp).toBe(30);
+      expect(state.waifu.bondExp).toBe(20);
     });
 
     it('uses the shared defense formula by default and clamps out-of-range waves', () => {
