@@ -5,7 +5,7 @@ import { getPersonality, getRandomGreeting, PersonalityArchetype } from './perso
 import { callLLM } from './llm';
 import { parseIntent, hasIntent, DialogIntent } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
-import { sanitizeRawState } from './validate';
+import { sanitizeRawState, sanitizeEvent } from './validate';
 import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
@@ -382,7 +382,8 @@ function buildSyncSnapshot() {
       defenseStats: state.rpg.defenseStats,
       showcaseItems: state.rpg.showcaseItems
     },
-    settings: state.settings
+    settings: state.settings,
+    calendar: state.calendar.events.map(e => ({ ...e }))
   };
 }
 
@@ -524,6 +525,18 @@ export async function loadCloudProgress(token?: string): Promise<void> {
 
     const inventory: Array<{ item_id: string; category: string }> = Array.isArray(data.inventory) ? data.inventory : [];
     const showcaseItems: string[] = Array.isArray(data.showcaseItems) ? data.showcaseItems : [];
+
+    // The server calendar is authoritative when it holds items (a brand-new
+    // account has none, in which case the local - equally empty - list stays).
+    const serverCalendarItems: unknown[] = Array.isArray(data.calendarItems) ? data.calendarItems : [];
+    if (serverCalendarItems.length > 0) {
+      const sanitized = serverCalendarItems
+        .map(sanitizeEvent)
+        .filter((e): e is CalendarEventItem => e !== null);
+      if (sanitized.length > 0) {
+        setState('calendar', 'events', sanitized);
+      }
+    }
 
     // Never lose currency: the cloud can hold a stale snapshot (e.g. an older
     // session), so the merge always keeps the larger balance on both sides.

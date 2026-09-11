@@ -3,6 +3,7 @@ import { verifySessionToken } from '../../../lib/server/auth';
 import { getSupabaseServerClient, isSupabaseConfigured } from '../../../lib/server/supabase';
 import { COSMETIC_CATALOG } from '../../../lib/store';
 import { MAX_COINS } from '../../../lib/economy';
+import { EVENT_TYPES, RECURRENCE_RULES, isHexColor } from '../../../lib/validation';
 
 const itemRarity = (itemId: string): string =>
   COSMETIC_CATALOG.find(c => c.id === itemId)?.rarity || 'common';
@@ -112,6 +113,42 @@ export async function POST(event: { request: Request }) {
           }))
         );
       }
+
+      // Sync calendar events/tasks. The client's calendar list is private and
+      // authoritative on push, so replace all rows for this user (delete-all +
+      // insert) with the sanitized, validated copies.
+      if (Array.isArray(payload.calendar)) {
+        await supabase.from('calendar_items').delete().eq('user_id', session.userId);
+        const rows = payload.calendar
+          .filter(
+            (e: any) =>
+              e && typeof e.title === 'string' && e.title.trim() !== '' &&
+              typeof e.start === 'string' && !Number.isNaN(new Date(e.start).getTime())
+          )
+          .slice(0, 5000)
+          .map((e: any) => {
+            const start = new Date(e.start).toISOString();
+            const end = e.end && !Number.isNaN(new Date(e.end).getTime()) ? new Date(e.end).toISOString() : start;
+            return {
+              user_id: session.userId,
+              item_id: typeof e.id === 'string' && e.id.trim() ? e.id.slice(0, 100) : `${session.userId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+              title: e.title.trim().slice(0, 200),
+              start_at: start,
+              end_at: end,
+              all_day: e.allDay === true,
+              type: (EVENT_TYPES as readonly string[]).includes(e.type) ? e.type : 'event',
+              completed: e.completed === true,
+              color: isHexColor(e.color) ? e.color : '#ff6584',
+              description: typeof e.description === 'string' ? e.description.slice(0, 2000) : '',
+              location: typeof e.location === 'string' ? e.location.slice(0, 500) : '',
+              recurrence: (RECURRENCE_RULES as readonly string[]).includes(e.recurrence) ? e.recurrence : 'none',
+              updated_at: new Date().toISOString()
+            };
+          });
+        if (rows.length > 0) {
+          await supabase.from('calendar_items').insert(rows);
+        }
+      }
     }
 
     return json({ success: true, syncedAt: new Date().toISOString() });
@@ -135,14 +172,28 @@ export async function GET(event: { request: Request }) {
     const { data: progress } = await supabase.from('user_progress').select('*').eq('user_id', session.userId).single();
     const { data: showcase } = await supabase.from('user_showcase').select('*').eq('user_id', session.userId).order('slot_index');
     const { data: inventory } = await supabase.from('user_inventory').select('item_id, category, rarity').eq('user_id', session.userId);
+    const { data: calendarItems } = await supabase.from('calendar_items').select('*').eq('user_id', session.userId).order('start_at');
 
     return json({
       success: true,
       progress,
       showcaseItems: showcase ? showcase.map((s: any) => s.item_id) : [],
-      inventory: inventory || []
+      inventory: inventory || [],
+      calendarItems: (calendarItems || []).map((r: any) => ({
+        id: r.item_id,
+        title: r.title,
+        start: r.start_at,
+        end: r.end_at,
+        allDay: r.all_day,
+        type: r.type,
+        completed: r.completed,
+        color: r.color,
+        description: r.description || undefined,
+        location: r.location || undefined,
+        recurrence: r.recurrence
+      }))
     });
   }
 
-  return json({ success: true, progress: null, showcaseItems: [] });
+  return json({ success: true, progress: null, showcaseItems: [], calendarItems: [] });
 }

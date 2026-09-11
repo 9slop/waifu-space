@@ -401,6 +401,48 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.showcaseItems).toEqual(['kimono']);
     });
 
+    it('adopts the server calendar list when the cloud has calendar items', async () => {
+      setState('user', { id: 'u1', username: 'CloudCal', token: 'ws_cloud' });
+      setState('calendar', 'events', []);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          progress: { coins: 200 },
+          inventory: [],
+          showcaseItems: [],
+          calendarItems: [
+            { id: 'c1', title: 'Cloud Sunset', start: '2026-09-12T19:00:00Z', end: '2026-09-12T20:00:00Z', allDay: false, type: 'event', completed: false, color: '#6c5ce7', recurrence: 'none' },
+            { id: 'c2', title: 'Kanji Rep', start: '2026-09-12T18:00:00Z', end: '2026-09-12T18:30:00Z', allDay: false, type: 'task', completed: true, color: 'not-a-hex', recurrence: 'daily' }
+          ]
+        })
+      }));
+
+      await loadCloudProgress('ws_cloud');
+
+      expect(state.calendar.events).toHaveLength(2);
+      expect(state.calendar.events.map(e => e.id)).toEqual(['c1', 'c2']);
+      expect(state.calendar.events[0].title).toBe('Cloud Sunset');
+      // Invalid hex is sanitized to the default color.
+      expect(state.calendar.events[1].color).toBe('#ff6584');
+      expect(state.calendar.events[1].completed).toBe(true);
+    });
+
+    it('keeps the local calendar when the cloud has no calendar items', async () => {
+      setState('user', { id: 'u1', username: 'LocalCal', token: 'ws_cloud' });
+      setState('calendar', 'events', [{ id: 'local-1', title: 'Local Event', start: new Date().toISOString(), end: new Date().toISOString(), allDay: false, type: 'event', completed: false, color: '#ff6584', recurrence: 'none' }]);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, progress: { coins: 200 }, inventory: [], showcaseItems: [], calendarItems: [] })
+      }));
+
+      await loadCloudProgress('ws_cloud');
+
+      expect(state.calendar.events.map(e => e.id)).toEqual(['local-1']);
+    });
+
     it('does not clobber a richer local balance with the default 200 snapshot', async () => {
       setState('user', { id: 'u1', username: 'Rich', token: 'ws_cloud' });
       setState('rpg', 'coins', 1500);

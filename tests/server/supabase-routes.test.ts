@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
       user_progress: [] as any[],
       user_showcase: [] as any[],
       user_inventory: [] as any[],
+      calendar_items: [] as any[],
       action_logs: [] as any[],
       leaderboard_view: [] as any[]
     },
@@ -456,6 +457,78 @@ describe('Supabase-backed API routes (regression guard)', () => {
       expect(data.progress.bond_level).toBe(5);
       expect(data.inventory.map((i: any) => i.item_id)).toEqual(['kimono']);
       expect(data.showcaseItems).toEqual(['kimono']);
+    });
+
+    it('replaces calendar_items on POST and sanitizes/validates invalid rows', async () => {
+      mocks.state.db.calendar_items.push({ user_id: userId, item_id: 'stale', title: 'Old' });
+
+      const res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            waifu: { name: 'Neo', personality: 'kuudere', bondExp: 0, bondLevel: 1, appearance: {} },
+            rpg: { coins: 200, claimedAffectionMilestones: [], defenseStats: {}, showcaseItems: [] },
+            settings: {},
+            calendar: [
+              { id: 'evt-1', title: 'Sprint Review', start: '2026-09-10T10:00:00Z', end: '2026-09-10T11:00:00Z', allDay: false, type: 'event', completed: false, color: '#ff6584', description: 'sync', location: 'Room 4', recurrence: 'none' },
+              { id: 'task-1', title: 'Study Kanji', start: '2026-09-10T18:00:00Z', end: '2026-09-10T18:30:00Z', allDay: false, type: 'task', completed: true, color: '#00cec9', recurrence: 'daily' },
+              { id: 'bad-1', title: '', start: 'not-a-date' },
+              { id: 'bad-2', title: 'Bad Color', start: '2026-09-10T09:00:00Z', type: 'event', color: 'not-a-hex', recurrence: 'fortnightly' }
+            ]
+          })
+        })
+      );
+      expect(res.status).toBe(200);
+
+      const rows = mocks.state.db.calendar_items.filter(r => r.user_id === userId);
+      expect(rows.map(r => r.item_id).sort((a, b) => a.localeCompare(b))).toEqual(['bad-2', 'evt-1', 'task-1']);
+      expect(rows.find(r => r.item_id === 'bad-2')).toMatchObject({ color: '#ff6584', recurrence: 'none', type: 'event' });
+      expect(rows.find(r => r.item_id === 'task-1').completed).toBe(true);
+      expect(rows.find(r => r.item_id === 'evt-1')).toMatchObject({
+        title: 'Sprint Review',
+        start_at: '2026-09-10T10:00:00.000Z',
+        description: 'sync',
+        location: 'Room 4'
+      });
+    });
+
+    it('returns calendar_items on GET mapped back to event shape', async () => {
+      mocks.state.db.user_progress.push({ user_id: userId, coins: 200, bond_level: 1 });
+      mocks.state.db.calendar_items.push({
+        user_id: userId,
+        item_id: 'cloud-ev-1',
+        title: 'Cloud Synced Dinner',
+        start_at: '2026-09-12T19:00:00.000Z',
+        end_at: '2026-09-12T20:00:00.000Z',
+        all_day: false,
+        type: 'event',
+        completed: false,
+        color: '#6c5ce7',
+        description: 'from the cloud',
+        location: 'Cafe',
+        recurrence: 'weekly'
+      });
+
+      const res = await syncGET(
+        req('http://localhost/api/sync/progress', { headers: { Authorization: `Bearer ${token}` } })
+      );
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.calendarItems).toHaveLength(1);
+      expect(data.calendarItems[0]).toEqual({
+        id: 'cloud-ev-1',
+        title: 'Cloud Synced Dinner',
+        start: '2026-09-12T19:00:00.000Z',
+        end: '2026-09-12T20:00:00.000Z',
+        allDay: false,
+        type: 'event',
+        completed: false,
+        color: '#6c5ce7',
+        description: 'from the cloud',
+        location: 'Cafe',
+        recurrence: 'weekly'
+      });
     });
 
     it('rejects requests without a valid session', async () => {

@@ -79,7 +79,7 @@ function syntheticId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function sanitizeEvent(raw: unknown): CalendarEventItem | null {
+export function sanitizeEvent(raw: unknown): CalendarEventItem | null {
   if (!isRecord(raw)) return null;
   const fallbackStart = nowIso();
   let start = validDateString(raw.start, fallbackStart);
