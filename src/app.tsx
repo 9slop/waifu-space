@@ -30,6 +30,7 @@ import './styles/rpg.css';
 function AppLayout(props: { children: any }) {
   const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = createSignal(false);
+  const [isAuthChecking, setIsAuthChecking] = createSignal(true);
   const [pendingNavHref, setPendingNavHref] = createSignal<string | null>(null);
   let deadlineInterval: any = null;
 
@@ -79,6 +80,8 @@ function AppLayout(props: { children: any }) {
         }
       } catch {
         // Offline or network error: keep offline state
+      } finally {
+        setIsAuthChecking(false);
       }
 
       if (state.user?.token) {
@@ -130,7 +133,7 @@ function AppLayout(props: { children: any }) {
     }
   });
 
-  const authModalOpen = () => !state.user || showAuthModal();
+  const authModalOpen = () => !isAuthChecking() && (!state.user || showAuthModal());
   const canDismissAuth = () => !!state.user;
 
   return (
@@ -182,7 +185,16 @@ function AppLayout(props: { children: any }) {
           }>
             <div class="user-profile-badge">
               <A href="/profile" class="user-badge-link" title={state.user?.username} onClick={e => handleNavClick(e, '/profile')}>
-                <span class="user-avatar-tiny">🌸</span>
+                <Show when={state.user?.avatarUrl} fallback={<span class="user-avatar-tiny">🌸</span>}>
+                  <img
+                    src={state.user?.avatarUrl}
+                    alt={state.user?.username || 'Avatar'}
+                    class="user-avatar-tiny-img"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                </Show>
                 <span class="user-badge-name">{state.user?.username}</span>
               </A>
               <button

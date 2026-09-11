@@ -28,6 +28,7 @@ import { POST as registerPOST } from '../../src/routes/api/auth/register';
 import { POST as loginPOST } from '../../src/routes/api/auth/login';
 import { GET as meGET, POST as mePOST } from '../../src/routes/api/auth/me';
 import { POST as uploadAvatarPOST } from '../../src/routes/api/upload/avatar';
+import { POST as profilePOST } from '../../src/routes/api/profile';
 import { POST as syncPOST, GET as syncGET } from '../../src/routes/api/sync/progress';
 import { POST as rollPOST } from '../../src/routes/api/gacha/roll';
 import { GET as leaderboardGET } from '../../src/routes/api/leaderboard';
@@ -972,6 +973,47 @@ describe('Supabase-backed API routes (regression guard)', () => {
 
       const profile = mocks.state.db.profiles.find(p => p.id === userId);
       expect(profile.avatar_url).toBe(data.avatarUrl);
+    });
+  });
+
+  describe('profile update route (/api/profile)', () => {
+    it('rejects unauthenticated requests with 401', async () => {
+      const res = await profilePOST(
+        req('http://localhost/api/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bio: 'Hello world' })
+        })
+      );
+      expect(res.status).toBe(401);
+    });
+
+    it('updates bio and avatar_url in profiles table and clamps length safely', async () => {
+      const userId = randomId();
+      const token = createSessionToken({ id: userId, username: 'ProfileCommander' });
+      mocks.state.db.profiles.push({ id: userId, username: 'ProfileCommander', bio: 'Old bio', avatar_url: '' });
+
+      const longBio = 'x'.repeat(600); // Max allowed is 500
+      const newAvatar = 'https://fake-supabase.co/storage/v1/object/public/avatars/avatar.webp';
+
+      const res = await profilePOST(
+        req('http://localhost/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ bio: longBio, avatarUrl: newAvatar })
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+
+      const profile = mocks.state.db.profiles.find(p => p.id === userId);
+      expect(profile.bio).toHaveLength(500);
+      expect(profile.avatar_url).toBe(newAvatar);
     });
   });
 });

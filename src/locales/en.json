@@ -108,6 +108,14 @@
     "you": "You"
   },
   "companion": {
+    "personality": "Personality",
+    "personalities": {
+      "tsundere": "Tsundere",
+      "yandere": "Yandere",
+      "kuudere": "Kuudere",
+      "dandere": "Dandere",
+      "deredere": "Deredere"
+    },
     "affectionLevel": "Affection Level",
     "affectionTooltip": "Affection increases as you chat, interact, and finish tasks!",
     "avatarClickTooltip": "Click or tap to interact with {name}!",
@@ -313,7 +321,8 @@
       "livePreview": "Live Preview",
       "outfitLabel": "Outfit:",
       "accessoryLabel": "Accessory:",
-      "hairstyleLabel": "Hairstyle:"
+      "hairstyleLabel": "Hairstyle:",
+      "unlockHint": "Unlock: {desc}"
     },
     "inventory": {
       "title": "Cosmetics Inventory ({count})",
@@ -541,6 +550,197 @@
       "exportSuccess": "Data exported successfully!",
       "importSuccess": "Backup restored successfully!",
       "importFailed": "Failed to import JSON: Invalid file format"
+    }
+  },
+  "moods": {
+    "neutral": "Neutral",
+    "happy": "Happy",
+    "blush": "Blush",
+    "pout": "Pout",
+    "yandere": "Yandere",
+    "surprised": "Surprised"
+  },
+  "categories": {
+    "all": "All Items",
+    "outfit": "Outfit",
+    "accessory": "Accessory",
+    "hairstyle": "Hairstyle"
+  },
+  "rarities": {
+    "all": "All Rarities",
+    "common": "Common",
+    "rare": "Rare",
+    "epic": "Epic",
+    "legendary": "Legendary",
+    "mystical": "Mystical"
+  },
+  "items": {
+    "seifuku": {
+      "name": "Sailor Seifuku",
+      "desc": "Classic Japanese school uniform with navy sailor collar."
+    },
+    "casual": {
+      "name": "Cozy Hoodie",
+      "desc": "Soft oversized pastel hoodie for relaxing at home."
+    },
+    "maid": {
+      "name": "Maid Uniform",
+      "desc": "Elegant frilled black-and-white café maid outfit."
+    },
+    "kimono": {
+      "name": "Summer Kimono",
+      "desc": "Traditional indigo yukata with gold obi and sakura blossoms."
+    },
+    "gothic": {
+      "name": "Gothic Lolita",
+      "desc": "Dark Victorian gothic dress adorned with crimson ribbons."
+    },
+    "miko": {
+      "name": "Shrine Maiden (Miko)",
+      "desc": "Sacred red hakama and white robe blessed by shrine spirits."
+    },
+    "magical": {
+      "name": "Magical Girl",
+      "desc": "Sparkling cosmic dress imbued with pure starlight."
+    },
+    "armor": {
+      "name": "Guardian Knight Armor",
+      "desc": "Polished silver breastplate & pauldrons forged for battle."
+    },
+    "celestial_dress": {
+      "name": "Celestial Gown",
+      "desc": "Transcendent flowing gown forged from living stardust."
+    },
+    "none": {
+      "name": "None",
+      "desc": "No accessory equipped."
+    },
+    "ribbon": {
+      "name": "Red Ribbon",
+      "desc": "Cute silk bow tied gracefully into her hair."
+    },
+    "glasses": {
+      "name": "Stylish Glasses",
+      "desc": "Chic frames that give an intellectual charm."
+    },
+    "maid_headband": {
+      "name": "Maid Headband",
+      "desc": "Crisp white lace maid headdress."
+    },
+    "flower_pin": {
+      "name": "Sakura Hairpin",
+      "desc": "Delicate cherry blossom petal pin with soft morning dew."
+    },
+    "headphones": {
+      "name": "Cyber Headphones",
+      "desc": "Glowing cyan headphones tuned to lo-fi beats."
+    },
+    "cat_ears": {
+      "name": "Fluffy Cat Ears",
+      "desc": "Twitching soft feline ears with tiny golden bells."
+    },
+    "bunny_ears": {
+      "name": "Bunny Ears",
+      "desc": "Playful velvet rabbit ears that bounce when she moves."
+    },
+    "succubus_horns": {
+      "name": "Shadow Horns",
+      "desc": "Curved obsidian horns radiating soft ethereal twilight."
+    },
+    "kitsune_mask": {
+      "name": "Kitsune Mask",
+      "desc": "Mystical fox spirit festival mask worn on the side of her hair."
+    },
+    "halo": {
+      "name": "Angel Halo",
+      "desc": "Gleaming celestial halo floating serenely above her crown."
+    },
+    "phoenix_pin": {
+      "name": "Phoenix Plume",
+      "desc": "Blazing golden feather hairpin with warm immortal embers."
+    },
+    "kitsune_aurora": {
+      "name": "Aurora Spirit Mask",
+      "desc": "Sacred celestial kitsune mask infused with shifting aurora borealis light."
+    },
+    "starlight_crown": {
+      "name": "Crown of Cosmos",
+      "desc": "Transcendent diadem forged from pure crystallized cosmic nebula."
+    },
+    "twintails": {
+      "name": "Classic Twintails",
+      "desc": "Bouncy twin ponytails tied high on both sides."
+    },
+    "long": {
+      "name": "Long Straight",
+      "desc": "Flowing silky hair reaching down past her shoulders."
+    },
+    "short_bob": {
+      "name": "Short Bob",
+      "desc": "Cute, sporty chin-length bob cut."
+    },
+    "ponytail": {
+      "name": "High Ponytail",
+      "desc": "Energetic ponytail fastened with a ribbon."
+    },
+    "wavy": {
+      "name": "Wavy Curls",
+      "desc": "Romantic flowing waves with gentle volume."
+    },
+    "space_bun": {
+      "name": "Space Buns",
+      "desc": "Adorable twin buns with holographic shimmer ribbons."
+    },
+    "celestial_wave": {
+      "name": "Celestial Waves",
+      "desc": "Infinity-length cosmic hair woven from nebula and starlight."
+    }
+  },
+  "milestones": {
+    "2": {
+      "title": "Acquaintance",
+      "desc": "{name} begins to look forward to your presence.",
+      "reward": "75 Coins"
+    },
+    "3": {
+      "title": "Friend",
+      "desc": "Unlocks the delicate Sakura hair ornament.",
+      "reward": "Sakura Hairpin"
+    },
+    "5": {
+      "title": "Close Friend",
+      "desc": "Unlocks the frilly Maid Outfit in your Wardrobe.",
+      "reward": "Maid Uniform"
+    },
+    "7": {
+      "title": "Trusted Confidant",
+      "desc": "{name} trusts you with her deepest thoughts.",
+      "reward": "200 Coins"
+    },
+    "8": {
+      "title": "Sweetheart",
+      "desc": "Unlocks the traditional festival Kimono dress.",
+      "reward": "Summer Kimono"
+    },
+    "10": {
+      "title": "Soulmate",
+      "desc": "Unlocks the playful Bunny Ears accessory.",
+      "reward": "Bunny Ears"
+    },
+    "12": {
+      "title": "Inseparable",
+      "desc": "A massive treasury gift for staying by her side.",
+      "reward": "500 Coins"
+    },
+    "15": {
+      "title": "Eternal Devotion",
+      "desc": "Unlocks the legendary Magical Girl cosmic dress!",
+      "reward": "Magical Girl Outfit"
+    },
+    "20": {
+      "title": "Celestial Bond",
+      "desc": "Unlocks the divine glowing Angel Halo.",
+      "reward": "Angel Halo"
     }
   }
 }

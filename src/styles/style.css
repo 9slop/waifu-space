@@ -459,6 +459,16 @@ body {
   font-size: 14px;
 }
 
+.user-avatar-tiny-img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-block;
+  vertical-align: middle;
+  border: 1.5px solid rgba(255, 101, 132, 0.4);
+}
+
 .btn-header-logout {
   background: transparent;
   border: none;

@@ -64,13 +64,17 @@ export async function POST(event: { request: Request }) {
         .from('avatars')
         .getPublicUrl(filePath);
 
-      const avatarUrl = publicData.publicUrl;
+      const avatarUrl = `${publicData.publicUrl}?t=${Date.now()}`;
 
       // Automatically update profile row with newly uploaded avatar URL
-      await supabase
+      const { error: profileErr } = await supabase
         .from('profiles')
         .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
         .eq('id', session.userId);
+
+      if (profileErr) {
+        console.warn('Failed to update avatar_url in profiles:', profileErr.message);
+      }
 
       return json({ success: true, avatarUrl, filePath });
     }

@@ -1,6 +1,6 @@
 import { createSignal, Show, For } from 'solid-js';
 import { state, setState, openLootbox, RpgCosmeticItem, showToast, isCosmeticUnlocked, gainBondExp, unlockCosmetic } from '../lib/store';
-import { t } from '../lib/i18n';
+import { t, getCosmeticName, getCosmeticDesc, getCategoryName, getRarityName } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
 import { getLootboxCost } from '../lib/economy';
 
@@ -80,10 +80,10 @@ export function LootboxModal() {
   const equipItem = (item: RpgCosmeticItem) => {
     if (item.category === 'outfit') {
       setState('waifu', 'appearance', 'outfit', item.id);
-      showToast(t('rpg.toasts.equippedOutfit', { name: item.name }));
+      showToast(t('rpg.toasts.equippedOutfit', { name: getCosmeticName(item.id, item.name) }));
     } else if (item.category === 'accessory') {
       setState('waifu', 'appearance', 'accessory', item.id);
-      showToast(t('rpg.toasts.equippedAccessory', { name: item.name }));
+      showToast(t('rpg.toasts.equippedAccessory', { name: getCosmeticName(item.id, item.name) }));
     }
   };
 
@@ -186,14 +186,14 @@ export function LootboxModal() {
             <div class="revealed-glow-ray"></div>
             <div class="revealed-header">
               <span class={`rarity-tag ${getRarityClass(item().rarity)}`}>
-                {item().rarity.toUpperCase()}
+                {getRarityName(item().rarity)}
               </span>
-              <span class="category-tag">{item().category.toUpperCase()}</span>
+              <span class="category-tag">{getCategoryName(item().category)}</span>
             </div>
 
             <div class="revealed-icon">{item().icon}</div>
-            <h3 class="revealed-name">{item().name}</h3>
-            <p class="revealed-desc">{item().description}</p>
+            <h3 class="revealed-name">{getCosmeticName(item().id, item().name)}</h3>
+            <p class="revealed-desc">{getCosmeticDesc(item().id, item.description)}</p>
 
             <Show when={duplicateCompensation() !== null}>
               <div class="duplicate-banner">
@@ -231,7 +231,7 @@ export function LootboxModal() {
               {entry => (
                 <div class={`history-pill ${getRarityClass(entry.item.rarity)}`}>
                   <span>{entry.item.icon}</span>
-                  <span class="pill-name">{entry.item.name}</span>
+                  <span class="pill-name">{getCosmeticName(entry.item.id, entry.item.name)}</span>
                   <Show when={entry.wasDup}>
                     <span class="dup-indicator">({t('gacha.dup')})</span>
                   </Show>

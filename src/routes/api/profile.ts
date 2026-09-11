@@ -1,5 +1,6 @@
 import { json } from '@solidjs/router';
 import { getSupabaseServerClient, isSupabaseConfigured } from '../../lib/server/supabase';
+import { getSessionTokenFromRequest, verifySessionToken } from '../../lib/server/auth';
 
 export async function GET(event: { request: Request }) {
   const url = new URL(event.request.url);
@@ -100,4 +101,47 @@ export async function GET(event: { request: Request }) {
   }
 
   return json({ success: false, error: 'User not found' }, { status: 404 });
+}
+
+export async function POST(event: { request: Request }) {
+  const token = getSessionTokenFromRequest(event.request);
+  const session = verifySessionToken(token);
+
+  if (!session) {
+    return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const body = await event.request.json();
+    const patch: { bio?: string; avatar_url?: string; updated_at: string } = {
+      updated_at: new Date().toISOString()
+    };
+
+    if (typeof body?.bio === 'string') {
+      patch.bio = body.bio.trim().slice(0, 500);
+    }
+    if (typeof body?.avatarUrl === 'string') {
+      patch.avatar_url = body.avatarUrl.trim().slice(0, 2000);
+    }
+
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseServerClient()!;
+      const { error: updateErr } = await supabase
+        .from('profiles')
+        .update(patch)
+        .eq('id', session.userId);
+
+      if (updateErr) {
+        return json({ success: false, error: updateErr.message }, { status: 500 });
+      }
+    }
+
+    return json({
+      success: true,
+      bio: patch.bio,
+      avatarUrl: patch.avatar_url
+    });
+  } catch (err: any) {
+    return json({ success: false, error: err.message || 'Profile update failed' }, { status: 500 });
+  }
 }

@@ -13,7 +13,14 @@ import {
   toggleShowcaseItem,
   getUnlockedCosmeticsCount
 } from '../lib/store';
-import { t } from '../lib/i18n';
+import {
+  t,
+  getCosmeticName,
+  getCosmeticDesc,
+  getCategoryName,
+  getRarityName,
+  getPersonalityName
+} from '../lib/i18n';
 import { compressImage } from '../lib/image-compress';
 import { WaifuAvatar } from './WaifuAvatar';
 
@@ -195,13 +202,13 @@ export function ProfileShowcase() {
 
     if (item.category === 'outfit') {
       setState('waifu', 'appearance', 'outfit', item.id);
-      showToast(t('rpg.toasts.equippedOutfit', { name: item.name }));
+      showToast(t('rpg.toasts.equippedOutfit', { name: getCosmeticName(item.id, item.name) }));
     } else if (item.category === 'accessory') {
       setState('waifu', 'appearance', 'accessory', item.id);
-      showToast(t('rpg.toasts.equippedAccessory', { name: item.name }));
+      showToast(t('rpg.toasts.equippedAccessory', { name: getCosmeticName(item.id, item.name) }));
     } else if (item.category === 'hairstyle') {
       setState('waifu', 'appearance', 'hairstyle', item.id);
-      showToast(t('rpg.toasts.equippedHairstyle', { name: item.name }));
+      showToast(t('rpg.toasts.equippedHairstyle', { name: getCosmeticName(item.id, item.name) }));
     }
     saveState();
   };
@@ -217,11 +224,27 @@ export function ProfileShowcase() {
     }
   };
 
-  const handleSaveProfileSettings = () => {
+  const handleSaveProfileSettings = async () => {
+    const bio = editBio().trim();
+    const avatarUrl = editAvatarUrl().trim();
     if (state.user) {
-      setState('user', 'bio', editBio());
-      setState('user', 'avatarUrl', editAvatarUrl());
+      setState('user', 'bio', bio);
+      setState('user', 'avatarUrl', avatarUrl);
       saveState();
+
+      try {
+        const token = state.user.token;
+        await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ bio, avatarUrl })
+        });
+      } catch {
+        // Saved locally
+      }
       showToast(t('settings.appearance.customSpriteUpdated') || 'Profile updated successfully!');
     }
   };
@@ -254,6 +277,15 @@ export function ProfileShowcase() {
       if (state.user) {
         setState('user', 'avatarUrl', finalUrl);
         saveState();
+
+        await fetch('/api/profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ avatarUrl: finalUrl })
+        }).catch(() => {});
       }
       showToast(t('settings.appearance.customSpriteUpdated') || 'Avatar updated successfully!');
     } catch {
@@ -329,7 +361,14 @@ export function ProfileShowcase() {
           <div class="profile-avatar-wrapper">
             <div class="profile-avatar-circle">
               <Show when={currentUser().avatarUrl} fallback={<span class="profile-avatar-emoji">🌸</span>}>
-                <img src={currentUser().avatarUrl} alt={currentUser().username} class="profile-avatar-img" />
+                <img
+                  src={currentUser().avatarUrl}
+                  alt={currentUser().username}
+                  class="profile-avatar-img"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
               </Show>
             </div>
             <div class="profile-badge-tier">
@@ -445,12 +484,12 @@ export function ProfileShowcase() {
                             <div class="pedestal-icon-wrapper">
                               <span class="pedestal-icon">{item()!.icon}</span>
                               <span class={`pedestal-rarity-chip ${getRarityClass(item()!.rarity)}`}>
-                                {item()!.rarity}
+                                {getRarityName(item()!.rarity)}
                               </span>
                             </div>
                             <div class="pedestal-info">
-                              <span class="pedestal-name">{item()!.name}</span>
-                              <span class="pedestal-cat">{item()!.category}</span>
+                              <span class="pedestal-name">{getCosmeticName(item()!.id, item()!.name)}</span>
+                              <span class="pedestal-cat">{getCategoryName(item()!.category)}</span>
                             </div>
                             <Show when={!isViewingPublic()}>
                               <button
@@ -484,11 +523,11 @@ export function ProfileShowcase() {
                 />
               </div>
               <div class="companion-details">
-                <p><strong>{t('companion.personality')}:</strong> {waifuInfo().personality}</p>
+                <p><strong>{t('companion.personality')}:</strong> {getPersonalityName(waifuInfo().personality)}</p>
                 <p><strong>{t('companion.affectionLevel')}:</strong> {statsInfo().bondLevel}</p>
-                <p><strong>{t('profile.currentOutfit')}:</strong> {waifuInfo().appearance?.outfit || 'seifuku'}</p>
-                <p><strong>{t('profile.currentAccessory')}:</strong> {waifuInfo().appearance?.accessory || 'none'}</p>
-                <p><strong>{t('profile.currentHairstyle')}:</strong> {waifuInfo().appearance?.hairstyle || 'twintails'}</p>
+                <p><strong>{t('profile.currentOutfit')}:</strong> {getCosmeticName(waifuInfo().appearance?.outfit || 'seifuku')}</p>
+                <p><strong>{t('profile.currentAccessory')}:</strong> {getCosmeticName(waifuInfo().appearance?.accessory || 'none')}</p>
+                <p><strong>{t('profile.currentHairstyle')}:</strong> {getCosmeticName(waifuInfo().appearance?.hairstyle || 'twintails')}</p>
               </div>
             </div>
           </div>
@@ -541,14 +580,14 @@ export function ProfileShowcase() {
                           <div class="cosmetic-icon-wrap">
                             <span class="cosmetic-icon">{item.icon}</span>
                             <span class={`rarity-pill ${getRarityClass(item.rarity)}`}>
-                              {item.rarity}
+                              {getRarityName(item.rarity)}
                             </span>
                           </div>
 
                           <div class="cosmetic-details">
-                            <h4 class="cosmetic-name">{item.name}</h4>
-                            <p class="cosmetic-desc">{item.description}</p>
-                            <small class="cosmetic-source">Unlock: {item.description}</small>
+                            <h4 class="cosmetic-name">{getCosmeticName(item.id, item.name)}</h4>
+                            <p class="cosmetic-desc">{getCosmeticDesc(item.id, item.description)}</p>
+                            <small class="cosmetic-source">{t('rpg.wardrobe.unlockHint', { desc: getCosmeticDesc(item.id, item.description) })}</small>
                           </div>
 
                           <div class="cosmetic-btn-wrap">
@@ -579,9 +618,9 @@ export function ProfileShowcase() {
                   <WaifuAvatar scale={1.1} />
                 </div>
                 <div class="preview-active-specs">
-                  <div><strong>{t('rpg.wardrobe.outfitLabel')}:</strong> {state.waifu?.appearance?.outfit || 'seifuku'}</div>
-                  <div><strong>{t('rpg.wardrobe.accessoryLabel')}:</strong> {state.waifu?.appearance?.accessory || 'none'}</div>
-                  <div><strong>{t('rpg.wardrobe.hairstyleLabel')}:</strong> {state.waifu?.appearance?.hairstyle || 'twintails'}</div>
+                  <div><strong>{t('rpg.wardrobe.outfitLabel')}:</strong> {getCosmeticName(state.waifu?.appearance?.outfit || 'seifuku')}</div>
+                  <div><strong>{t('rpg.wardrobe.accessoryLabel')}:</strong> {getCosmeticName(state.waifu?.appearance?.accessory || 'none')}</div>
+                  <div><strong>{t('rpg.wardrobe.hairstyleLabel')}:</strong> {getCosmeticName(state.waifu?.appearance?.hairstyle || 'twintails')}</div>
                 </div>
               </div>
             </div>
@@ -630,8 +669,8 @@ export function ProfileShowcase() {
                             <div class="showcase-item-content">
                               <span class="showcase-slot-icon">{item().icon}</span>
                               <div class="showcase-item-info">
-                                <strong>{item().name}</strong>
-                                <span class={`rarity-pill ${getRarityClass(item().rarity)}`}>{item().rarity}</span>
+                                <strong>{getCosmeticName(item().id, item().name)}</strong>
+                                <span class={`rarity-pill ${getRarityClass(item().rarity)}`}>{getRarityName(item().rarity)}</span>
                               </div>
                               <button
                                 class="btn-remove-showcase"
@@ -687,7 +726,7 @@ export function ProfileShowcase() {
                     class={`filter-btn filter-btn-rarity ${inventoryRarityFilter() === rarity ? 'active' : ''} ${rarity !== 'all' ? getRarityClass(rarity) : ''}`}
                     onClick={() => setInventoryRarityFilter(rarity)}
                   >
-                    {rarity.toUpperCase()}
+                    {getRarityName(rarity)}
                   </button>
                 ))}
               </div>
@@ -714,12 +753,12 @@ export function ProfileShowcase() {
                     <div class={`inventory-item-card ${getRarityClass(item.rarity)}`}>
                       <div class="card-top-row">
                         <span class="item-icon-big">{item.icon}</span>
-                        <span class={`rarity-tag ${getRarityClass(item.rarity)}`}>{item.rarity}</span>
+                        <span class={`rarity-tag ${getRarityClass(item.rarity)}`}>{getRarityName(item.rarity)}</span>
                       </div>
 
                       <div class="item-title-group">
-                        <strong class="item-name">{item.name}</strong>
-                        <p class="item-desc">{item.description}</p>
+                        <strong class="item-name">{getCosmeticName(item.id, item.name)}</strong>
+                        <p class="item-desc">{getCosmeticDesc(item.id, item.description)}</p>
                       </div>
 
                       <div class="item-actions-row">

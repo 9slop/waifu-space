@@ -1,5 +1,8 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
+import { loadEnvFiles } from './load-env';
+
+loadEnvFiles();
 
 export interface UserSession {
   userId: string;
@@ -23,15 +26,15 @@ export interface LocalUserData {
 const localUsers = new Map<string, LocalUserData>();
 const localSessions = new Map<string, UserSession>();
 
+const FALLBACK_SECRET = 'waifu-space-persistent-hmac-secret-v1-dev-fallback';
+
 /**
- * HMAC signing secret for session tokens. Prefer JWT_SECRET from the
- * environment; when unset we fall back to a per-process random secret so
- * forged tokens are always rejected (but sessions do not survive a restart).
- * This prevents a client from crafting a token for an arbitrary user id.
+ * HMAC signing secret for session tokens. Uses JWT_SECRET from environment/.env.local,
+ * with a deterministic persistent fallback so sessions survive server restarts.
  */
 const TOKEN_SECRET: string =
   (typeof process !== 'undefined' && process.env && process.env.JWT_SECRET) ||
-  crypto.randomBytes(32).toString('hex');
+  FALLBACK_SECRET;
 
 // Initialize a default demo user for testing
 const demoPasswordHash = bcrypt.hashSync('waifu123', 8);

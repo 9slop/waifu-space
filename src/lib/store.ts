@@ -17,6 +17,7 @@ import { parseIntent, hasIntent, DialogIntent, matchesKeywordOrPhrase } from './
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
 import { sanitizeRawState, sanitizeEvent, sanitizeOccurrenceOverride } from './validate';
 import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
+import { t, getMilestoneRewardLabel } from './i18n';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
 
@@ -994,7 +995,8 @@ export function claimAffectionReward(level: number): boolean {
 
   if (milestone.rewardType === 'coins' && typeof milestone.rewardValue === 'number') {
     addCoins(milestone.rewardValue);
-    showToast(`🎁 Claimed ${milestone.rewardLabel} for reaching Affection Lv. ${level}!`);
+    const label = getMilestoneRewardLabel(milestone.level, milestone.rewardLabel);
+    showToast(`🎁 ${t('rpg.toasts.claimedReward', { label, level })}`);
   } else if (milestone.rewardType === 'cosmetic' && typeof milestone.rewardValue === 'string') {
     const item = COSMETIC_CATALOG.find(c => c.id === milestone.rewardValue);
     if (item) {
@@ -1002,7 +1004,8 @@ export function claimAffectionReward(level: number): boolean {
       else if (item.category === 'accessory') unlockCosmetic('accessories', item.id);
       else if (item.category === 'hairstyle') unlockCosmetic('hairstyles', item.id);
     }
-    showToast(`🎁 Unlocked ${milestone.rewardLabel} for reaching Affection Lv. ${level}!`);
+    const label = getMilestoneRewardLabel(milestone.level, milestone.rewardLabel);
+    showToast(`🎁 ${t('rpg.toasts.unlockedReward', { label, level })}`);
   }
 
   saveState();

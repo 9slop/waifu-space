@@ -9,7 +9,7 @@ import {
 } from '../lib/store';
 import { WaifuDefenseGame } from './WaifuDefenseGame';
 import { LootboxModal } from './LootboxModal';
-import { t } from '../lib/i18n';
+import { t, getMilestoneTitle, getMilestoneDesc, getMilestoneRewardLabel } from '../lib/i18n';
 import { defenseGameActive, pendingDefenseTab, setPendingDefenseTab } from '../lib/defense-bridge';
 
 export function RpgHub() {
@@ -141,15 +141,15 @@ export function RpgHub() {
                         </div>
 
                         <div class="milestone-content">
-                          <h4 class="milestone-title">{milestone.title}</h4>
-                          <p class="milestone-desc">{milestone.description}</p>
+                          <h4 class="milestone-title">{getMilestoneTitle(milestone.level, milestone.title)}</h4>
+                          <p class="milestone-desc">{getMilestoneDesc(milestone.level, { name: state.waifu?.name || 'Waifu' }, milestone.description)}</p>
                           <div class="milestone-reward-tags">
                             <Show when={milestone.rewardType === 'coins'}>
-                              <span class="tag-coin">🪙 +{milestone.rewardValue} Coins</span>
+                              <span class="tag-coin">🪙 +{milestone.rewardValue} {t('rpg.dashboard.goldCoins')}</span>
                             </Show>
                             <Show when={milestone.rewardType === 'cosmetic'}>
                               <span class="tag-cosmetic">
-                                ✨ {milestone.rewardLabel}
+                                ✨ {getMilestoneRewardLabel(milestone.level, milestone.rewardLabel)}
                               </span>
                             </Show>
                           </div>

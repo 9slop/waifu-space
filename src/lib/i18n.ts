@@ -77,3 +77,58 @@ export function formatTime(date: Date | string | number, options?: Intl.DateTime
   const d = typeof date === 'object' ? date : new Date(date);
   return d.toLocaleTimeString(getLocale(), options);
 }
+
+export function getCosmeticName(id: string, fallbackName?: string): string {
+  const translated = t(`items.${id}.name`);
+  if (translated !== `items.${id}.name`) return translated;
+  return fallbackName || id;
+}
+
+export function getCosmeticDesc(id: string, fallbackDesc?: string): string {
+  const translated = t(`items.${id}.desc`);
+  if (translated !== `items.${id}.desc`) return translated;
+  return fallbackDesc || '';
+}
+
+export function getCategoryName(category: string): string {
+  const translated = t(`categories.${category}`);
+  if (translated !== `categories.${category}`) return translated;
+  return category;
+}
+
+export function getRarityName(rarity: string): string {
+  const translated = t(`rarities.${rarity}`);
+  if (translated !== `rarities.${rarity}`) return translated;
+  return rarity;
+}
+
+export function getPersonalityName(personality: string): string {
+  const translated = t(`companion.personalities.${personality}`);
+  if (translated !== `companion.personalities.${personality}`) return translated;
+  return personality;
+}
+
+export function getMilestoneTitle(level: number, fallbackTitle?: string): string {
+  const translated = t(`milestones.${level}.title`);
+  if (translated !== `milestones.${level}.title`) return translated;
+  return fallbackTitle || `Milestone Lv.${level}`;
+}
+
+export function getMilestoneDesc(level: number, params?: Record<string, string | number>, fallbackDesc?: string): string {
+  const translated = t(`milestones.${level}.desc`, params);
+  if (translated !== `milestones.${level}.desc`) return translated;
+  return fallbackDesc || '';
+}
+
+export function getMilestoneRewardLabel(level: number, fallbackReward?: string): string {
+  const translated = t(`milestones.${level}.reward`);
+  if (translated !== `milestones.${level}.reward`) return translated;
+  return fallbackReward || '';
+}
+
+export function getMoodName(mood: string): string {
+  const translated = t(`moods.${mood}`);
+  if (translated !== `moods.${mood}`) return translated;
+  return mood;
+}
+
