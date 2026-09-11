@@ -81,6 +81,7 @@ export interface CompleteWaveOutcome {
   goblinsDefeated: number;
   nextWave: number;
   hasBoss: boolean;
+  hasMiniBoss?: boolean;
 }
 
 const UNVERIFIED: CompleteWaveOutcome = {
@@ -91,7 +92,8 @@ const UNVERIFIED: CompleteWaveOutcome = {
   silver: 0,
   goblinsDefeated: 0,
   nextWave: 0,
-  hasBoss: false
+  hasBoss: false,
+  hasMiniBoss: false
 };
 
 export function resultError(outcome: CompleteWaveOutcome, error: string): CompleteWaveOutcome {
@@ -153,7 +155,8 @@ export function completeDefenseWave(
     silver: session.silver,
     goblinsDefeated: plan.total,
     nextWave: submittedWave + 1,
-    hasBoss: plan.hasBoss
+    hasBoss: plan.hasBoss,
+    hasMiniBoss: plan.hasMiniBoss
   };
 }
 

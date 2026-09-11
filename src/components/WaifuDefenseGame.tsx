@@ -4,6 +4,7 @@ import { getDefenseCoinsReward, getDefenseExpReward } from '../lib/economy';
 import {
   TOWER_SPECS,
   ENEMY_SPECS,
+  MAX_TOWER_LEVEL,
   getTowerBuildCost,
   getTowerUpgradeCost,
   getTowerRefund,
@@ -12,13 +13,22 @@ import {
   getDefenseWavePlan,
   getWaveClearSilver,
   getWaveClearSilverBonus,
-  SILVER_STARTER
+  SILVER_STARTER,
+  EnemyType
 } from '../lib/defense-balance';
+import {
+  generateDefenseMap,
+  getTileAtPixel,
+  DefenseMap,
+  TILE_SIZE
+} from '../lib/defense-map';
 import { setDefenseGameActive } from '../lib/defense-bridge';
 import { t } from '../lib/i18n';
 
 interface TowerPlot {
   id: number;
+  col: number;
+  row: number;
   x: number;
   y: number;
   tower: PlacedTower | null;
@@ -35,7 +45,7 @@ interface PlacedTower {
 
 interface Enemy {
   id: number;
-  type: 'scout' | 'runner' | 'warrior' | 'shaman' | 'shielder' | 'brute' | 'boss';
+  type: EnemyType;
   hp: number;
   maxHp: number;
   speed: number;
@@ -89,33 +99,12 @@ export function WaifuDefenseGame() {
   const [gameStatus, setGameStatus] = createSignal<'ready' | 'playing' | 'victory' | 'gameover'>('ready');
   const [ultimateCooldown, setUltimateCooldown] = createSignal(0);
   const [lastWaveReward, setLastWaveReward] = createSignal<WaveReward | null>(null);
-  const [bossBar, setBossBar] = createSignal<{ pct: number; wave: number } | null>(null);
+  const [bossBar, setBossBar] = createSignal<{ pct: number; wave: number; isMiniBoss: boolean } | null>(null);
 
-  // Fixed path coordinates (Canvas 800 x 480)
-  const WAYPOINTS = [
-    { x: 0, y: 240 },
-    { x: 170, y: 240 },
-    { x: 170, y: 110 },
-    { x: 380, y: 110 },
-    { x: 380, y: 370 },
-    { x: 570, y: 370 },
-    { x: 570, y: 240 },
-    { x: 740, y: 240 }
-  ];
+  // Procedural Map & Free-Placement Grid
+  let currentMap: DefenseMap = generateDefenseMap();
+  const placedTowers = new Map<number, TowerPlot>();
 
-  // Plots
-  const initialPlots: TowerPlot[] = [
-    { id: 1, x: 90, y: 160, tower: null },
-    { id: 2, x: 90, y: 320, tower: null },
-    { id: 3, x: 260, y: 180, tower: null },
-    { id: 4, x: 260, y: 50, tower: null },
-    { id: 5, x: 470, y: 180, tower: null },
-    { id: 6, x: 470, y: 440, tower: null },
-    { id: 7, x: 650, y: 160, tower: null },
-    { id: 8, x: 650, y: 320, tower: null }
-  ];
-
-  let plots: TowerPlot[] = [...initialPlots];
   let enemies: Enemy[] = [];
   let projectiles: Projectile[] = [];
   let particles: Particle[] = [];
@@ -221,7 +210,7 @@ export function WaifuDefenseGame() {
     setSilver(SILVER_STARTER);
   };
 
-  const hasAnyTower = () => plots.some(p => p.tower);
+  const hasAnyTower = () => placedTowers.size > 0;
 
   createEffect(() => {
     // Subscribe to plot selection so rebuilding towers refreshes progress state.
@@ -237,7 +226,7 @@ export function WaifuDefenseGame() {
     setBossBar(null);
     waveStartTime = Date.now();
 
-    // Deterministic plan shared with the server (boss waves every 10th wave).
+    // Deterministic plan shared with the server (boss waves every 10th wave, mini-boss on waves 5, 15, 25...).
     const plan = getDefenseWavePlan(curWave);
     const spacing = Math.max(450, 1000 - curWave * 25);
     spawnQueue = plan.spawns.map((type, i) => ({ type, delay: i * spacing }));
@@ -247,14 +236,15 @@ export function WaifuDefenseGame() {
   const spawnEnemy = (type: Enemy['type']) => {
     const curWave = wave();
     const spec = ENEMY_SPECS[type];
+    const firstWp = currentMap.waypoints[0] || { x: 0, y: 240 };
     enemies.push({
       id: nextEnemyId++,
       type,
       hp: getEnemyHp(type, curWave),
       maxHp: getEnemyHp(type, curWave),
       speed: spec.speed,
-      x: WAYPOINTS[0].x,
-      y: WAYPOINTS[0].y,
+      x: firstWp.x,
+      y: firstWp.y,
       pathIndex: 0,
       slowUntil: 0,
       silverValue: getEnemySilver(type, curWave)
@@ -302,7 +292,7 @@ export function WaifuDefenseGame() {
 
     setSilver(prev => prev - cost);
     pendingSpends.push(-cost);
-    plot.tower = {
+    const newTower: PlacedTower = {
       type,
       level: 1,
       lastShotTime: 0,
@@ -310,13 +300,23 @@ export function WaifuDefenseGame() {
       damage: spec.damage,
       cooldown: spec.cd
     };
+    const updatedPlot: TowerPlot = {
+      ...plot,
+      tower: newTower
+    };
+    placedTowers.set(plot.id, updatedPlot);
     createBurst(plot.x, plot.y, '#a0ffe6', 15);
-    setSelectedPlot({ ...plot });
+    setSelectedPlot({ ...updatedPlot, tower: { ...newTower } });
   };
 
   const upgradeTower = (plot: TowerPlot) => {
-    if (!plot.tower) return;
-    const upgradeCost = getTowerUpgradeCost(plot.tower.type, plot.tower.level);
+    const existing = placedTowers.get(plot.id);
+    if (!existing || !existing.tower) return;
+    if (existing.tower.level >= MAX_TOWER_LEVEL) {
+      showToast(t('defense.maxLevelReached', { level: MAX_TOWER_LEVEL }) || `Tower is already at max level ${MAX_TOWER_LEVEL}!`);
+      return;
+    }
+    const upgradeCost = getTowerUpgradeCost(existing.tower.type, existing.tower.level);
     if (silver() < upgradeCost) {
       showToast(t('defense.needSilverUpgrade', { cost: upgradeCost }));
       return;
@@ -324,32 +324,39 @@ export function WaifuDefenseGame() {
 
     setSilver(prev => prev - upgradeCost);
     pendingSpends.push(-upgradeCost);
-    // Immutable replacement so the inspector panel (and its displayed cost)
-    // re-renders with the new level/values.
-    plot.tower = {
-      ...plot.tower,
-      level: plot.tower.level + 1,
-      damage: Math.round(plot.tower.damage * 1.4),
-      range: Math.round(plot.tower.range * 1.15)
+    const nextLevel = existing.tower.level + 1;
+    const updatedTower: PlacedTower = {
+      ...existing.tower,
+      level: nextLevel,
+      damage: Math.round(existing.tower.damage * 1.4),
+      range: Math.round(existing.tower.range * 1.15)
     };
+    const updatedPlot: TowerPlot = {
+      ...existing,
+      tower: updatedTower
+    };
+    placedTowers.set(plot.id, updatedPlot);
     createBurst(plot.x, plot.y, '#ffd700', 20);
-    setSelectedPlot({ ...plot });
-    showToast(t('defense.upgradedToast', { name: t(`defense.towers.${plot.tower.type}`), level: plot.tower.level }));
+    // Direct refresh of selectedPlot ensures consecutive upgrades update immediately
+    setSelectedPlot({ ...updatedPlot, tower: { ...updatedTower } });
+    showToast(t('defense.upgradedToast', { name: t(`defense.towers.${updatedTower.type}`), level: nextLevel }));
   };
 
   const sellTower = (plot: TowerPlot) => {
-    if (!plot.tower) return;
-    const refund = getTowerRefund(plot.tower.type, plot.tower.level);
+    const existing = placedTowers.get(plot.id);
+    if (!existing || !existing.tower) return;
+    const refund = getTowerRefund(existing.tower.type, existing.tower.level);
     setSilver(prev => prev + refund);
     pendingSpends.push(refund);
-    plot.tower = null;
+    placedTowers.delete(plot.id);
     createBurst(plot.x, plot.y, '#aaa', 10);
-    setSelectedPlot({ ...plot });
+    setSelectedPlot(null);
     showToast(t('defense.soldToast', { refund }));
   };
 
   const resetGame = () => {
-    plots.forEach(p => (p.tower = null));
+    currentMap = generateDefenseMap();
+    placedTowers.clear();
     enemies = [];
     projectiles = [];
     particles = [];
@@ -396,7 +403,7 @@ export function WaifuDefenseGame() {
       // 2. Update Enemies Movement
       for (let i = enemies.length - 1; i >= 0; i--) {
         const enemy = enemies[i];
-        const nextWp = WAYPOINTS[enemy.pathIndex + 1];
+        const nextWp = currentMap.waypoints[enemy.pathIndex + 1];
 
         if (!nextWp) {
           // Reached Waifu Shrine!
@@ -410,7 +417,7 @@ export function WaifuDefenseGame() {
             }
             return next;
           });
-          createBurst(740, 240, '#ff4d4d', 20);
+          createBurst(currentMap.shrineLocation.x, currentMap.shrineLocation.y, '#ff4d4d', 20);
           playSfx('hit');
           enemies.splice(i, 1);
           continue;
@@ -433,7 +440,7 @@ export function WaifuDefenseGame() {
       }
 
       // 3. Update Towers Attack
-      plots.forEach(plot => {
+      placedTowers.forEach(plot => {
         if (!plot.tower) return;
         const t = plot.tower;
 
@@ -531,9 +538,13 @@ export function WaifuDefenseGame() {
         return true;
       });
 
-      // Boss health bar overlay (every 10th wave)
-      const boss = enemies.find(e => e.type === 'boss');
-      setBossBar(boss ? { pct: Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100)), wave: wave() } : null);
+      // Boss / Mini-boss health bar overlay
+      const boss = enemies.find(e => e.type === 'boss' || e.type === 'miniboss');
+      setBossBar(boss ? {
+        pct: Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100)),
+        wave: wave(),
+        isMiniBoss: boss.type === 'miniboss'
+      } : null);
 
       // 5. Check Wave Victory
       if (waveInProgress() && spawnQueue.length === 0 && enemies.length === 0 && waifuHp() > 0) {
@@ -615,13 +626,29 @@ export function WaifuDefenseGame() {
       ctx.fillStyle = '#181b2a';
       ctx.fillRect(0, 0, 800, 480);
 
-      // Draw Pathway
+      // Subtle grid background
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.035)';
+      ctx.lineWidth = 1;
+      for (let c = 0; c <= currentMap.cols; c++) {
+        ctx.beginPath();
+        ctx.moveTo(c * TILE_SIZE, 0);
+        ctx.lineTo(c * TILE_SIZE, 480);
+        ctx.stroke();
+      }
+      for (let r = 0; r <= currentMap.rows; r++) {
+        ctx.beginPath();
+        ctx.moveTo(0, r * TILE_SIZE);
+        ctx.lineTo(800, r * TILE_SIZE);
+        ctx.stroke();
+      }
+
+      // Draw Pathway outer border
       ctx.lineWidth = 42;
       ctx.strokeStyle = 'rgba(255, 180, 205, 0.18)';
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
-      WAYPOINTS.forEach((wp, idx) => {
+      currentMap.waypoints.forEach((wp, idx) => {
         if (idx === 0) ctx.moveTo(wp.x, wp.y);
         else ctx.lineTo(wp.x, wp.y);
       });
@@ -632,67 +659,103 @@ export function WaifuDefenseGame() {
       ctx.strokeStyle = 'rgba(255, 140, 180, 0.35)';
       ctx.stroke();
 
-      // Draw Plots
-      plots.forEach(plot => {
+      // Draw Obstacles (rocks, trees, lanterns)
+      for (let r = 0; r < currentMap.rows; r++) {
+        for (let c = 0; c < currentMap.cols; c++) {
+          const tile = currentMap.tiles[r][c];
+          if (tile.type === 'obstacle' && tile.obstacleIcon) {
+            ctx.font = '20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(tile.obstacleIcon, tile.x, tile.y);
+          }
+        }
+      }
+
+      // Draw Waifu Shrine Base (Vector Torii Shrine Gate)
+      drawToriiGate(ctx, currentMap.shrineLocation.x, currentMap.shrineLocation.y);
+
+      // Draw Placed Towers
+      placedTowers.forEach(plot => {
+        if (!plot.tower) return;
         const isSelected = selectedPlot()?.id === plot.id;
         ctx.beginPath();
-        ctx.arc(plot.x, plot.y, 22, 0, Math.PI * 2);
-        ctx.fillStyle = isSelected ? 'rgba(255, 105, 180, 0.4)' : 'rgba(255, 255, 255, 0.08)';
+        ctx.arc(plot.x, plot.y, 20, 0, Math.PI * 2);
+        ctx.fillStyle = isSelected ? 'rgba(255, 105, 180, 0.45)' : 'rgba(255, 255, 255, 0.12)';
         ctx.fill();
         ctx.lineWidth = isSelected ? 3 : 1.5;
-        ctx.strokeStyle = isSelected ? '#ff69b4' : 'rgba(255, 255, 255, 0.25)';
+        ctx.strokeStyle = isSelected ? '#ff69b4' : 'rgba(255, 255, 255, 0.3)';
         ctx.stroke();
 
-        if (plot.tower) {
-          const spec = TOWER_SPECS[plot.tower.type];
-          ctx.font = '20px serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(spec.icon, plot.x, plot.y);
+        const spec = TOWER_SPECS[plot.tower.type];
+        ctx.font = '20px serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(spec.icon, plot.x, plot.y);
 
-          // Tower Level badge
-          ctx.font = 'bold 10px sans-serif';
-          ctx.fillStyle = '#ffecb3';
-          ctx.fillText(`Lv${plot.tower.level}`, plot.x, plot.y + 16);
+        // Tower Level badge
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillStyle = '#ffecb3';
+        ctx.fillText(`Lv${plot.tower.level}`, plot.x, plot.y + 15);
 
-          // Draw range circle if selected
-          if (isSelected) {
-            ctx.beginPath();
-            ctx.arc(plot.x, plot.y, plot.tower.range, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255, 105, 180, 0.08)';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(255, 105, 180, 0.5)';
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([4, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-          }
-        } else {
-          ctx.font = '14px sans-serif';
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('+', plot.x, plot.y);
+        // Draw range circle if selected
+        if (isSelected) {
+          ctx.beginPath();
+          ctx.arc(plot.x, plot.y, plot.tower.range, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 105, 180, 0.08)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 105, 180, 0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
         }
       });
 
-      // Draw Waifu Shrine Base (End of path)
-      ctx.beginPath();
-      ctx.arc(740, 240, 36, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255, 182, 193, 0.3)';
-      ctx.fill();
-      ctx.strokeStyle = '#ff69b4';
-      ctx.lineWidth = 3;
-      ctx.stroke();
+      // If an empty tile is selected, draw placement preview
+      const sel = selectedPlot();
+      if (sel && !sel.tower) {
+        ctx.beginPath();
+        ctx.arc(sel.x, sel.y, 18, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 105, 180, 0.3)';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ff69b4';
+        ctx.stroke();
 
-      ctx.font = '32px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('⛩️', 740, 238);
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+', sel.x, sel.y);
+
+        // Preview build range
+        const previewSpec = TOWER_SPECS[selectedBuildType()];
+        ctx.beginPath();
+        ctx.arc(sel.x, sel.y, previewSpec.range, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 105, 180, 0.06)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 105, 180, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
 
       // Draw Enemies
       enemies.forEach(e => {
         const spec = ENEMY_SPECS[e.type];
+
+        // Pulsating aura for boss and mini-boss
+        if (e.type === 'miniboss' || e.type === 'boss') {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, spec.radius + 6 + Math.sin(now / 150) * 3, 0, Math.PI * 2);
+          ctx.strokeStyle = e.type === 'boss' ? 'rgba(255, 68, 68, 0.8)' : 'rgba(186, 104, 200, 0.8)';
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.restore();
+        }
 
         ctx.beginPath();
         ctx.arc(e.x, e.y, spec.radius, 0, Math.PI * 2);
@@ -703,7 +766,7 @@ export function WaifuDefenseGame() {
         ctx.stroke();
 
         // Icon
-        ctx.font = e.type === 'boss' ? '18px sans-serif' : '12px sans-serif';
+        ctx.font = (e.type === 'boss' || e.type === 'miniboss') ? '16px sans-serif' : '12px sans-serif';
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -749,7 +812,78 @@ export function WaifuDefenseGame() {
     });
   });
 
-  // Canvas Click Handler
+  // Vector Torii Gate rendering for Waifu Shrine base
+  function drawToriiGate(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    ctx.save();
+
+    // Glow under the shrine
+    const radGrad = ctx.createRadialGradient(x, y, 5, x, y, 40);
+    radGrad.addColorStop(0, 'rgba(255, 105, 180, 0.45)');
+    radGrad.addColorStop(0.7, 'rgba(255, 182, 193, 0.15)');
+    radGrad.addColorStop(1, 'rgba(255, 182, 193, 0)');
+    ctx.fillStyle = radGrad;
+    ctx.beginPath();
+    ctx.arc(x, y, 40, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Shrine circle base
+    ctx.beginPath();
+    ctx.arc(x, y, 28, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(30, 20, 35, 0.85)';
+    ctx.fill();
+    ctx.strokeStyle = '#ff69b4';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Vector Torii Gate
+    const w = 36;
+    const h = 32;
+    const topY = y - h / 2;
+    const botY = y + h / 2 - 2;
+
+    // Vertical Pillars
+    ctx.fillStyle = '#e53935';
+    ctx.fillRect(x - w / 2 + 5, topY + 4, 4, h - 6);
+    ctx.fillRect(x + w / 2 - 9, topY + 4, 4, h - 6);
+
+    // Bases
+    ctx.fillStyle = '#212121';
+    ctx.fillRect(x - w / 2 + 4, botY - 3, 6, 3);
+    ctx.fillRect(x + w / 2 - 10, botY - 3, 6, 3);
+
+    // Lower crossbar
+    ctx.fillStyle = '#c62828';
+    ctx.fillRect(x - w / 2 + 2, topY + 11, w - 4, 3);
+
+    // Center vertical strut
+    ctx.fillStyle = '#212121';
+    ctx.fillRect(x - 2, topY + 5, 4, 6);
+
+    // Top main curved lintel
+    ctx.fillStyle = '#b71c1c';
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2 - 3, topY + 3);
+    ctx.quadraticCurveTo(x, topY, x + w / 2 + 3, topY + 3);
+    ctx.lineTo(x + w / 2 + 4, topY - 2);
+    ctx.quadraticCurveTo(x, topY - 5, x - w / 2 - 4, topY - 2);
+    ctx.closePath();
+    ctx.fill();
+
+    // Top black caps
+    ctx.fillStyle = '#212121';
+    ctx.fillRect(x - w / 2 - 2, topY - 3, 4, 3);
+    ctx.fillRect(x + w / 2 - 2, topY - 3, 4, 3);
+
+    // Center glowing spiritual jewel
+    ctx.beginPath();
+    ctx.arc(x, y + 3, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffd54f';
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Canvas Click Handler: supports free placement across the entire grid
   const handleCanvasClick = (e: MouseEvent) => {
     if (!canvasRef) return;
     const rect = canvasRef.getBoundingClientRect();
@@ -758,13 +892,53 @@ export function WaifuDefenseGame() {
     const clickX = (e.clientX - rect.left) * scaleX;
     const clickY = (e.clientY - rect.top) * scaleY;
 
-    // Check if clicked a plot
-    const clickedPlot = plots.find(p => Math.hypot(p.x - clickX, p.y - clickY) <= 26);
-    if (clickedPlot) {
-      setSelectedPlot(clickedPlot);
-    } else {
-      setSelectedPlot(null);
+    // 1. Check if an existing placed tower was clicked
+    let clickedTowerPlot: TowerPlot | null = null;
+    placedTowers.forEach(plot => {
+      if (Math.hypot(plot.x - clickX, plot.y - clickY) <= 24) {
+        clickedTowerPlot = plot;
+      }
+    });
+
+    if (clickedTowerPlot) {
+      setSelectedPlot({ ...(clickedTowerPlot as TowerPlot) });
+      return;
     }
+
+    // 2. Check grid tile
+    const tile = getTileAtPixel(currentMap, clickX, clickY);
+    if (!tile) {
+      setSelectedPlot(null);
+      return;
+    }
+
+    if (tile.type === 'road') {
+      showToast(t('defense.blockedRoad'));
+      setSelectedPlot(null);
+      return;
+    }
+
+    if (tile.type === 'obstacle') {
+      showToast(t('defense.blockedObstacle'));
+      setSelectedPlot(null);
+      return;
+    }
+
+    if (tile.type === 'shrine') {
+      showToast(`${state.waifu?.name || 'Waifu'} Sanctuary 🌸`);
+      setSelectedPlot(null);
+      return;
+    }
+
+    // 3. Valid empty tile selected for building!
+    setSelectedPlot({
+      id: tile.id,
+      col: tile.col,
+      row: tile.row,
+      x: tile.x,
+      y: tile.y,
+      tower: null
+    });
   };
 
   return (
@@ -824,12 +998,20 @@ export function WaifuDefenseGame() {
           onClick={handleCanvasClick}
         />
 
-        {/* BOSS HEALTH BAR (every 10th wave) */}
+        {/* BOSS / MINI-BOSS HEALTH BAR */}
         <Show when={bossBar() && waveInProgress()}>
           <div class="boss-bar-overlay" data-testid="boss-bar">
-            <div class="boss-bar-label">👹 {t('defense.boss')} — {t('defense.wave')} {bossBar()!.wave}</div>
+            <div class="boss-bar-label">
+              {bossBar()!.isMiniBoss ? `🦹 ${t('defense.miniboss') || 'MINI-BOSS'}` : `👹 ${t('defense.boss')}`} — {t('defense.wave')} {bossBar()!.wave}
+            </div>
             <div class="boss-bar-track">
-              <div class="boss-bar-fill" style={{ width: `${bossBar()!.pct}%` }}></div>
+              <div
+                class="boss-bar-fill"
+                style={{
+                  width: `${bossBar()!.pct}%`,
+                  background: bossBar()!.isMiniBoss ? 'linear-gradient(90deg, #ab47bc, #e040fb)' : undefined
+                }}
+              ></div>
             </div>
           </div>
         </Show>
@@ -889,7 +1071,15 @@ export function WaifuDefenseGame() {
                           data-testid={`btn-build-${typeKey}`}
                           onClick={() => buildTowerOnPlot(plot(), typeKey as any)}
                         >
-                          <span class="tower-icon">{spec.icon}</span>
+                          <span class="tower-icon">
+                            <Show when={typeKey === 'sanctuary'} fallback={spec.icon}>
+                              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2L15 8H9L12 2Z" fill="#ff77aa" stroke="#ff4081" />
+                                <circle cx="12" cy="14" r="5" fill="#ffb6c1" stroke="#ff69b4" />
+                                <path d="M6 21h12" stroke="#ff4081" stroke-linecap="round" />
+                              </svg>
+                            </Show>
+                          </span>
                           <div class="tower-meta">
                             <div class="tower-header-row">
                               <strong>{t(`defense.towers.${typeKey}`)}</strong>
@@ -910,7 +1100,15 @@ export function WaifuDefenseGame() {
                 {tower => (
                   <div class="tower-upgrade-panel" data-testid="tower-upgrade-panel">
                     <div class="tower-current-info">
-                      <span class="panel-icon">{TOWER_SPECS[tower().type].icon}</span>
+                      <span class="panel-icon">
+                        <Show when={tower().type === 'sanctuary'} fallback={TOWER_SPECS[tower().type].icon}>
+                          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L15 8H9L12 2Z" fill="#ff77aa" stroke="#ff4081" />
+                            <circle cx="12" cy="14" r="5" fill="#ffb6c1" stroke="#ff69b4" />
+                            <path d="M6 21h12" stroke="#ff4081" stroke-linecap="round" />
+                          </svg>
+                        </Show>
+                      </span>
                       <div class="panel-details">
                         <h4>
                           {t(`defense.towers.${tower().type}`)} (Level {tower().level})
@@ -925,9 +1123,12 @@ export function WaifuDefenseGame() {
                     <div class="tower-action-btns">
                       <button
                         class="btn-upgrade"
+                        disabled={tower().level >= MAX_TOWER_LEVEL}
                         onClick={() => upgradeTower(plot())}
                       >
-                        🥈 {t('defense.upgrade', { level: tower().level + 1, cost: getTowerUpgradeCost(tower().type, tower().level) })}
+                        {tower().level >= MAX_TOWER_LEVEL
+                          ? (t('defense.maxLevel', { level: MAX_TOWER_LEVEL }) || `⭐ Max Level (Lv ${MAX_TOWER_LEVEL})`)
+                          : `🥈 ${t('defense.upgrade', { level: tower().level + 1, cost: getTowerUpgradeCost(tower().type, tower().level) })}`}
                       </button>
                       <button
                         class="btn-sell"

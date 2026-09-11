@@ -1,5 +1,5 @@
 import { createSignal, onMount, onCleanup, createEffect, Suspense, Show } from 'solid-js';
-import { Router, A } from '@solidjs/router';
+import { Router, A, useNavigate } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
 import {
   state,
@@ -11,6 +11,7 @@ import {
   isLeaderboardOpen,
   closeLeaderboard
 } from './lib/store';
+import { defenseGameActive, setDefenseGameActive } from './lib/defense-bridge';
 import { t } from './lib/i18n';
 import { WallpaperBackground } from './components/WallpaperBackground';
 import { SakuraCanvas } from './components/SakuraCanvas';
@@ -27,11 +28,37 @@ import './styles/settings.css';
 import './styles/rpg.css';
 
 function AppLayout(props: { children: any }) {
+  const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = createSignal(false);
+  const [pendingNavHref, setPendingNavHref] = createSignal<string | null>(null);
   let deadlineInterval: any = null;
+
+  const handleNavClick = (e: MouseEvent, href: string) => {
+    if (defenseGameActive()) {
+      e.preventDefault();
+      setPendingNavHref(href);
+    }
+  };
+
+  const confirmLeaveDefense = () => {
+    const href = pendingNavHref();
+    if (href) {
+      setDefenseGameActive(false);
+      setPendingNavHref(null);
+      navigate(href);
+    }
+  };
 
   onMount(() => {
     loadState();
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (defenseGameActive()) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
     // Restore cloud progress for a returning user with a saved session
     if (state.user?.token) {
@@ -68,6 +95,7 @@ function AppLayout(props: { children: any }) {
 
     onCleanup(() => {
       clearInterval(deadlineInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     });
   });
 
@@ -91,7 +119,7 @@ function AppLayout(props: { children: any }) {
 
       {/* TOP NAVIGATION BAR */}
       <header class="app-header">
-        <A href="/" class="app-brand">
+        <A href="/" class="app-brand" onClick={e => handleNavClick(e, '/')}>
           <span class="brand-icon">🌸</span>
           <span class="brand-name">WaifuSpace</span>
           <span class="brand-tag">v2.0.0</span>
@@ -99,15 +127,15 @@ function AppLayout(props: { children: any }) {
 
         {/* PRIMARY TABS */}
         <nav class="nav-tabs">
-          <A href="/calendar" class="nav-tab-btn" activeClass="active">
+          <A href="/calendar" class="nav-tab-btn" activeClass="active" onClick={e => handleNavClick(e, '/calendar')}>
             <span>📅</span>
             <span>{t('nav.calendar')}</span>
           </A>
-          <A href="/minigames" class="nav-tab-btn" activeClass="active">
+          <A href="/minigames" class="nav-tab-btn" activeClass="active" onClick={e => handleNavClick(e, '/minigames')}>
             <span>🎮</span>
             <span>{t('nav.minigames')}</span>
           </A>
-          <A href="/profile" class="nav-tab-btn" activeClass="active">
+          <A href="/profile" class="nav-tab-btn" activeClass="active" onClick={e => handleNavClick(e, '/profile')}>
             <span>👤</span>
             <span>{t('nav.profile')}</span>
           </A>
@@ -115,7 +143,7 @@ function AppLayout(props: { children: any }) {
 
         {/* RIGHT HEADER META */}
         <div class="header-right">
-          <A href="/minigames" class="header-coin-pill" title={t('nav.coinTooltip')}>
+          <A href="/minigames" class="header-coin-pill" title={t('nav.coinTooltip')} onClick={e => handleNavClick(e, '/minigames')}>
             <span>🪙</span>
             <span>{state.rpg ? state.rpg.coins : 0}</span>
           </A>
@@ -131,7 +159,7 @@ function AppLayout(props: { children: any }) {
             </button>
           }>
             <div class="user-profile-badge">
-              <A href="/profile" class="user-badge-link" title={state.user?.username}>
+              <A href="/profile" class="user-badge-link" title={state.user?.username} onClick={e => handleNavClick(e, '/profile')}>
                 <span class="user-avatar-tiny">🌸</span>
                 <span class="user-badge-name">{state.user?.username}</span>
               </A>
@@ -166,6 +194,24 @@ function AppLayout(props: { children: any }) {
         isOpen={isLeaderboardOpen()}
         onClose={closeLeaderboard}
       />
+
+      {/* DEFENSE NAVIGATION LEAVE MODAL */}
+      <Show when={pendingNavHref()}>
+        <div class="defense-leave-overlay" data-testid="global-defense-leave-modal">
+          <div class="defense-leave-modal">
+            <h3>⚠️ {t('defense.confirmLeaveTitle')}</h3>
+            <p>{t('defense.confirmLeaveDesc')}</p>
+            <div class="defense-leave-actions">
+              <button class="btn-stay" onClick={() => setPendingNavHref(null)}>
+                🎮 {t('defense.stayInGame')}
+              </button>
+              <button class="btn-leave" onClick={confirmLeaveDefense}>
+                🏃 {t('defense.leaveAnyway')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       {/* GLOBAL TOAST NOTIFICATION */}
       <ToastNotification />
