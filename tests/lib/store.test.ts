@@ -297,7 +297,8 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.coins).toBe(DEFAULT_RPG.coins);
       expect(isCosmeticUnlocked('armor')).toBe(false);
       expect(state.rpg.defenseHighWave).toBe(0);
-      expect(state.calendar.events).toEqual(DEFAULT_STATE.calendar.events);
+      // New accounts start with an empty calendar - no demo events/tasks.
+      expect(state.calendar.events).toEqual([]);
     });
 
     it('keeps a newly registered account at starter values after loading cloud progress', async () => {

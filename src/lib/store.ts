@@ -948,7 +948,12 @@ export function setUserAccount(user: UserAccount | null) {
  * `setUserAccount` afterwards to attach the new profile.
  */
 export function resetAccountProgress() {
-  setState(JSON.parse(JSON.stringify(DEFAULT_STATE)) as AppState);
+  // Start a brand-new account with a clean slate: keep the shared defaults for
+  // the companion, RPG economy, and settings, but never seed demo events/tasks
+  // into a real user's calendar.
+  const fresh = JSON.parse(JSON.stringify(DEFAULT_STATE)) as AppState;
+  fresh.calendar.events = [];
+  setState(fresh);
   saveState();
 }
 
