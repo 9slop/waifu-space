@@ -406,7 +406,8 @@
       "expressionPreviewDesc": "Test reactive expressions",
       "customSpriteUpdated": "Custom sprite updated!",
       "lockedOutfitToast": "🔒 This outfit is locked! Unlock it from a Lootbox or Affection Road.",
-      "lockedAccessoryToast": "🔒 This accessory is locked! Unlock it from a Lootbox or Affection Road."
+      "lockedAccessoryToast": "🔒 This accessory is locked! Unlock it from a Lootbox or Affection Road.",
+      "lockedHairstyleToast": "🔒 This hairstyle is locked! Unlock it from a Lootbox or Affection Road."
     },
     "wallpapers": {
       "title": "Japanese Aesthetic Wallpapers",

@@ -406,7 +406,8 @@
       "expressionPreviewDesc": "感情リアクションの表情テスト",
       "customSpriteUpdated": "カスタム画像を更新しました！",
       "lockedOutfitToast": "🔒 この衣装はロックされています！宝箱や親密度で解放してください。",
-      "lockedAccessoryToast": "🔒 このアクセサリーはロックされています！宝箱や親密度で解放してください。"
+      "lockedAccessoryToast": "🔒 このアクセサリーはロックされています！宝箱や親密度で解放してください。",
+      "lockedHairstyleToast": "🔒 このヘアスタイルはロックされています！宝箱や親密度で解放してください。"
     },
     "wallpapers": {
       "title": "和風・アニメ壁紙",
