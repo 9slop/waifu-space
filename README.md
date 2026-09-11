@@ -4,6 +4,18 @@
 
 ---
 
+## 🎨 100% Human-Crafted (No AI in Development)
+
+Every line of code, SVG path, CSS animation, dialogue tree, and UI element in **WaifuSpace** was designed and implemented by human hands from scratch.
+
+* **No AI Code Generation**: Zero code was produced by automated AI code assistants, copilot tools, or LLM scrapers.
+* **Handmade Vector Art**: All SVG character layers, expressions, hairstyles, and outfits in `WaifuAvatar.tsx` are manually calculated and styled.
+* **Bespoke Writing**: Archetype lines and situational triggers are authored directly by human writers.
+
+*(Note: While development is 100% human, the app contains an **optional runtime client hook** in `/settings` if end users choose to plug in their own LLM API key for endless chat variations).*
+
+---
+
 ## ⚡ Quick Start with Bun
 
 ### Prerequisites
