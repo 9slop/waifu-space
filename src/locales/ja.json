@@ -259,12 +259,14 @@
       "allItems": "全アイテム",
       "outfits": "衣装",
       "accessories": "アクセサリー",
+      "hairstyles": "ヘアスタイル",
       "equipped": "装備中 ✨",
       "equip": "装備",
       "locked": "ロック中",
       "livePreview": "リアルタイムプレビュー",
       "outfitLabel": "衣装:",
-      "accessoryLabel": "アクセサリー:"
+      "accessoryLabel": "アクセサリー:",
+      "hairstyleLabel": "ヘアスタイル:"
     },
     "inventory": {
       "title": "所持品・衣装インベントリ ({count})",
@@ -283,6 +285,7 @@
       "lockedItem": "このアイテムはロックされています！宝箱や親密度報酬で解放しましょう。",
       "equippedOutfit": "衣装「{name}」を装備しました！✨",
       "equippedAccessory": "アクセ「{name}」を装備しました！✨",
+      "equippedHairstyle": "ヘア「{name}」を装備しました！✨",
       "claimedReward": "親密度Lv. {level}達成！{label}を受け取りました！",
       "unlockedReward": "親密度Lv. {level}達成！{label}を解放しました！"
     }

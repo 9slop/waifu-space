@@ -259,12 +259,14 @@
       "allItems": "All Items",
       "outfits": "Outfits",
       "accessories": "Accessories",
+      "hairstyles": "Hairstyles",
       "equipped": "Equipped ✨",
       "equip": "Equip",
       "locked": "Locked",
       "livePreview": "Live Preview",
       "outfitLabel": "Outfit:",
-      "accessoryLabel": "Accessory:"
+      "accessoryLabel": "Accessory:",
+      "hairstyleLabel": "Hairstyle:"
     },
     "inventory": {
       "title": "Cosmetics Inventory ({count})",
@@ -283,6 +285,7 @@
       "lockedItem": "This item is locked! Unlock it via Lootboxes or Affection milestones.",
       "equippedOutfit": "Equipped outfit: {name}! ✨",
       "equippedAccessory": "Equipped accessory: {name}! ✨",
+      "equippedHairstyle": "Equipped hairstyle: {name}! ✨",
       "claimedReward": "Claimed {label} for reaching Affection Lv. {level}!",
       "unlockedReward": "Unlocked {label} for reaching Affection Lv. {level}!"
     }

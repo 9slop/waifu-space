@@ -187,6 +187,38 @@ export function WaifuAvatar() {
                   />
                 </>
               )}
+              {hairstyle() === 'space_bun' && (
+                <>
+                  <circle cx="140" cy="95" r="32" fill={`url(#${pfx}_hairGrad)`} />
+                  <circle cx="260" cy="95" r="32" fill={`url(#${pfx}_hairGrad)`} />
+                  <path d="M 150,95 C 130,95 110,120 115,160 C 120,120 125,105 150,95 Z" fill={`url(#${pfx}_hairGrad)`} />
+                  <path d="M 250,95 C 270,95 290,120 285,160 C 280,120 275,105 250,95 Z" fill={`url(#${pfx}_hairGrad)`} />
+                  <path d="M 140,103 C 128,70 152,60 160,75 C 168,85 158,100 148,102 Z" fill="#00d2d3" opacity="0.85" />
+                  <path d="M 260,103 C 272,70 248,60 240,75 C 232,85 242,100 252,102 Z" fill="#00d2d3" opacity="0.85" />
+                  <path d="M 130,120 C 118,140 118,170 120,200 C 128,170 126,140 135,120 Z" fill={`url(#${pfx}_hairGrad)`} />
+                  <path d="M 270,120 C 282,140 282,170 280,200 C 272,170 274,140 265,120 Z" fill={`url(#${pfx}_hairGrad)`} />
+                </>
+              )}
+              {hairstyle() === 'celestial_wave' && (
+                <>
+                  <path
+                    d="M 118,150 C 80,200 70,300 60,400 C 50,480 60,540 100,540 C 130,540 130,480 135,420 C 138,360 120,280 130,210 Z"
+                    fill={`url(#${pfx}_hairGrad)`}
+                  />
+                  <path
+                    d="M 282,150 C 320,200 330,300 340,400 C 350,480 340,540 300,540 C 270,540 270,480 265,420 C 262,360 280,280 270,210 Z"
+                    fill={`url(#${pfx}_hairGrad)`}
+                  />
+                  <path d="M 60,400 C 95,430 120,420 135,420 C 100,380 90,320 100,260 C 85,320 70,370 60,400 Z" fill={shadeColor(hairColor(), -22)} />
+                  <path d="M 340,400 C 305,430 280,420 265,420 C 300,380 310,320 300,260 C 315,320 330,370 340,400 Z" fill={shadeColor(hairColor(), -22)} />
+                  <circle cx="90" cy="330" r="3" fill="#ffffff" opacity="0.85" />
+                  <circle cx="310" cy="330" r="3" fill="#ffffff" opacity="0.85" />
+                  <circle cx="75" cy="400" r="2.5" fill="#00dfd8" opacity="0.9" />
+                  <circle cx="330" cy="400" r="2.5" fill="#00dfd8" opacity="0.9" />
+                  <circle cx="95" cy="470" r="2" fill="#ff007f" opacity="0.85" />
+                  <circle cx="305" cy="470" r="2" fill="#ff007f" opacity="0.85" />
+                </>
+              )}
             </g>
 
             {/* 2. BODY BASE */}
@@ -322,6 +354,23 @@ export function WaifuAvatar() {
                   <polygon points="160,295 240,295 248,420 200,450 152,420" fill="#dfe4ea" stroke="#747d8c" stroke-width="2" />
                   <polygon points="180,310 220,310 226,380 200,400 174,380" fill="#a4b0be" />
                   <circle cx="200" cy="340" r="8" fill="#f1c40f" stroke="#e67e22" stroke-width="1.5" />
+                </>
+              )}
+              {outfit() === 'celestial_dress' && (
+                <>
+                  <ellipse cx="116" cy="335" rx="28" ry="24" fill="#2c0b4d" />
+                  <ellipse cx="284" cy="335" rx="28" ry="24" fill="#2c0b4d" />
+                  <path d="M 135,295 L 265,295 L 285,520 L 115,520 Z" fill="#1a0b2e" />
+                  <path d="M 160,295 L 240,295 L 252,520 L 148,520 Z" fill="#2c1a5e" />
+                  <path d="M 135,295 C 120,380 100,445 85,520 L 125,520 C 138,445 150,380 155,295 Z" fill="#1a0b2e" />
+                  <path d="M 265,295 C 280,380 300,445 315,520 L 275,520 C 262,445 250,380 245,295 Z" fill="#1a0b2e" />
+                  <path d="M 153,370 Q 200,400 247,370 Q 235,470 200,490 Q 165,470 153,370 Z" fill="#00dfd8" opacity="0.35" />
+                  <circle cx="200" cy="310" r="4" fill="#f1c40f" />
+                  <circle cx="150" cy="400" r="3" fill="#ff007f" />
+                  <circle cx="250" cy="400" r="3" fill="#ff007f" />
+                  <circle cx="180" cy="460" r="2.5" fill="#00dfd8" />
+                  <circle cx="220" cy="470" r="2.5" fill="#f1c40f" />
+                  <circle cx="200" cy="430" r="3" fill="#ffffff" opacity="0.9" />
                 </>
               )}
             </g>

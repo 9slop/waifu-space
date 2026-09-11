@@ -37,6 +37,7 @@ export const COSMETIC_CATALOG: RpgCosmeticItem[] = [
   { id: 'miko', name: 'Shrine Maiden (Miko)', category: 'outfit', rarity: 'epic', description: 'Sacred red hakama and white robe blessed by shrine spirits.', icon: '⛩️' },
   { id: 'magical', name: 'Magical Girl', category: 'outfit', rarity: 'legendary', description: 'Sparkling cosmic dress imbued with pure starlight.', icon: '✨' },
   { id: 'armor', name: 'Guardian Knight Armor', category: 'outfit', rarity: 'legendary', description: 'Polished silver breastplate & pauldrons forged for battle.', icon: '🛡️' },
+  { id: 'celestial_dress', name: 'Celestial Gown', category: 'outfit', rarity: 'mystical', description: 'Transcendent flowing gown forged from living stardust.', icon: '🌌' },
 
   // Accessories
   { id: 'none', name: 'None', category: 'accessory', rarity: 'common', description: 'No accessory equipped.', icon: '✖️' },
@@ -59,7 +60,9 @@ export const COSMETIC_CATALOG: RpgCosmeticItem[] = [
   { id: 'long', name: 'Long Straight', category: 'hairstyle', rarity: 'common', description: 'Flowing silky hair reaching down past her shoulders.', icon: '💇‍♀️' },
   { id: 'short_bob', name: 'Short Bob', category: 'hairstyle', rarity: 'rare', description: 'Cute, sporty chin-length bob cut.', icon: '💁‍♀️' },
   { id: 'ponytail', name: 'High Ponytail', category: 'hairstyle', rarity: 'rare', description: 'Energetic ponytail fastened with a ribbon.', icon: '👱‍♀️' },
-  { id: 'wavy', name: 'Wavy Curls', category: 'hairstyle', rarity: 'epic', description: 'Romantic flowing waves with gentle volume.', icon: '👩‍🦱' }
+  { id: 'wavy', name: 'Wavy Curls', category: 'hairstyle', rarity: 'epic', description: 'Romantic flowing waves with gentle volume.', icon: '👩‍🦱' },
+  { id: 'space_bun', name: 'Space Buns', category: 'hairstyle', rarity: 'legendary', description: 'Adorable twin buns with holographic shimmer ribbons.', icon: '🪐' },
+  { id: 'celestial_wave', name: 'Celestial Waves', category: 'hairstyle', rarity: 'mystical', description: 'Infinity-length cosmic hair woven from nebula and starlight.', icon: '🌌' },
 ];
 
 export interface AffectionMilestone {
