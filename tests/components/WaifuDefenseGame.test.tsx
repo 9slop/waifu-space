@@ -102,4 +102,25 @@ describe('Tower Defense Tower Role Tags (Issue #15)', () => {
     expect(roleTag).toHaveTextContent('Support');
     expect(roleTag).toHaveClass('role-support');
   });
+
+  it('refreshes the upgrade button cost after upgrading a tower (Issue: stale cost)', () => {
+    const { container } = render(() => <WaifuDefenseGame />);
+    const canvas = container.querySelector('canvas') as HTMLCanvasElement;
+
+    // Select Plot #1 and build an Archer (base cost 50, upgrade Lv1->2 = 60)
+    selectPlot(canvas, 90, 160);
+    const archerBtn = screen.getByTestId('btn-build-archer');
+    fireEvent.click(archerBtn);
+
+    const upgradeBtn = container.querySelector('.btn-upgrade') as HTMLButtonElement;
+    expect(upgradeBtn).toBeInTheDocument();
+    expect(upgradeBtn.textContent).toContain('Lv2');
+    expect(upgradeBtn.textContent).toContain('60');
+
+    // After upgrading, the displayed cost must jump to the Lv2->3 price (120),
+    // proving the panel re-rendered with the new tower state.
+    fireEvent.click(upgradeBtn);
+    expect(upgradeBtn.textContent).toContain('Lv3');
+    expect(upgradeBtn.textContent).toContain('120');
+  });
 });

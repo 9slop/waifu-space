@@ -72,6 +72,31 @@ export function getDefenseExpReward(wave: number): number {
   return DEFENSE_REWARDS.expBase + wave * DEFENSE_REWARDS.expPerWave;
 }
 
+export function getBondExpNeeded(level: number): number {
+  return Math.max(1, Math.floor(level || 1)) * 60;
+}
+
+/**
+ * Adds bond XP and rolls any level-ups using the standard growth formula
+ * (level * 60 per level). Mirrors the client's gainBondExp logic so the server
+ * can keep bond_ref/level authoritative without rendering a waifu.
+ */
+export function computeBondProgression(
+  currentExp: number,
+  currentLevel: number,
+  amount: number
+): { bondExp: number; bondLevel: number } {
+  let exp = Math.max(0, Math.floor(currentExp || 0)) + Math.max(0, Math.floor(amount));
+  let level = Math.max(1, Math.floor(currentLevel || 1));
+  let needed = getBondExpNeeded(level);
+  while (exp >= needed) {
+    exp -= needed;
+    level += 1;
+    needed = getBondExpNeeded(level);
+  }
+  return { bondExp: exp, bondLevel: level };
+}
+
 // ─── Global guards ────────────────────────────────────────────────────────────
 
 export const MAX_COINS = 100_000_000;

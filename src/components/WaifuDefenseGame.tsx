@@ -1,6 +1,20 @@
-import { createSignal, onMount, onCleanup, Show, For } from 'solid-js';
+import { createSignal, createEffect, onMount, onCleanup, Show, For } from 'solid-js';
 import { state, recordDefenseWaveVictory, showToast } from '../lib/store';
 import { getDefenseCoinsReward, getDefenseExpReward } from '../lib/economy';
+import {
+  TOWER_SPECS,
+  ENEMY_SPECS,
+  getTowerBuildCost,
+  getTowerUpgradeCost,
+  getTowerRefund,
+  getEnemyHp,
+  getEnemySilver,
+  getDefenseWavePlan,
+  getWaveClearSilver,
+  getWaveClearSilverBonus,
+  SILVER_STARTER
+} from '../lib/defense-balance';
+import { setDefenseGameActive } from '../lib/defense-bridge';
 import { t } from '../lib/i18n';
 
 interface TowerPlot {
@@ -21,7 +35,7 @@ interface PlacedTower {
 
 interface Enemy {
   id: number;
-  type: 'scout' | 'warrior' | 'shaman' | 'brute' | 'boss';
+  type: 'scout' | 'runner' | 'warrior' | 'shaman' | 'shielder' | 'brute' | 'boss';
   hp: number;
   maxHp: number;
   speed: number;
@@ -29,7 +43,7 @@ interface Enemy {
   y: number;
   pathIndex: number;
   slowUntil: number;
-  goldValue: number;
+  silverValue: number;
 }
 
 interface Projectile {
@@ -55,6 +69,12 @@ interface Particle {
   life: number;
 }
 
+interface WaveReward {
+  coins: number;
+  exp: number;
+  silverEarned: number;
+}
+
 export function WaifuDefenseGame() {
   let canvasRef: HTMLCanvasElement | undefined;
   let animFrameId: number;
@@ -62,30 +82,14 @@ export function WaifuDefenseGame() {
   // Game signals
   const [wave, setWave] = createSignal(1);
   const [waveInProgress, setWaveInProgress] = createSignal(false);
-  const [energy, setEnergy] = createSignal(120);
+  const [silver, setSilver] = createSignal(SILVER_STARTER);
   const [waifuHp, setWaifuHp] = createSignal(100);
   const [selectedPlot, setSelectedPlot] = createSignal<TowerPlot | null>(null);
   const [selectedBuildType, setSelectedBuildType] = createSignal<'archer' | 'frost' | 'thunder' | 'sanctuary'>('archer');
   const [gameStatus, setGameStatus] = createSignal<'ready' | 'playing' | 'victory' | 'gameover'>('ready');
   const [ultimateCooldown, setUltimateCooldown] = createSignal(0);
-  const [lastWaveReward, setLastWaveReward] = createSignal<{ coins: number; exp: number } | null>(null);
-
-  // Tower configs
-  const TOWER_SPECS: Record<'archer' | 'frost' | 'thunder' | 'sanctuary', {
-    name: string;
-    cost: number;
-    icon: string;
-    range: number;
-    damage: number;
-    cd: number;
-    desc: string;
-    role: 'attack' | 'support';
-  }> = {
-    archer: { name: 'Sakura Archer', cost: 45, icon: '🏹', range: 130, damage: 20, cd: 650, desc: 'Rapid single target arrows', role: 'attack' },
-    frost: { name: 'Frost Shrine', cost: 65, icon: '❄️', range: 110, damage: 10, cd: 1100, desc: 'AOE slow + frost spikes', role: 'attack' },
-    thunder: { name: 'Thunder Ward', cost: 95, icon: '⚡', range: 145, damage: 50, cd: 1400, desc: 'High-voltage lightning strike', role: 'attack' },
-    sanctuary: { name: 'Spirit Beacon', cost: 75, icon: '🌸', range: 100, damage: 5, cd: 2000, desc: 'Empowers towers & heals Waifu', role: 'support' }
-  };
+  const [lastWaveReward, setLastWaveReward] = createSignal<WaveReward | null>(null);
+  const [bossBar, setBossBar] = createSignal<{ pct: number; wave: number } | null>(null);
 
   // Fixed path coordinates (Canvas 800 x 480)
   const WAYPOINTS = [
@@ -117,10 +121,13 @@ export function WaifuDefenseGame() {
   let particles: Particle[] = [];
   let spawnQueue: { type: Enemy['type']; delay: number }[] = [];
   let nextSpawnTime = 0;
-  let lastEnergyTick = Date.now();
   let nextProjId = 1;
   let nextEnemyId = 1;
   let waveStartTime = 0;
+
+  // Server-authoritative silver ledger. Spends (signed deltas) are buffered and
+  // flushed to the server on each wave clear so the balance cannot be faked.
+  let pendingSpends: number[] = [];
 
   // Sound effects generator via Web Audio API
   const playSfx = (type: 'shoot' | 'hit' | 'nova' | 'victory' | 'lose') => {
@@ -189,68 +196,73 @@ export function WaifuDefenseGame() {
     }
   };
 
+  // Server-authoritative game session. A fresh game resets silver to the
+  // starter amount on the server (never passively regenerated).
+  const ensureSession = async () => {
+    try {
+      const token = localStorage.getItem('ws_auth_token');
+      const res = await fetch('/api/defense/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && typeof data.silver === 'number') {
+          setSilver(data.silver);
+          return;
+        }
+      }
+    } catch {
+      // server offline -> plain local starter silver
+    }
+    setSilver(SILVER_STARTER);
+  };
+
+  const hasAnyTower = () => plots.some(p => p.tower);
+
+  createEffect(() => {
+    // Subscribe to plot selection so rebuilding towers refreshes progress state.
+    selectedPlot();
+    setDefenseGameActive(gameStatus() === 'playing' || gameStatus() === 'victory' || hasAnyTower());
+  });
+
   const startWave = () => {
     const curWave = wave();
     setWaveInProgress(true);
     setGameStatus('playing');
     setLastWaveReward(null);
+    setBossBar(null);
     waveStartTime = Date.now();
 
-    // Build spawn queue based on wave level
-    spawnQueue = [];
-    const count = 5 + curWave * 3;
-    for (let i = 0; i < count; i++) {
-      let type: Enemy['type'] = 'scout';
-      if (curWave >= 2 && i % 3 === 0) type = 'warrior';
-      if (curWave >= 3 && i % 5 === 0) type = 'shaman';
-      if (curWave >= 4 && i % 4 === 0) type = 'brute';
-      spawnQueue.push({ type, delay: i * (curWave > 3 ? 800 : 1100) });
-    }
-
-    // Boss at wave 5 or multiples of 5
-    if (curWave % 5 === 0) {
-      spawnQueue.push({ type: 'boss', delay: (count + 1) * 900 });
-    }
-
+    // Deterministic plan shared with the server (boss waves every 10th wave).
+    const plan = getDefenseWavePlan(curWave);
+    const spacing = Math.max(450, 1000 - curWave * 25);
+    spawnQueue = plan.spawns.map((type, i) => ({ type, delay: i * spacing }));
     nextSpawnTime = Date.now() + 500;
   };
 
   const spawnEnemy = (type: Enemy['type']) => {
     const curWave = wave();
-    let hp = 45 + curWave * 12;
-    let speed = 0.8;
-    let goldValue = 6 + curWave * 2;
-
-    if (type === 'warrior') {
-      hp = 90 + curWave * 25;
-      speed = 0.55;
-      goldValue = 12 + curWave * 3;
-    } else if (type === 'shaman') {
-      hp = 120 + curWave * 30;
-      speed = 0.45;
-      goldValue = 18 + curWave * 4;
-    } else if (type === 'brute') {
-      hp = 280 + curWave * 60;
-      speed = 0.32;
-      goldValue = 28 + curWave * 5;
-    } else if (type === 'boss') {
-      hp = 900 + curWave * 200;
-      speed = 0.24;
-      goldValue = 80 + curWave * 15;
-    }
-
+    const spec = ENEMY_SPECS[type];
     enemies.push({
       id: nextEnemyId++,
       type,
-      hp,
-      maxHp: hp,
-      speed,
+      hp: getEnemyHp(type, curWave),
+      maxHp: getEnemyHp(type, curWave),
+      speed: spec.speed,
       x: WAYPOINTS[0].x,
       y: WAYPOINTS[0].y,
       pathIndex: 0,
       slowUntil: 0,
-      goldValue
+      silverValue: getEnemySilver(type, curWave)
     });
+  };
+
+  const creditSilver = (value: number) => {
+    setSilver(prev => Math.max(0, prev + Math.max(0, value)));
   };
 
   const triggerSakuraNova = () => {
@@ -270,7 +282,7 @@ export function WaifuDefenseGame() {
     // Filter dead
     enemies = enemies.filter(e => {
       if (e.hp <= 0) {
-        setEnergy(prev => prev + e.goldValue);
+        creditSilver(e.silverValue);
         return false;
       }
       return true;
@@ -279,15 +291,17 @@ export function WaifuDefenseGame() {
     showToast('🌸 SAKURA NOVA! All goblin forces devastated!');
   };
 
-  // Build / upgrade / sell tower
+  // Build / upgrade / sell tower (all paid in gamemode silver)
   const buildTowerOnPlot = (plot: TowerPlot, type: 'archer' | 'frost' | 'thunder' | 'sanctuary') => {
     const spec = TOWER_SPECS[type];
-    if (energy() < spec.cost) {
-      showToast(`Not enough energy! Requires ${spec.cost} ⚡`);
+    const cost = getTowerBuildCost(type);
+    if (silver() < cost) {
+      showToast(t('defense.needSilver', { cost }));
       return;
     }
 
-    setEnergy(prev => prev - spec.cost);
+    setSilver(prev => prev - cost);
+    pendingSpends.push(-cost);
     plot.tower = {
       type,
       level: 1,
@@ -302,29 +316,36 @@ export function WaifuDefenseGame() {
 
   const upgradeTower = (plot: TowerPlot) => {
     if (!plot.tower) return;
-    const upgradeCost = Math.round(TOWER_SPECS[plot.tower.type].cost * 0.8 * plot.tower.level);
-    if (energy() < upgradeCost) {
-      showToast(`Need ${upgradeCost} ⚡ to upgrade!`);
+    const upgradeCost = getTowerUpgradeCost(plot.tower.type, plot.tower.level);
+    if (silver() < upgradeCost) {
+      showToast(t('defense.needSilverUpgrade', { cost: upgradeCost }));
       return;
     }
 
-    setEnergy(prev => prev - upgradeCost);
-    plot.tower.level += 1;
-    plot.tower.damage = Math.round(plot.tower.damage * 1.4);
-    plot.tower.range = Math.round(plot.tower.range * 1.15);
+    setSilver(prev => prev - upgradeCost);
+    pendingSpends.push(-upgradeCost);
+    // Immutable replacement so the inspector panel (and its displayed cost)
+    // re-renders with the new level/values.
+    plot.tower = {
+      ...plot.tower,
+      level: plot.tower.level + 1,
+      damage: Math.round(plot.tower.damage * 1.4),
+      range: Math.round(plot.tower.range * 1.15)
+    };
     createBurst(plot.x, plot.y, '#ffd700', 20);
     setSelectedPlot({ ...plot });
-    showToast(`Upgraded ${TOWER_SPECS[plot.tower.type].name} to Lv ${plot.tower.level}! ⚔️`);
+    showToast(t('defense.upgradedToast', { name: t(`defense.towers.${plot.tower.type}`), level: plot.tower.level }));
   };
 
   const sellTower = (plot: TowerPlot) => {
     if (!plot.tower) return;
-    const refund = Math.round(TOWER_SPECS[plot.tower.type].cost * 0.6 * plot.tower.level);
-    setEnergy(prev => prev + refund);
+    const refund = getTowerRefund(plot.tower.type, plot.tower.level);
+    setSilver(prev => prev + refund);
+    pendingSpends.push(refund);
     plot.tower = null;
     createBurst(plot.x, plot.y, '#aaa', 10);
     setSelectedPlot({ ...plot });
-    showToast(`Sold tower for +${refund} ⚡ energy.`);
+    showToast(t('defense.soldToast', { refund }));
   };
 
   const resetGame = () => {
@@ -333,12 +354,15 @@ export function WaifuDefenseGame() {
     projectiles = [];
     particles = [];
     spawnQueue = [];
+    pendingSpends = [];
     setWave(1);
-    setEnergy(120);
+    setSilver(SILVER_STARTER);
     setWaifuHp(100);
     setGameStatus('ready');
     setWaveInProgress(false);
     setSelectedPlot(null);
+    setBossBar(null);
+    ensureSession();
   };
 
   // Game Loop
@@ -347,6 +371,8 @@ export function WaifuDefenseGame() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
+    ensureSession();
 
     // Ultimate cooldown countdown
     const ultInterval = setInterval(() => {
@@ -357,12 +383,6 @@ export function WaifuDefenseGame() {
 
     const gameLoop = () => {
       const now = Date.now();
-
-      // Energy regen (+4 energy / sec)
-      if (now - lastEnergyTick >= 1000) {
-        setEnergy(prev => Math.min(500, prev + 4));
-        lastEnergyTick = now;
-      }
 
       // 1. Spawning
       if (waveInProgress() && spawnQueue.length > 0 && now >= nextSpawnTime) {
@@ -380,7 +400,7 @@ export function WaifuDefenseGame() {
 
         if (!nextWp) {
           // Reached Waifu Shrine!
-          const dmg = enemy.type === 'boss' ? 35 : enemy.type === 'brute' ? 20 : 10;
+          const dmg = ENEMY_SPECS[enemy.type].shrineDamage;
           setWaifuHp(prev => {
             const next = Math.max(0, prev - dmg);
             if (next <= 0) {
@@ -429,16 +449,13 @@ export function WaifuDefenseGame() {
 
         // Other towers target closest enemy in range
         if (now - t.lastShotTime >= t.cooldown) {
-          let closestDist = Infinity;
-          let target: Enemy | null = null;
-
-          enemies.forEach(e => {
+          const target: Enemy | null = enemies.reduce<Enemy | null>((closest, e) => {
             const dist = Math.hypot(e.x - plot.x, e.y - plot.y);
-            if (dist <= t.range && dist < closestDist) {
-              closestDist = dist;
-              target = e;
+            if (dist <= t.range && dist < (closest === null ? Infinity : Math.hypot(closest.x - plot.x, closest.y - plot.y))) {
+              return e;
             }
-          });
+            return closest;
+          }, null);
 
           if (target) {
             t.lastShotTime = now;
@@ -507,55 +524,70 @@ export function WaifuDefenseGame() {
       // Check dead enemies
       enemies = enemies.filter(e => {
         if (e.hp <= 0) {
-          setEnergy(prev => prev + e.goldValue);
+          creditSilver(e.silverValue);
           createBurst(e.x, e.y, '#ff4081', 12);
           return false;
         }
         return true;
       });
 
+      // Boss health bar overlay (every 10th wave)
+      const boss = enemies.find(e => e.type === 'boss');
+      setBossBar(boss ? { pct: Math.max(0, Math.min(100, (boss.hp / boss.maxHp) * 100)), wave: wave() } : null);
+
       // 5. Check Wave Victory
       if (waveInProgress() && spawnQueue.length === 0 && enemies.length === 0 && waifuHp() > 0) {
         setWaveInProgress(false);
         setGameStatus('victory');
+        setBossBar(null);
         playSfx('victory');
 
         const curWave = wave();
         const durationMs = Math.max(1000, Date.now() - waveStartTime);
+        const spendSnapshot = pendingSpends;
 
+        const applyVictory = (coinsWon: number, expWon: number, silverEarned: number, goblins = 10) => {
+          recordDefenseWaveVictory(curWave, coinsWon, expWon, goblins);
+          setLastWaveReward({ coins: coinsWon, exp: expWon, silverEarned });
+          showToast(t('defense.waveClearedToast', { wave: curWave, coins: coinsWon, exp: expWon }));
+        };
+
+        // Offline / server-unreachable fallback: locally valid rewards only.
         const recordLocalVictory = () => {
           const coinsWon = getDefenseCoinsReward(curWave);
           const expWon = getDefenseExpReward(curWave);
-          recordDefenseWaveVictory(curWave, coinsWon, expWon);
-          setLastWaveReward({ coins: coinsWon, exp: expWon });
-          showToast(t('defense.waveClearedToast', { wave: curWave, coins: coinsWon, exp: expWon }));
+          creditSilver(getWaveClearSilverBonus(curWave));
+          pendingSpends = [];
+          applyVictory(coinsWon, expWon, getWaveClearSilver(curWave));
         };
 
         (async () => {
           try {
             const token = localStorage.getItem('ws_auth_token');
-            const res = await fetch('/api/defense/verify-wave', {
+            const res = await fetch('/api/defense/complete-wave', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 ...(token ? { Authorization: `Bearer ${token}` } : {})
               },
-              body: JSON.stringify({ wave: curWave, durationMs })
+              body: JSON.stringify({ wave: curWave, durationMs, spends: spendSnapshot })
             });
 
             if (res.ok) {
               const data = await res.json();
               if (data.verified) {
-                recordDefenseWaveVictory(curWave, data.coinsReward, data.expReward);
-                setLastWaveReward({ coins: data.coinsReward, exp: data.expReward });
-                showToast(t('defense.waveClearedToast', { wave: curWave, coins: data.coinsReward, exp: data.expReward }));
+                pendingSpends = [];
+                // Authoritative silver from the server ledger; kills are also
+                // worth their per-enemy value which the plan already includes.
+                setSilver(data.silver);
+                applyVictory(data.coinsReward, data.expReward, data.silverEarned, data.goblinsDefeated);
                 return;
               }
-              // Server rejected the wave -> do NOT grant rewards locally (anti-cheat)
-              showToast(t('defense.waveWithheldToast'));
-              setLastWaveReward({ coins: 0, exp: 0 });
-              return;
             }
+            // Server rejected the wave -> do NOT grant rewards locally (anti-cheat)
+            showToast(t('defense.waveWithheldToast'));
+            setLastWaveReward({ coins: 0, exp: 0, silverEarned: 0 });
+            return;
           } catch {
             // Server offline / not deployed: fall back to local validation for offline play
           }
@@ -660,16 +692,11 @@ export function WaifuDefenseGame() {
 
       // Draw Enemies
       enemies.forEach(e => {
-        // Goblin body
+        const spec = ENEMY_SPECS[e.type];
+
         ctx.beginPath();
-        const radius = e.type === 'boss' ? 22 : e.type === 'brute' ? 16 : 12;
-        ctx.arc(e.x, e.y, radius, 0, Math.PI * 2);
-
-        if (e.type === 'boss') ctx.fillStyle = '#b71c1c';
-        else if (e.type === 'brute') ctx.fillStyle = '#e65100';
-        else if (e.type === 'shaman') ctx.fillStyle = '#4a148c';
-        else ctx.fillStyle = '#2e7d32';
-
+        ctx.arc(e.x, e.y, spec.radius, 0, Math.PI * 2);
+        ctx.fillStyle = spec.color;
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1;
@@ -680,15 +707,15 @@ export function WaifuDefenseGame() {
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(e.type === 'boss' ? '👹' : e.type === 'shaman' ? '🧙' : '👺', e.x, e.y);
+        ctx.fillText(spec.icon, e.x, e.y);
 
         // HP bar
-        const hpBarW = radius * 2 + 6;
+        const hpBarW = spec.radius * 2 + 6;
         const pct = Math.max(0, e.hp / e.maxHp);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(e.x - hpBarW / 2, e.y - radius - 8, hpBarW, 4);
+        ctx.fillRect(e.x - hpBarW / 2, e.y - spec.radius - 8, hpBarW, 4);
         ctx.fillStyle = pct > 0.4 ? '#4caf50' : '#f44336';
-        ctx.fillRect(e.x - hpBarW / 2, e.y - radius - 8, hpBarW * pct, 4);
+        ctx.fillRect(e.x - hpBarW / 2, e.y - spec.radius - 8, hpBarW * pct, 4);
       });
 
       // Draw Projectiles
@@ -718,6 +745,7 @@ export function WaifuDefenseGame() {
     onCleanup(() => {
       cancelAnimationFrame(animFrameId);
       clearInterval(ultInterval);
+      setDefenseGameActive(false);
     });
   });
 
@@ -749,8 +777,8 @@ export function WaifuDefenseGame() {
         </div>
 
         <div class="hud-stat">
-          <span class="hud-label">{t('defense.energy')}</span>
-          <span class="hud-value energy-val">⚡ {energy()}</span>
+          <span class="hud-label">{t('defense.silver')}</span>
+          <span class="hud-value silver-val">🥈 {silver()}</span>
         </div>
 
         <div class="hud-stat">
@@ -796,6 +824,16 @@ export function WaifuDefenseGame() {
           onClick={handleCanvasClick}
         />
 
+        {/* BOSS HEALTH BAR (every 10th wave) */}
+        <Show when={bossBar() && waveInProgress()}>
+          <div class="boss-bar-overlay" data-testid="boss-bar">
+            <div class="boss-bar-label">👹 {t('defense.boss')} — {t('defense.wave')} {bossBar()!.wave}</div>
+            <div class="boss-bar-track">
+              <div class="boss-bar-fill" style={{ width: `${bossBar()!.pct}%` }}></div>
+            </div>
+          </div>
+        </Show>
+
         {/* OVERLAYS */}
         <Show when={gameStatus() === 'victory' && lastWaveReward()}>
           <div class="game-overlay-banner victory-banner">
@@ -804,6 +842,9 @@ export function WaifuDefenseGame() {
             <div class="rewards-row">
               <span>+🪙 {lastWaveReward()!.coins} Coins</span>
               <span>+🌟 {lastWaveReward()!.exp} Waifu XP</span>
+              <Show when={lastWaveReward()!.silverEarned > 0}>
+                <span>+🥈 {lastWaveReward()!.silverEarned} {t('defense.silver')}</span>
+              </Show>
             </div>
             <button
               class="btn-primary"
@@ -856,7 +897,7 @@ export function WaifuDefenseGame() {
                                 {t(`defense.tags.${spec.role}`)}
                               </span>
                             </div>
-                            <small>⚡ {spec.cost} {t('defense.energy')}</small>
+                            <small>🥈 {spec.cost} {t('defense.silver')}</small>
                           </div>
                         </button>
                       )}
@@ -886,13 +927,13 @@ export function WaifuDefenseGame() {
                         class="btn-upgrade"
                         onClick={() => upgradeTower(plot())}
                       >
-                        ⚡ {t('defense.upgrade', { level: tower().level + 1, cost: Math.round(TOWER_SPECS[tower().type].cost * 0.8 * tower().level) })}
+                        🥈 {t('defense.upgrade', { level: tower().level + 1, cost: getTowerUpgradeCost(tower().type, tower().level) })}
                       </button>
                       <button
                         class="btn-sell"
                         onClick={() => sellTower(plot())}
                       >
-                        🪙 {t('defense.sell', { cost: Math.round(TOWER_SPECS[tower().type].cost * 0.6 * tower().level) })}
+                        🥈 {t('defense.sell', { cost: getTowerRefund(tower().type, tower().level) })}
                       </button>
                     </div>
                   </div>
