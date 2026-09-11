@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { PERSONALITIES, getPersonality } from '../../src/lib/personality';
+import {
+  PERSONALITIES,
+  getPersonality,
+  getRandomComplimentResponse,
+  getRandomThanksResponse,
+  getRandomHelpResponse,
+  getRandomDefaultResponse,
+  getRandomJoke
+} from '../../src/lib/personality';
 
 describe('Character Personalities & Dialogue Engine (personality.ts)', () => {
   const archetypes = ['tsundere', 'kuudere', 'yandere', 'deredere', 'dandere'];
@@ -24,6 +32,10 @@ describe('Character Personalities & Dialogue Engine (personality.ts)', () => {
       expect(persona.taskComplete.length).toBeGreaterThan(0);
       expect(persona.taskOverdue.length).toBeGreaterThan(0);
       expect(persona.birthday.length).toBeGreaterThan(0);
+      expect(persona.compliments?.length).toBeGreaterThanOrEqual(3);
+      expect(persona.thanks?.length).toBeGreaterThanOrEqual(3);
+      expect(persona.help?.length).toBeGreaterThanOrEqual(3);
+      expect(persona.defaults?.length).toBeGreaterThanOrEqual(3);
     });
   });
 
@@ -47,5 +59,25 @@ describe('Character Personalities & Dialogue Engine (personality.ts)', () => {
       expect(busyReview.text).toBeTruthy();
       expect(busyReview.mood).toBeTruthy();
     });
+  });
+
+  it('returns valid random responses and jokes from expanded pool', () => {
+    archetypes.forEach(arch => {
+      const comp = getRandomComplimentResponse(arch);
+      expect(comp.text).toBeTruthy();
+      expect(comp.mood).toBeTruthy();
+
+      const thx = getRandomThanksResponse(arch);
+      expect(thx.text).toBeTruthy();
+
+      const hlp = getRandomHelpResponse(arch);
+      expect(hlp.text).toBeTruthy();
+
+      const def = getRandomDefaultResponse(arch);
+      expect(def.text).toBeTruthy();
+    });
+
+    const joke = getRandomJoke();
+    expect(joke.length).toBeGreaterThan(5);
   });
 });

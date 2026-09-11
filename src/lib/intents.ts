@@ -195,6 +195,40 @@ function normalizePhrase(phrase: string): string {
   return phrase.replace(/['’]/g, "'").trim();
 }
 
+/** Computes the Levenshtein edit distance between two lowercase strings. */
+export function levenshteinDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const row: number[] = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = i;
+    for (let j = 1; j <= b.length; j++) {
+      const val = a[i - 1] === b[j - 1] ? row[j - 1] : Math.min(row[j - 1], row[j], prev) + 1;
+      row[j - 1] = prev;
+      prev = val;
+    }
+    row[b.length] = prev;
+  }
+  return row[b.length];
+}
+
+/** Determines if a token is an acceptable fuzzy match for a target keyword (supports typos). */
+export function isFuzzyMatch(word: string, target: string): boolean {
+  if (word === target) return true;
+  // Specific common abbreviations:
+  if (word === 'thx' && target.startsWith('thank')) return true;
+  if (word === 'ty' && target.startsWith('thank')) return true;
+  if (word === 'hlp' && target === 'help') return true;
+  if (word === 'shedle' && target === 'schedule') return true;
+  if (word === 'complet' && target === 'complete') return true;
+
+  const maxDist = target.length >= 6 ? 2 : target.length >= 4 ? 1 : 0;
+  if (Math.abs(word.length - target.length) > maxDist) return false;
+  return levenshteinDistance(word, target) <= maxDist;
+}
+
 function tokenize(text: string): string[] {
   return text.split(/\s+/).filter(Boolean);
 }
@@ -203,13 +237,12 @@ function matchesPhrase(text: string, tokens: string[], phrase: string): boolean 
   const p = normalizePhrase(phrase);
   const words = p.split(' ');
   if (words.length === 1) {
-    return tokens.includes(p);
+    return tokens.some(t => isFuzzyMatch(t, p));
   }
   // Multi-word phrases match if they appear verbatim...
   if (text.includes(p)) return true;
-  // ...or if every word of the phrase shows up somewhere in the input. This
-  // makes "tasks for today" recognize the "tasks today" intent, etc.
-  return words.every(w => tokens.includes(w));
+  // ...or if every word of the phrase has a fuzzy match somewhere in the input.
+  return words.every(w => tokens.some(t => isFuzzyMatch(t, w)));
 }
 
 function phraseWeight(phrase: string): number {

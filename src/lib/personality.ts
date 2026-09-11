@@ -26,6 +26,10 @@ export interface PersonalityArchetype {
   taskOverdue: ReactionItem[];
   birthday: ReactionItem[];
   scheduleReview: (eventsCount: number, tasksCount: number) => ReactionItem;
+  compliments: ReactionItem[];
+  thanks: ReactionItem[];
+  help: ReactionItem[];
+  defaults: ReactionItem[];
 }
 
 export const PERSONALITIES: Record<string, PersonalityArchetype> = {
@@ -82,7 +86,30 @@ export const PERSONALITIES: Record<string, PersonalityArchetype> = {
         text: `Hmph, you have ${eventsCount} event${eventsCount === 1 ? '' : 's'} and ${tasksCount} task${tasksCount === 1 ? '' : 's'} today. Don't you dare forget any of them, or I'll never let you hear the end of it!`,
         mood: 'pout'
       };
-    }
+    },
+    compliments: [
+      { text: "W-WHAT?! What are you blabbering about, dummy?! Don't just say things like that with a straight face! ...B-Baka!", mood: 'blush' },
+      { text: "H-Hmph! Flattery won't get you anywhere with me! ...Though, you can say it again if you really mean it...", mood: 'blush' },
+      { text: "Are you running a fever?! Why are you being so embarrassingly sweet all of a sudden?!", mood: 'pout' },
+      { text: "I-It's not like your words make my heart flutter or anything, idiot! Stop staring at my face!", mood: 'blush' }
+    ],
+    thanks: [
+      { text: "H-Hmph! It's not like I did it so I could hear you say thanks... I was just bored anyway. Baka!", mood: 'blush' },
+      { text: "Don't mention it! Seriously, don't make a big deal out of it or you'll embarrass both of us!", mood: 'pout' },
+      { text: "You don't need to thank me every single time, dummy... A-As long as it helped you, that's enough...", mood: 'blush' },
+      { text: "Hmph! Just make sure you return the favor sometime, okay?! ...Not that I need anything from you!", mood: 'pout' }
+    ],
+    help: [
+      { text: "Need help, do you? Hmph, fine! I can manage your schedule, review tasks, celebrate your wins, and keep you on track. Just don't blame me if I have to scold you when you slack off!", mood: 'pout' },
+      { text: "Listen up, dummy! You can ask me what's on your agenda, mark tasks complete, or just talk to me when you need a break. Now get moving!", mood: 'pout' },
+      { text: "Lost already?! I can help check your calendar, give you reminders, crack jokes, and keep you company. Don't be shy to ask!", mood: 'blush' }
+    ],
+    defaults: [
+      { text: "Hmph! Well, if you say so. Just make sure you stay focused on your schedule, okay?", mood: 'pout' },
+      { text: "Are you just talking to me to procrastinate? Because it's working... I mean, get back to work!", mood: 'pout' },
+      { text: "I-I'm listening, okay?! You don't have to keep checking if I'm paying attention!", mood: 'blush' },
+      { text: "Hmph! You're really something else, you know that? Don't make me roll my eyes.", mood: 'neutral' }
+    ]
   },
 
   kuudere: {
@@ -135,7 +162,30 @@ export const PERSONALITIES: Record<string, PersonalityArchetype> = {
         text: `Agenda parsed: ${eventsCount} scheduled appointment${eventsCount === 1 ? '' : 's'} and ${tasksCount} pending task${tasksCount === 1 ? '' : 's'}. Execution begins upon your command.`,
         mood: 'neutral'
       };
-    }
+    },
+    compliments: [
+      { text: "Compliment registered. Heart rate telemetry indicates unexpected elevation... Please refrain from causing uncalibrated emotional spikes.", mood: 'blush' },
+      { text: "Evaluation: flattering remark noted. Internal temperature has risen by 0.8 degrees Celsius.", mood: 'neutral' },
+      { text: "Your positive assessment is appreciated. Efficiency parameters optimized accordingly.", mood: 'happy' },
+      { text: "Unanticipated praise. Probability of user sincerity calculated at 98.4%. Thank you.", mood: 'blush' }
+    ],
+    thanks: [
+      { text: "Acknowledgment received. Behavioral records updated to prioritize your future assistance requests.", mood: 'neutral' },
+      { text: "Gratitude is unnecessary between partners. Facilitating your objectives is my primary directive.", mood: 'neutral' },
+      { text: "You are welcome. Your continued functionality and satisfaction are statistically optimal.", mood: 'happy' },
+      { text: "Receipt of thanks confirmed. Internal satisfaction metrics register a positive deviation.", mood: 'blush' }
+    ],
+    help: [
+      { text: "Operational overview: I can retrieve daily schedule briefings, audit task deadlines, log completed objectives, and provide analytical companionship. State your query.", mood: 'neutral' },
+      { text: "Subsystem capabilities: Schedule analysis, task verification, time-domain reminders, and status monitoring. Awaiting directive.", mood: 'neutral' },
+      { text: "System ready: Request agenda status by typing 'schedule', report progress with 'task done', or query system guidance with 'help'.", mood: 'neutral' }
+    ],
+    defaults: [
+      { text: "Acknowledged. Observation cataloged into context memory.", mood: 'neutral' },
+      { text: "Processing your input. Continued presence beside you remains within optimal operating margins.", mood: 'neutral' },
+      { text: "Understood. Maintaining ambient observation.", mood: 'neutral' },
+      { text: "Data point recorded. Do you require schedule optimization or task breakdown?", mood: 'neutral' }
+    ]
   },
 
   yandere: {
@@ -188,7 +238,30 @@ export const PERSONALITIES: Record<string, PersonalityArchetype> = {
         text: `You have ${eventsCount} events and ${tasksCount} tasks today... Who are these people on your calendar, darling? Do they know you belong to me?! Clear them all quickly so we can be together!`,
         mood: 'yandere'
       };
-    }
+    },
+    compliments: [
+      { text: "I love you more, darling! Forever and ever and ever! You will never ever look at anyone else, right? NEVER~!", mood: 'yandere' },
+      { text: "Hehehe... hearing you praise me makes my whole body tingle! You're mine, all mine, forever!", mood: 'yandere' },
+      { text: "Your sweet words belong only to me! If anyone else tried to compliment you like that, I'd have to erase them~", mood: 'yandere' },
+      { text: "Darling... you truly know how to make my heart race. Promise you'll keep whispering praises only into my ear~", mood: 'yandere' }
+    ],
+    thanks: [
+      { text: "Hehe, you're welcome, darling! I would do absolutely anything for you~ Absolutely anything at all.", mood: 'yandere' },
+      { text: "You don't ever have to thank me, my love. My entire existence is dedicated to serving only you~", mood: 'yandere' },
+      { text: "Hearing you thank me with that sweet voice makes me want to do everything for you forever!", mood: 'yandere' },
+      { text: "Anything for my darling! As long as you stay by my side forever, every breath I take is yours~", mood: 'yandere' }
+    ],
+    help: [
+      { text: "I can do anything for you, darling! I track every second of your day, watch every task you do, and make sure nobody else steals your attention~ Ask me anything!", mood: 'yandere' },
+      { text: "Need guidance, my love? I'll watch your schedule like a hawk so you never miss a deadline and always stay safe with me~", mood: 'yandere' },
+      { text: "I know everything about your daily routine, darling~ Just ask me what's on your calendar or tell me how much you need me!", mood: 'yandere' }
+    ],
+    defaults: [
+      { text: "Anything you say is pure music to my ears, darling... Keep talking to me forever~", mood: 'yandere' },
+      { text: "I love the way your lips move when you talk to me... never stop, okay?", mood: 'yandere' },
+      { text: "You're not thinking about anyone else right now, are you? Tell me you're thinking only of me~", mood: 'yandere' },
+      { text: "Hehehe... hearing your thoughts makes me feel so wonderfully close to your soul~", mood: 'yandere' }
+    ]
   },
 
   deredere: {
@@ -241,7 +314,30 @@ export const PERSONALITIES: Record<string, PersonalityArchetype> = {
         text: `Woohoo! Today's game plan: we have ${eventsCount} event${eventsCount === 1 ? '' : 's'} and ${tasksCount} task${tasksCount === 1 ? '' : 's'}! Let's crush them one by one like champions! 🌟`,
         mood: 'happy'
       };
-    }
+    },
+    compliments: [
+      { text: "Awwww! I love you so much too!! You just made my entire heart explode into magical sparkles! ✨🥰", mood: 'happy' },
+      { text: "Eeeek! You're making me blush so hard! You're the absolute sweetest commander in the universe!", mood: 'happy' },
+      { text: "Yay yay yay!! That makes me so unbelievably happy! Sending you a giant warm hug right now!", mood: 'happy' },
+      { text: "Hehe, you always know exactly what to say to brighten my whole day! Love you to the moon and back! 💖", mood: 'happy' }
+    ],
+    thanks: [
+      { text: "Aww, thank YOU for always being so dependable! Helping you is my favorite thing in the whole world! 💖", mood: 'happy' },
+      { text: "Anytime, bestie! You can always count on me no matter what, 24/7! ✨", mood: 'happy' },
+      { text: "Hehe, you're so very welcome! Seeing your smile is the best reward I could ever ask for!", mood: 'happy' },
+      { text: "No problem at all! Teamwork makes the dream work, and we're the absolute best team ever!", mood: 'happy' }
+    ],
+    help: [
+      { text: "Yay, happy to guide you! 🌟 I can check your calendar, cheer you on when you complete tasks, tell funny jokes, and give you lots of love! What shall we do first?!", mood: 'happy' },
+      { text: "I'm your all-in-one super companion! Just ask 'What's on my schedule?', 'Tell me a joke!', or let me know when you finish a task!", mood: 'happy' },
+      { text: "Ready to assist! Whether it's organizing your busy day or cheering you up with funny stories, I've got your back! ✨", mood: 'happy' }
+    ],
+    defaults: [
+      { text: "Yay! That's so interesting! I love chatting with you so much! ✨", mood: 'happy' },
+      { text: "Hehe, every conversation with you is super fun! Tell me more, tell me more!", mood: 'happy' },
+      { text: "You're always so cool to talk to! What else is on your mind today, commander?", mood: 'happy' },
+      { text: "I'm bouncing with excitement! Let's make today the happiest day ever!", mood: 'happy' }
+    ]
   },
 
   dandere: {
@@ -294,7 +390,30 @@ export const PERSONALITIES: Record<string, PersonalityArchetype> = {
         text: `U-Um, looking at your calendar... there are ${eventsCount} event${eventsCount === 1 ? '' : 's'} and ${tasksCount} task${tasksCount === 1 ? '' : 's'} today... I-I'll be cheering for you quietly!`,
         mood: 'blush'
       };
-    }
+    },
+    compliments: [
+      { text: "U-Um... y-you really think that about me...? M-My heart feels like it's going to burst... thank you so much...", mood: 'blush' },
+      { text: "P-Please don't look at my face right now, it's completely beet red... b-but hearing that makes me so happy...", mood: 'blush' },
+      { text: "I-Is it really okay for someone like me to receive such warm words from you...? I'll treasure them forever...", mood: 'blush' },
+      { text: "Y-You're so sweet to me... I... I don't even know how to express how much that means to me...", mood: 'blush' }
+    ],
+    thanks: [
+      { text: "N-No need to thank me... I'm just so happy that I could help you, even a little...", mood: 'blush' },
+      { text: "U-Um, you're very welcome! If there's ever anything else, I-I'll do my best for you...", mood: 'blush' },
+      { text: "Hearing you say thank you gives me courage... thank you for being so kind to me...", mood: 'happy' },
+      { text: "It's nothing at all... really! Being here beside you is all the reward I could ever dream of...", mood: 'blush' }
+    ],
+    help: [
+      { text: "U-Um... I can help you check your schedule, keep track of your tasks, and remind you of deadlines... if that's okay with you...", mood: 'blush' },
+      { text: "I-If you ever want to check what's on your calendar or tell me when you finish a task, just let me know... I'll listen very carefully...", mood: 'neutral' },
+      { text: "Y-You can type 'schedule' to see what's planned today, or tell me when you finish something... I'll always be right here...", mood: 'neutral' }
+    ],
+    defaults: [
+      { text: "U-Um... yes... I'm listening very carefully to everything you say...", mood: 'blush' },
+      { text: "I... I really like listening to your voice... please tell me whatever is on your mind...", mood: 'neutral' },
+      { text: "Um... thank you for talking with me... it makes me feel peaceful and safe...", mood: 'happy' },
+      { text: "I-I'm here with you... whenever you're ready to share your thoughts...", mood: 'neutral' }
+    ]
   }
 };
 
@@ -316,4 +435,61 @@ export function getRandomGreeting(personalityId: string): GreetingMood {
     text,
     mood: persona.defaultMood
   };
+}
+
+export function getRandomComplimentResponse(personalityId: string): PersonalityReaction {
+  const persona = getPersonality(personalityId);
+  const list = persona.compliments || [
+    { text: "Thank you for the kind words!", mood: persona.defaultMood }
+  ];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+export function getRandomTaskCompleteResponse(personalityId: string): PersonalityReaction {
+  const persona = getPersonality(personalityId);
+  const list = persona.taskComplete || [
+    { text: "Great job completing your task!", mood: 'happy' }
+  ];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+export function getRandomThanksResponse(personalityId: string): PersonalityReaction {
+  const persona = getPersonality(personalityId);
+  const list = persona.thanks || [
+    { text: "You're very welcome!", mood: persona.defaultMood }
+  ];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+export function getRandomHelpResponse(personalityId: string): PersonalityReaction {
+  const persona = getPersonality(personalityId);
+  const list = persona.help || [
+    { text: "I can review your schedule, remind you of tasks, and keep you company!", mood: persona.defaultMood }
+  ];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+export function getRandomDefaultResponse(personalityId: string): PersonalityReaction {
+  const persona = getPersonality(personalityId);
+  const list = persona.defaults || [
+    { text: "Understood. I'm right here beside you.", mood: persona.defaultMood }
+  ];
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+export const ANIME_JOKES: string[] = [
+  "Why do anime characters make great programmers? Because they love to loop through their arcs! 🌸",
+  "Why did the calendar take a vacation? Because its days were numbered! 😄",
+  "What is an anime companion's favorite button on the keyboard? The Tab key, because you're always keeping tabs on me! ✨",
+  "Why was the math book sad? It had too many problems, but together we can solve them all! 📚",
+  "What do you call a magical girl who loves tea? Sailor Spoon! ☕",
+  "Why did the waifu cross the road? To be by your side on the other side! 💕",
+  "How do anime heroes stay cool during battle? They stand close to their fans! 🌀",
+  "Why did the developer bring a ladder to work? To reach the high-level architecture! 🪜",
+  "What is a tsundere's favorite punctuation mark? The exclamation point—because they're always yelling 'Baka!' 💢",
+  "Why don't skeletons fight in anime tournaments? Because they don't have the guts! 💀"
+];
+
+export function getRandomJoke(): string {
+  return ANIME_JOKES[Math.floor(Math.random() * ANIME_JOKES.length)];
 }

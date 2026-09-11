@@ -59,6 +59,17 @@ describe('Intent detection engine (intents.ts)', () => {
     expect(INTENT_THRESHOLD).toBeGreaterThan(0);
   });
 
+  it('detects intents even with slight typos via fuzzy matching', () => {
+    // "shedle" -> schedule
+    expect(parseIntent('check shedle').intent).toBe('schedule');
+    // "complet" -> taskComplete
+    expect(parseIntent('task complet').intent).toBe('taskComplete');
+    // "hlp" -> help
+    expect(parseIntent('hlp me').intent).toBe('help');
+    // "thx" -> thanks
+    expect(parseIntent('thx a lot').intent).toBe('thanks');
+  });
+
   it('empty or whitespace-only input resolves to default', () => {
     expect(parseIntent('   ').intent).toBe('default');
     expect(parseIntent('').confidence).toBe(0);

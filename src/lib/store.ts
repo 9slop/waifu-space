@@ -1,7 +1,17 @@
 import { createStore, produce } from 'solid-js/store';
 import { createSignal } from 'solid-js';
 import { CalendarEventItem, CalendarOccurrenceOverride } from './ical';
-import { getPersonality, getRandomGreeting, PersonalityArchetype } from './personality';
+import {
+  getPersonality,
+  getRandomGreeting,
+  getRandomComplimentResponse,
+  getRandomTaskCompleteResponse,
+  getRandomThanksResponse,
+  getRandomHelpResponse,
+  getRandomDefaultResponse,
+  getRandomJoke,
+  PersonalityArchetype
+} from './personality';
 import { callLLM } from './llm';
 import { parseIntent, hasIntent, DialogIntent } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
@@ -1534,28 +1544,14 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
 
   // Compliments
   if (strong('compliment')) {
-    const map: Record<string, { text: string; mood: string }> = {
-      tsundere: { text: "W-WHAT?! What are you blabbering about, dummy?! Don't just say things like that with a straight face! ...B-Baka!", mood: 'blush' },
-      kuudere: { text: "Compliment registered. Heart rate telemetry indicates unexpected elevation... Please refrain from causing uncalibrated emotional spikes.", mood: 'blush' },
-      yandere: { text: "I love you more, darling! Forever and ever and ever! You will never ever look at anyone else, right? NEVER~!", mood: 'yandere' },
-      deredere: { text: "Awwww! I love you so much too!! You just made my entire heart explode into magical sparkles! ✨🥰", mood: 'happy' },
-      dandere: { text: "U-Um... y-you really think that about me...? M-My heart feels like it's going to burst... thank you so much...", mood: 'blush' }
-    };
-    const res = map[personaId] || map.tsundere;
-    return { text: res.text, mood: res.mood, suggestions: ["You're blushing!", "It's true though", "Review schedule", "Headpat"] };
+    const reaction = getRandomComplimentResponse(personaId);
+    return { text: reaction.text, mood: reaction.mood, suggestions: ["You're blushing!", "It's true though", "Review schedule", "Headpat"] };
   }
 
   // Task done
   if (strong('taskComplete')) {
-    const map: Record<string, { text: string; mood: string }> = {
-      tsundere: { text: "Hmph! Well... I guess you're not completely useless after all. Good job... dummy. Don't let it go to your head!", mood: 'blush' },
-      kuudere: { text: "Task completion logged into telemetry. Productivity quotient increased. Outstanding performance.", mood: 'happy' },
-      yandere: { text: "You finished it for ME?! Ahaha, you're the most wonderful darling in existence! Now give all your attention to me~", mood: 'yandere' },
-      deredere: { text: "OMG YAAAY!! 🎉 Look at you go, absolute productivity champion! High five!! I'm so proud of you!!", mood: 'happy' },
-      dandere: { text: "U-Um, you finished it! That's... that's so impressive! You always work so earnestly, I admire you so much...", mood: 'blush' }
-    };
-    const res = map[personaId] || map.tsundere;
-    return { text: res.text, mood: res.mood, suggestions: ["Give me praise!", "What's next on calendar?", "Headpat", "Thanks Akari!"] };
+    const reaction = getRandomTaskCompleteResponse(personaId);
+    return { text: reaction.text, mood: reaction.mood, suggestions: ["Give me praise!", "What's next on calendar?", "Headpat", "Thanks Akari!"] };
   }
 
   // Greetings (time-of-day aware)
@@ -1566,13 +1562,8 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
 
   // Joke
   if (strong('joke')) {
-    const jokes = [
-      "Why do anime characters make great programmers? Because they love to loop through their arcs! 🌸",
-      "Why did the calendar take a vacation? Because its days were numbered! 😄",
-      "What is an anime companion's favorite button on the keyboard? The Tab key, because you're always keeping tabs on me! ✨"
-    ];
     return {
-      text: jokes[Math.floor(Math.random() * jokes.length)],
+      text: getRandomJoke(),
       mood: 'happy',
       suggestions: ["Haha that was good!", "Tell another!", "Review schedule", "You're cute"]
     };
@@ -1580,22 +1571,16 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
 
   // Thanks
   if (strong('thanks')) {
-    const map: Record<string, { text: string; mood: string }> = {
-      tsundere: { text: "H-Hmph! It's not like I did it so I could hear you say thanks... I was just bored anyway. Baka!", mood: 'blush' },
-      kuudere: { text: "Acknowledgment received. Behavioral records updated to prioritize your future assistance requests.", mood: 'neutral' },
-      yandere: { text: "Hehe, you're welcome, darling! I would do absolutely anything for you~ Absolutely anything at all.", mood: 'yandere' },
-      deredere: { text: "Aww, thank YOU for always being so dependable! Helping you is my favorite thing in the whole world! 💖", mood: 'happy' },
-      dandere: { text: "N-No need to thank me... I'm just happy that I could help you, even a little...", mood: 'blush' }
-    };
-    const res = map[personaId] || map.tsundere;
-    return { text: res.text, mood: res.mood, suggestions: ["Review today's schedule", "You're the best!", "Poke", "Tell me a joke"] };
+    const reaction = getRandomThanksResponse(personaId);
+    return { text: reaction.text, mood: reaction.mood, suggestions: ["Review today's schedule", "You're the best!", "Poke", "Tell me a joke"] };
   }
 
   // Help
   if (strong('help')) {
+    const reaction = getRandomHelpResponse(personaId);
     return {
-      text: "I can review your schedule, remind you of tasks, cheer you on when you finish things, crack a joke, or just keep you company! Try asking \"What's on my calendar today?\" or just say hi.",
-      mood: persona.defaultMood,
+      text: reaction.text,
+      mood: reaction.mood,
       suggestions: ["What's on my calendar today?", "Tell me a joke", "You look cute today", "Thanks!"]
     };
   }
@@ -1618,17 +1603,10 @@ function generateOfflineReply(text: string, personaId: string, persona: Personal
   }
 
   // Default conversational reply
-  const defaults: Record<string, string> = {
-    tsundere: "Hmph! Well, if you say so. Just make sure you stay focused on your schedule, okay?",
-    kuudere: "Acknowledged. Observation cataloged into context memory.",
-    yandere: "Anything you say is pure music to my ears, darling... Keep talking to me forever~",
-    deredere: "Yay! That's so interesting! I love chatting with you so much! ✨",
-    dandere: "U-Um... yes... I'm listening very carefully to everything you say..."
-  };
-
+  const defaultReaction = getRandomDefaultResponse(personaId);
   return {
-    text: defaults[personaId] || defaults.tsundere,
-    mood: persona.defaultMood,
+    text: defaultReaction.text,
+    mood: defaultReaction.mood,
     suggestions: [
       "Review today's schedule",
       "How are you doing?",
