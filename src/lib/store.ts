@@ -265,7 +265,7 @@ export const DEFAULT_STATE: AppState = {
   },
   rpg: DEFAULT_RPG,
   calendar: {
-    view: 'month',
+    view: 'week',
     selectedDate: new Date().toISOString(),
     events: DEFAULT_EVENTS,
     filterEvents: true,

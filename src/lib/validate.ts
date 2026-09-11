@@ -211,7 +211,7 @@ export function sanitizeRawState(raw: unknown): SanitizeResult {
       ? raw.calendar.events.map(sanitizeEvent).filter((e): e is CalendarEventItem => e !== null)
       : [];
     data.calendar = {
-      view: (VALID_VIEWS as readonly string[]).includes(raw.calendar.view as string) ? (raw.calendar.view as AppState['calendar']['view']) : 'month',
+      view: (VALID_VIEWS as readonly string[]).includes(raw.calendar.view as string) ? (raw.calendar.view as AppState['calendar']['view']) : 'week',
       selectedDate: validDateString(raw.calendar.selectedDate, nowIso()),
       events,
       filterEvents: toBool(raw.calendar.filterEvents, true),

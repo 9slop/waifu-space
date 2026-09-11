@@ -105,6 +105,7 @@ describe('CalendarPlanner Component & SSR Safety (Issue #11)', () => {
       type: 'event'
     });
 
+    setState('calendar', 'view', 'month');
     const { container } = render(() => <CalendarPlanner />);
 
     const dropTargetCell = container.querySelectorAll('.month-day-cell')[15] as HTMLElement;

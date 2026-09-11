@@ -75,9 +75,9 @@ describe('State hydration sanitizer (validate.ts)', () => {
     expect(out.data.rpg?.unlockedOutfits).toEqual(['a', 'b']);
   });
 
-  it('defaults calendar view to month for invalid values', () => {
+  it('defaults calendar view to week for invalid values', () => {
     const out = sanitizeRawState({ calendar: { view: 'grid' } });
-    expect(out.data.calendar?.view).toBe('month');
+    expect(out.data.calendar?.view).toBe('week');
   });
 
   it('deduplicates claimedAffectionMilestones and floors floats', () => {

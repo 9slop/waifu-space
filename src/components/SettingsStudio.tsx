@@ -12,6 +12,7 @@ import {
 import { onActivateKey } from '../lib/accessibility';
 import { PERSONALITIES } from '../lib/personality';
 import { STOCK_WALLPAPERS } from '../lib/wallpapers';
+import { exportToICS, importFromICS } from '../lib/ical';
 import { WaifuAvatar } from './WaifuAvatar';
 import { t, SUPPORTED_LANGUAGES, setLanguage, SupportedLanguage } from '../lib/i18n';
 
@@ -92,6 +93,33 @@ export function SettingsStudio() {
     if (confirm(t('settings.data.resetConfirm'))) {
       resetAllData();
     }
+  };
+
+  const handleExportCalendar = () => {
+    if (typeof window === 'undefined') return;
+    exportToICS(state.calendar.events);
+    showToast(t('settings.data.exportCalendarSuccess'));
+  };
+
+  const handleImportCalendar = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = evt => {
+      const text = evt.target?.result as string;
+      if (text) {
+        const imported = importFromICS(text);
+        if (imported.length > 0) {
+          setState('calendar', 'events', evs => [...imported, ...evs]);
+          showToast(t('settings.data.importCalendarSuccess', { count: imported.length }));
+        } else {
+          showToast(t('settings.data.importCalendarFailed'));
+        }
+      }
+    };
+    reader.readAsText(file);
+    input.value = '';
   };
 
   const hairColorPresets = ['#ff7597', '#4f86f7', '#6c5ce7', '#ffeaa7', '#2d3436', '#d63031', '#00cec9', '#a29bfe'];
@@ -851,6 +879,36 @@ export function SettingsStudio() {
                     accept=".json"
                     style={{ display: 'none' }}
                     onChange={handleImportData}
+                  />
+                </label>
+              </div>
+
+              <div class="setting-row">
+                <div>
+                  <strong>{t('settings.data.exportCalendar')}</strong>
+                  <p class="setting-desc">{t('settings.data.exportCalendarDesc')}</p>
+                </div>
+                <button
+                  type="button"
+                  class="gcal-btn gcal-btn-outline"
+                  onClick={handleExportCalendar}
+                >
+                  {t('settings.data.exportCalendarBtn')}
+                </button>
+              </div>
+
+              <div class="setting-row">
+                <div>
+                  <strong>{t('settings.data.importCalendar')}</strong>
+                  <p class="setting-desc">{t('settings.data.importCalendarDesc')}</p>
+                </div>
+                <label class="gcal-btn gcal-btn-outline" style={{ cursor: 'pointer' }}>
+                  {t('settings.data.importCalendarBtn')}
+                  <input
+                    type="file"
+                    accept=".ics"
+                    style={{ display: 'none' }}
+                    onChange={handleImportCalendar}
                   />
                 </label>
               </div>
