@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
       user_progress: [] as any[],
       user_showcase: [] as any[],
       user_inventory: [] as any[],
+      action_logs: [] as any[],
       leaderboard_view: [] as any[]
     },
     signUpCalls: [] as any[],
@@ -25,8 +26,10 @@ vi.mock('../../src/lib/server/supabase', () => ({
 import { POST as registerPOST } from '../../src/routes/api/auth/register';
 import { POST as loginPOST } from '../../src/routes/api/auth/login';
 import { POST as syncPOST, GET as syncGET } from '../../src/routes/api/sync/progress';
+import { POST as rollPOST } from '../../src/routes/api/gacha/roll';
 import { GET as leaderboardGET } from '../../src/routes/api/leaderboard';
 import { createSessionToken } from '../../src/lib/server/auth';
+import { COSMETIC_CATALOG } from '../../src/lib/store';
 
 function randomId(): string {
   return crypto.randomUUID();
@@ -353,6 +356,75 @@ describe('Supabase-backed API routes (regression guard)', () => {
       expect(inventory.every(r => r.rarity !== 'none')).toBe(true);
     });
 
+    it('coins are increase-only: a stale client cannot roll back the server balance', async () => {
+      mocks.state.db.user_progress.push({ user_id: userId, coins: 1000, bond_level: 1 });
+
+      const res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            waifu: { name: 'OldClient', personality: 'tsundere', bondExp: 0, bondLevel: 1, appearance: {} },
+            rpg: { coins: 5, claimedAffectionMilestones: [], defenseStats: {}, showcaseItems: [] },
+            settings: {}
+          })
+        })
+      );
+      expect(res.status).toBe(200);
+
+      const progress = mocks.state.db.user_progress.find(p => p.user_id === userId);
+      expect(progress.coins).toBe(1000); // NOT rolled back to 5
+    });
+
+    it('filters claimed milestones that the current bond level does not grant', async () => {
+      const res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            waifu: { name: 'Cheater', personality: 'tsundere', bondExp: 0, bondLevel: 3, appearance: {} },
+            rpg: { coins: 50, claimedAffectionMilestones: [2, 99, 3], defenseStats: {}, showcaseItems: [] },
+            settings: {}
+          })
+        })
+      );
+      expect(res.status).toBe(200);
+
+      const progress = mocks.state.db.user_progress.find(p => p.user_id === userId);
+      expect(progress.claimed_milestones).toEqual([2, 3]);
+    });
+
+    it('ignores inventory and showcase items that are not in the catalog', async () => {
+      const res = await syncPOST(
+        req('http://localhost/api/sync/progress', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            waifu: { name: 'Forger', personality: 'tsundere', bondExp: 0, bondLevel: 1, appearance: {} },
+            rpg: {
+              coins: 100,
+              unlockedOutfits: ['seifuku', 'totally_fake_item'],
+              unlockedAccessories: [],
+              unlockedHairstyles: [],
+              claimedAffectionMilestones: [],
+              defenseStats: {},
+              showcaseItems: ['seifuku', 'fake_showcase', 'none']
+            },
+            settings: {}
+          })
+        })
+      );
+      expect(res.status).toBe(200);
+
+      const inventory = mocks.state.db.user_inventory.filter(r => r.user_id === userId);
+      expect(inventory.map(r => r.item_id)).toEqual(['seifuku']);
+
+      // 'fake_showcase' is not in the catalog and is dropped; 'none' is a valid
+      // catalog id so it is preserved.
+      const showcase = mocks.state.db.user_showcase.filter(s => s.user_id === userId);
+      expect(showcase.map(s => s.item_id)).toEqual(['seifuku', 'none']);
+    });
+
     it('returns progress + inventory + showcase on GET', async () => {
       mocks.state.db.user_progress.push({
         user_id: userId,
@@ -389,6 +461,97 @@ describe('Supabase-backed API routes (regression guard)', () => {
     it('rejects requests without a valid session', async () => {
       const res = await syncGET(req('http://localhost/api/sync/progress', {}));
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('gacha/roll (server-authoritative)', () => {
+    const userId = '5a7f9d4c-8e61-4a3b-bc2d-1a2b3c4d5e6f';
+    const token = createSessionToken({ id: userId, username: 'Roller', email: 'roller@waifuspace.moe' });
+
+    it('deducts the cost from the DB balance, inserts the item, and audits the roll', async () => {
+      mocks.state.db.user_progress.push({ user_id: userId, coins: 500 });
+
+      const res = await rollPOST(
+        req('http://localhost/api/gacha/roll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ boxType: 'standard', currentCoins: 999999, unlockedItemIds: [] })
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.isDuplicate).toBe(false);
+
+      // Uses the DB balance (500) as source of truth - NOT the forged 999999.
+      // Standard chest costs 120, so DB coins end at 380.
+      const progress = mocks.state.db.user_progress.find(p => p.user_id === userId);
+      expect(progress.coins).toBe(380);
+
+      // Newly unlocked item persisted to inventory
+      expect(mocks.state.db.user_inventory.filter(r => r.user_id === userId).length).toBe(1);
+
+      // Audit trail written
+      const logs = mocks.state.db.action_logs.filter(r => r.user_id === userId);
+      expect(logs).toHaveLength(1);
+      expect(logs[0].action_type).toBe('lootbox_open');
+      expect(logs[0].details.box_type).toBe('standard');
+      expect(logs[0].details.item_id).toBe(data.result.item.id);
+      expect(logs[0].details.is_duplicate).toBe(false);
+    });
+
+    it('grants duplicate compensation from the DB balance and does not insert a new item', async () => {
+      mocks.state.db.user_progress.push({ user_id: userId, coins: 500 });
+      // Pre-unlock every cosmetic so the roll is always a duplicate
+      mocks.state.db.user_inventory = COSMETIC_CATALOG.filter(c => c.id !== 'none').map(c => ({
+        user_id: userId,
+        item_id: c.id,
+        category: c.category,
+        rarity: c.rarity
+      }));
+
+      const res = await rollPOST(
+        req('http://localhost/api/gacha/roll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ boxType: 'standard', currentCoins: 0, unlockedItemIds: [] })
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.isDuplicate).toBe(true);
+
+      // 500 - 120 + duplicate compensation (>=25 for common) => 405+
+      const progress = mocks.state.db.user_progress.find(p => p.user_id === userId);
+      expect(progress.coins).toBeGreaterThanOrEqual(405);
+      expect(progress.coins).toBeLessThan(580);
+
+      // No new inventory row added on a duplicate
+      expect(mocks.state.db.user_inventory.filter(r => r.user_id === userId).length)
+        .toBe(COSMETIC_CATALOG.filter(c => c.id !== 'none').length);
+
+      const logs = mocks.state.db.action_logs.filter(r => r.user_id === userId);
+      expect(logs).toHaveLength(1);
+      expect(logs[0].details.is_duplicate).toBe(true);
+    });
+
+    it('rejects a roll when the DB balance is below the chest cost', async () => {
+      mocks.state.db.user_progress.push({ user_id: userId, coins: 50 });
+
+      const res = await rollPOST(
+        req('http://localhost/api/gacha/roll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ boxType: 'royal', currentCoins: 999999, unlockedItemIds: [] })
+        })
+      );
+
+      expect(res.status).toBe(400);
+      // No action log from a rejected roll
+      expect(mocks.state.db.action_logs.filter(r => r.user_id === userId)).toHaveLength(0);
     });
   });
 

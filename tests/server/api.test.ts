@@ -41,6 +41,21 @@ describe('Server APIs & Backend Logic', () => {
       // Invalidate removed it from cache
     });
 
+    it('rejects tampered tokens: altering the user id breaks the HMAC signature', () => {
+      const token = createSessionToken({ id: 'usr_victim', username: 'Victim', email: 'v@waifuspace.moe' });
+
+      // Split payload and signature, forge a payload for a DIFFERENT user, keep the old signature
+      const body = token.slice(3, token.indexOf('.'));
+      const json = Buffer.from(body, 'base64url').toString('utf8');
+      const forgedPayload = Buffer.from(JSON.stringify({ ...JSON.parse(json), userId: 'usr_attacker' })).toString('base64url');
+      const forgedToken = `ws_${forgedPayload}.${token.slice(token.indexOf('.') + 1)}`;
+
+      expect(verifySessionToken(forgedToken)).toBeNull();
+
+      // Also: a completely signature-less payload must be rejected
+      expect(verifySessionToken(`ws_${Buffer.from(JSON.stringify({ userId: 'usr_x', exp: Date.now() + 100000 })).toString('base64url')}`)).toBeNull();
+    });
+
     it('registers local user and securely hashes password with bcrypt', () => {
       const uName = 'Senpai_' + Math.random().toString(36).substring(2, 6);
       const user = registerLocalUser(uName, `${uName}@test.com`, 'supersecret123');
