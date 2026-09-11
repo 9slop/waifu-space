@@ -10,6 +10,24 @@ import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoins
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
 
+const ACTIVE_USER_KEY = 'waifu_space_active_user_v1';
+const GUEST_ID_PREFIX = 'guest_';
+
+/**
+ * Registered accounts keep their own localStorage bucket so one account can
+ * never see (or clobber) another account's locally saved state, even when they
+ * are used in the same browser. Guests / logged-out sessions share the legacy
+ * global key.
+ */
+function isRegisteredAccount(user: UserAccount | null | undefined): boolean {
+  return !!user && !!user.id && !user.id.startsWith(GUEST_ID_PREFIX);
+}
+
+function scopedStorageKey(userId: string | null | undefined): string {
+  if (!userId || userId.startsWith(GUEST_ID_PREFIX)) return STORAGE_KEY;
+  return `${STORAGE_KEY}_acct_${userId}`;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'waifu';
@@ -342,7 +360,14 @@ export function showToast(message: string) {
 export function saveState() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(scopedStorageKey(state.user?.id), JSON.stringify(state));
+    // Remember which registered account owns the save so a page reload restores
+    // the right bucket while the persisted session is still active.
+    if (isRegisteredAccount(state.user)) {
+      localStorage.setItem(ACTIVE_USER_KEY, state.user!.id);
+    } else {
+      localStorage.removeItem(ACTIVE_USER_KEY);
+    }
   } catch (e) {
     console.error('Failed to save state to localStorage', e);
   }
@@ -396,7 +421,16 @@ function readPendingSync(): Record<string, unknown> | null {
     const raw = localStorage.getItem(PENDING_SYNC_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    // A queued snapshot belongs to whatever account produced it. Never let an
+    // offline snapshot bleed into a different account's cloud state.
+    const ownerId: unknown = (parsed as any).userId;
+    const currentId = state.user?.id ?? null;
+    if (ownerId !== currentId) {
+      clearPendingSync();
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -405,7 +439,7 @@ function readPendingSync(): Record<string, unknown> | null {
 function queuePendingSync() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify({ payload: buildSyncSnapshot(), updatedAt: Date.now() }));
+    localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify({ userId: state.user?.id ?? null, payload: buildSyncSnapshot(), updatedAt: Date.now() }));
   } catch (e) {
     console.error('Failed to queue pending cloud sync', e);
   }
@@ -606,52 +640,69 @@ function unionStrings(a: string[] | undefined, b: string[] | undefined): string[
   return Array.from(new Set([...(a || []), ...(b || [])]));
 }
 
+/**
+ * Sanitizes and applies a parsed localStorage payload onto the reactive store.
+ * Used both by boot-time `loadState` and when restoring a specific account's
+ * save after an account switch.
+ */
+function applyStoredState(parsed: unknown) {
+  if (!parsed || typeof parsed !== 'object') return;
+  const rawHadEvents = (parsed as any).calendar !== null && typeof (parsed as any).calendar === 'object' && Array.isArray((parsed as any).calendar.events);
+  const rawHadMessages = (parsed as any).chat !== null && typeof (parsed as any).chat === 'object' && Array.isArray((parsed as any).chat.messages);
+
+  // Schema validation & sanitization of possibly-corrupt, legacy, or
+  // future-shaped data before it ever reaches the reactive store.
+  const { data, issues } = sanitizeRawState(parsed);
+  if (issues.length > 0) console.warn('State hydration issues:', issues);
+
+  setState(
+    produce(s => {
+      Object.assign(s, {
+        ...DEFAULT_STATE,
+        ...data,
+        user: data.user,
+        waifu: {
+          ...DEFAULT_STATE.waifu,
+          ...(data.waifu || {}),
+          appearance: { ...DEFAULT_STATE.waifu.appearance, ...(data.waifu?.appearance || {}) }
+        },
+        rpg: {
+          ...DEFAULT_RPG,
+          ...(data.rpg || {}),
+          unlockedOutfits: unionStrings(DEFAULT_RPG.unlockedOutfits, data.rpg?.unlockedOutfits),
+          unlockedAccessories: unionStrings(DEFAULT_RPG.unlockedAccessories, data.rpg?.unlockedAccessories),
+          unlockedHairstyles: unionStrings(DEFAULT_RPG.unlockedHairstyles, data.rpg?.unlockedHairstyles)
+        },
+        calendar: {
+          ...DEFAULT_STATE.calendar,
+          ...(data.calendar || {}),
+          events: rawHadEvents ? data.calendar?.events || [] : DEFAULT_STATE.calendar.events,
+          occurrenceOverrides: Array.isArray(data.calendar?.occurrenceOverrides)
+            ? data.calendar.occurrenceOverrides
+            : DEFAULT_STATE.calendar.occurrenceOverrides
+        },
+        settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
+        chat: {
+          ...DEFAULT_STATE.chat,
+          ...(data.chat || {}),
+          messages: rawHadMessages ? data.chat?.messages || [] : DEFAULT_STATE.chat.messages
+        }
+      });
+    })
+  );
+}
+
 export function loadState() {
   if (typeof window === 'undefined') return;
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    // Restore the last active account's own bucket when a session is persisted,
+    // falling back to the shared guest/demo bucket otherwise.
+    const activeId = localStorage.getItem(ACTIVE_USER_KEY);
+    const saved =
+      (activeId && localStorage.getItem(scopedStorageKey(activeId))) ||
+      localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      const rawHadEvents = typeof parsed.calendar === 'object' && parsed.calendar !== null && Array.isArray(parsed.calendar.events);
-      const rawHadMessages = typeof parsed.chat === 'object' && parsed.chat !== null && Array.isArray(parsed.chat.messages);
-
-      // Schema validation & sanitization of possibly-corrupt, legacy, or
-      // future-shaped data before it ever reaches the reactive store.
-      const { data, issues } = sanitizeRawState(parsed);
-      if (issues.length > 0) console.warn('State hydration issues:', issues);
-
-      setState(
-        produce(s => {
-          Object.assign(s, {
-            ...DEFAULT_STATE,
-            ...data,
-            user: data.user,
-            waifu: {
-              ...DEFAULT_STATE.waifu,
-              ...(data.waifu || {}),
-              appearance: { ...DEFAULT_STATE.waifu.appearance, ...(data.waifu?.appearance || {}) }
-            },
-            rpg: {
-              ...DEFAULT_RPG,
-              ...(data.rpg || {}),
-              unlockedOutfits: unionStrings(DEFAULT_RPG.unlockedOutfits, data.rpg?.unlockedOutfits),
-              unlockedAccessories: unionStrings(DEFAULT_RPG.unlockedAccessories, data.rpg?.unlockedAccessories),
-              unlockedHairstyles: unionStrings(DEFAULT_RPG.unlockedHairstyles, data.rpg?.unlockedHairstyles)
-            },
-            calendar: {
-              ...DEFAULT_STATE.calendar,
-              ...(data.calendar || {}),
-              events: rawHadEvents ? data.calendar?.events || [] : DEFAULT_STATE.calendar.events
-            },
-            settings: { ...DEFAULT_STATE.settings, ...(data.settings || {}) },
-            chat: {
-              ...DEFAULT_STATE.chat,
-              ...(data.chat || {}),
-              messages: rawHadMessages ? data.chat?.messages || [] : DEFAULT_STATE.chat.messages
-            }
-          });
-        })
-      );
+      applyStoredState(JSON.parse(saved));
     }
   } catch (e) {
     console.warn('Failed to load state from localStorage', e);
@@ -961,25 +1012,57 @@ export function toggleShowcaseItem(itemId: string): boolean {
   return true;
 }
 
-export function setUserAccount(user: UserAccount | null) {
-  setState('user', user);
+/**
+ * Wipes all per-account progress (waifu bond, RPG economy/inventory, calendar,
+ * chat history) back to the fresh-player defaults. Used when registering a brand
+ * new account and when switching accounts, so leftover state from a previous
+ * session/account can never leak into the next player's save.
+ */
+function resetStateInMemory() {
+  const fresh = JSON.parse(JSON.stringify(DEFAULT_STATE)) as AppState;
+  fresh.calendar.events = [];
+  fresh.calendar.occurrenceOverrides = [];
+  setState(fresh);
+}
+
+export function resetAccountProgress() {
+  resetStateInMemory();
   saveState();
 }
 
-/**
- * Resets all per-account progress (waifu bond, RPG economy/inventory, calendar,
- * chat history) back to the fresh-player defaults. Used when registering a brand
- * new account so leftover state from a previous session/account can never leak
- * into the new player's save. The user account itself is not touched here; call
- * `setUserAccount` afterwards to attach the new profile.
- */
-export function resetAccountProgress() {
-  // Start a brand-new account with a clean slate: keep the shared defaults for
-  // the companion, RPG economy, and settings, but never seed demo events/tasks
-  // into a real user's calendar.
-  const fresh = JSON.parse(JSON.stringify(DEFAULT_STATE)) as AppState;
-  fresh.calendar.events = [];
-  setState(fresh);
+export function setUserAccount(user: UserAccount | null) {
+  const prevId = state.user?.id;
+  const nextId = user?.id;
+  const prevRegistered = isRegisteredAccount(state.user);
+  const nextRegistered = isRegisteredAccount(user);
+
+  if (prevRegistered || nextRegistered) {
+    if (prevId !== nextId) {
+      // Persist the outgoing account's state under its own bucket first, then
+      // wipe the in-memory state so no data leaks into the next account.
+      saveState();
+      if (prevRegistered) {
+        localStorage.removeItem(ACTIVE_USER_KEY);
+      }
+      resetStateInMemory();
+    }
+    setState('user', user);
+
+    // Restore this account's own local save (if this browser has one) so a
+    // re-login works even before the cloud pull completes.
+    if (nextRegistered && nextId) {
+      const saved = localStorage.getItem(scopedStorageKey(nextId));
+      if (saved) applyStoredState(JSON.parse(saved));
+      // Keep the freshly-issued session/account from the auth response.
+      setState('user', user);
+    }
+
+    saveState();
+    return;
+  }
+
+  // Both sides are guests/logged-out: no account isolation in play.
+  setState('user', user);
   saveState();
 }
 
