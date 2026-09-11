@@ -742,5 +742,35 @@
       "desc": "Unlocks the divine glowing Angel Halo.",
       "reward": "Angel Halo"
     }
+  },
+  "strike": {
+    "title": "Waifu Strike",
+    "modeTitle": "Waifu Strike DM",
+    "mapName": "Cyber Shrine",
+    "desc": "Endless casual tactical deathmatch. Drop in, click to lock mouse, and frag!",
+    "dropInBtn": "Drop In & Play",
+    "leaveMatch": "Leave Match",
+    "scoreboardTitle": "Deathmatch Leaderboard",
+    "summaryTitle": "Match Report",
+    "summarySubtitle": "Endless casual deathmatch session results",
+    "kills": "Kills",
+    "totalKills": "Strike Kills",
+    "deaths": "Deaths",
+    "headshots": "Headshots",
+    "bestStreak": "Best Frag Streak",
+    "damage": "Damage Dealt",
+    "accuracy": "Accuracy",
+    "weapons": {
+      "rifle": "Type-89 Sakura Rifle",
+      "sniper": "Aether Railgun (AWP)",
+      "pistol": "Neo Deagle",
+      "knife": "Kitsune Blade"
+    },
+    "medals": {
+      "headshot": "HEADSHOT!",
+      "tripleKill": "TRIPLE KILL!",
+      "rampage": "RAMPAGE!",
+      "unstoppable": "UNSTOPPABLE!"
+    }
   }
 }

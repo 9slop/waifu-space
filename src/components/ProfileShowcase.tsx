@@ -839,6 +839,27 @@ export function ProfileShowcase() {
                   <p>{t('profile.milestonesClaimed')}</p>
                 </div>
               </div>
+              <div class="stats-card">
+                <span class="stats-card-icon">🎯</span>
+                <div class="stats-card-info">
+                  <h3>{(state.settings as any)?.waifuStrike?.kills || 0}</h3>
+                  <p>{t('strike.totalKills') || 'Strike Kills'}</p>
+                </div>
+              </div>
+              <div class="stats-card">
+                <span class="stats-card-icon">💀</span>
+                <div class="stats-card-info">
+                  <h3>{(state.settings as any)?.waifuStrike?.headshots || 0}</h3>
+                  <p>{t('strike.headshots') || 'Headshots'}</p>
+                </div>
+              </div>
+              <div class="stats-card">
+                <span class="stats-card-icon">⚡</span>
+                <div class="stats-card-info">
+                  <h3>{(state.settings as any)?.waifuStrike?.bestStreak || 0}</h3>
+                  <p>{t('strike.bestStreak') || 'Best Frag Streak'}</p>
+                </div>
+              </div>
             </div>
           </div>
         </Show>

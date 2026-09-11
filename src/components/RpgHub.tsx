@@ -8,13 +8,14 @@ import {
   getBondExpNeeded
 } from '../lib/store';
 import { WaifuDefenseGame } from './WaifuDefenseGame';
+import { WaifuStrikeGame } from './WaifuStrikeGame';
 import { LootboxModal } from './LootboxModal';
 import { t, getMilestoneTitle, getMilestoneDesc, getMilestoneRewardLabel } from '../lib/i18n';
 import { defenseGameActive, pendingDefenseTab, setPendingDefenseTab } from '../lib/defense-bridge';
 
 export function RpgHub() {
   const [activeTab, setActiveTab] = createSignal<'games' | 'gacha' | 'affection'>('games');
-  const [selectedGame, setSelectedGame] = createSignal<'defense' | 'future'>('defense');
+  const [selectedGame, setSelectedGame] = createSignal<'defense' | 'strike' | 'future'>('defense');
 
   // Intercept tab switches while a defense run is in progress so the game
   // (and the player's progress) is never silently discarded.
@@ -81,6 +82,15 @@ export function RpgHub() {
               </button>
 
               <button
+                class={`gamemode-chip-btn ${selectedGame() === 'strike' ? 'active' : ''}`}
+                onClick={() => setSelectedGame('strike')}
+              >
+                <span>⚡</span>
+                <span>{t('strike.title') || 'Waifu Strike 3D'}</span>
+                <span class="gamemode-badge" style={{ background: '#ff7597' }}>New</span>
+              </button>
+
+              <button
                 class={`gamemode-chip-btn coming-soon ${selectedGame() === 'future' ? 'active' : ''}`}
                 onClick={() => setSelectedGame('future')}
               >
@@ -93,6 +103,10 @@ export function RpgHub() {
             {/* Selected Gamemode View */}
             <Show when={selectedGame() === 'defense'}>
               <WaifuDefenseGame />
+            </Show>
+
+            <Show when={selectedGame() === 'strike'}>
+              <WaifuStrikeGame onExit={() => setSelectedGame('defense')} />
             </Show>
 
             <Show when={selectedGame() === 'future'}>

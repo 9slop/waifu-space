@@ -21,3 +21,9 @@ pnpm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Agent & IDE configs
+.agents/
+.vscode/
+mcp_config.json
+skills-lock.json

@@ -742,5 +742,35 @@
       "desc": "神聖に輝く天使の光輪アクセサリーを獲得します。",
       "reward": "天使の光輪"
     }
+  },
+  "strike": {
+    "title": "ワイフストライク (Waifu Strike)",
+    "modeTitle": "ワイフストライク DM",
+    "mapName": "電脳神社 (Cyber Shrine)",
+    "desc": "エンドレス・カジュアル・デスマッチ。即座に参戦してマウスをロックし、敵を撃破しましょう！",
+    "dropInBtn": "即時参戦してプレイ",
+    "leaveMatch": "マッチから退出",
+    "scoreboardTitle": "デスマッチスコアボード",
+    "summaryTitle": "戦闘戦果レポート",
+    "summarySubtitle": "エンドレスデスマッチセッション結果",
+    "kills": "キル数",
+    "totalKills": "ストライクキル数",
+    "deaths": "デス数",
+    "headshots": "ヘッドショット",
+    "bestStreak": "最大連続キル",
+    "damage": "与ダメージ",
+    "accuracy": "命中率",
+    "weapons": {
+      "rifle": "八九式サクラライフル",
+      "sniper": "エーテルレールガン (AWP)",
+      "pistol": "ネオ・デザートイーグル",
+      "knife": "狐影ブレード"
+    },
+    "medals": {
+      "headshot": "ヘッドショット！",
+      "tripleKill": "トリプルキル！",
+      "rampage": "ランページ！",
+      "unstoppable": "アンストッパブル！"
+    }
   }
 }
