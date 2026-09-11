@@ -1642,3 +1642,9 @@ export function clearChatHistory() {
   setState('chat', 'messages', []);
   saveState();
 }
+
+const [leaderboardModalOpen, setLeaderboardModalOpen] = createSignal(false);
+export const isLeaderboardOpen = leaderboardModalOpen;
+export const openLeaderboard = () => setLeaderboardModalOpen(true);
+export const closeLeaderboard = () => setLeaderboardModalOpen(false);
+

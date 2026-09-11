@@ -8,7 +8,8 @@ import {
   speechBubbleVisible,
   sendUserMessage,
   getBondExpNeeded,
-  getCooldownRemainingMs
+  getCooldownRemainingMs,
+  openLeaderboard
 } from '../lib/store';
 import { getPersonality } from '../lib/personality';
 import { onActivateKey } from '../lib/accessibility';
@@ -40,6 +41,16 @@ export function CompanionStage() {
             <h2 class="waifu-display-name">{state.waifu.name}</h2>
             <span class="personality-tag">{persona().name}</span>
           </div>
+
+          <button
+            class="header-action-pill btn-leaderboard stage-leaderboard-btn"
+            data-testid="stage-btn-leaderboard"
+            title={t('nav.leaderboard')}
+            onClick={openLeaderboard}
+          >
+            <span>🏆</span>
+            <span class="pill-text">{t('nav.leaderboard')}</span>
+          </button>
 
           {/* AFFECTION / BOND METER */}
           <div
