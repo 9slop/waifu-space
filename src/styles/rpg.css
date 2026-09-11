@@ -229,8 +229,8 @@
   color: #64b5f6;
 }
 
-.energy-val {
-  color: #ffd54f;
+.silver-val {
+  color: #cfd8dc;
 }
 
 .hud-hp-bar {
@@ -312,6 +312,42 @@
   aspect-ratio: 800 / 480;
   display: block;
   cursor: crosshair;
+}
+
+/* BOSS HEALTH BAR (every 10th wave) */
+.boss-bar-overlay {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(70%, 420px);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.boss-bar-label {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ff8a80;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  margin-bottom: 4px;
+}
+
+.boss-bar-track {
+  height: 14px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 138, 128, 0.6);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: 0 0 12px rgba(183, 28, 28, 0.6);
+}
+
+.boss-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #b71c1c, #ff1744);
+  transition: width 0.2s linear;
 }
 
 .game-overlay-banner {
@@ -1464,6 +1500,69 @@
 
 .empty-inventory-notice span {
   font-size: 48px;
+}
+
+/* TAB-SWITCH WARNING MODAL (active defense run guard) */
+.defense-leave-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.defense-leave-modal {
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  max-width: 420px;
+  width: calc(100% - 40px);
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.7);
+  animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.defense-leave-modal h3 {
+  margin: 0 0 10px;
+  color: #ffd54f;
+  font-size: 18px;
+}
+
+.defense-leave-modal p {
+  margin: 0 0 20px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.defense-leave-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-stay, .btn-leave {
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-stay {
+  background: linear-gradient(135deg, #4caf50, #81c784);
+}
+
+.btn-leave {
+  background: linear-gradient(135deg, #f44336, #e57373);
 }
 
 /* RESPONSIVE */
