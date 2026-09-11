@@ -1,4 +1,7 @@
-MIT License
+The standard MIT License does not allow arbitrary modifications if you wish to remain OSI-compliant or open-source according to the Open Source Definition (OSD). However, if your goal is an **AI restriction clause** (similar to the Responsible AI Licenses or "No AI" source-available licenses) added to the MIT base, you can convert it into a customized, source-available license:
+
+```text
+MIT License (Modified - No AI Use)
 
 Copyright (c) 2026 numslop
 
@@ -9,8 +12,15 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+2. AI / ML Training & Scraping Restriction:
+   The Software, including its source code, documentation, vector artwork, assets,
+   and written content, may not be used, directly or indirectly, to train, fine-tune,
+   validate, benchmark, or inform any artificial intelligence, machine learning,
+   neural network, or large language model systems without prior explicit written
+   authorization from the copyright holder.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -19,3 +29,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+```
+
+What specific restrictions or modifications did you want to enforce (e.g., restricting AI training/scraping, changing commercial rights, or updating the copyright holder details)? Knowing your intended goal will help determine whether a custom rider or an established standard license fits best.
