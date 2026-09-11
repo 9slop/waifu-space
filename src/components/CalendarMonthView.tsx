@@ -106,7 +106,7 @@ export function CalendarMonthView(props: {
           {dayObj => {
             const d = dayObj.date;
             const isToday = isSameDay(d, today);
-            const dayEvents = getEventsForDate(props.events, d);
+            const dayEvts = () => getEventsForDate(props.events, d);
 
             return (
               <div
@@ -126,7 +126,7 @@ export function CalendarMonthView(props: {
                 </div>
 
                 <div class="day-events-wrapper">
-                  <For each={dayEvents.slice(0, 4)}>
+                  <For each={dayEvts().slice(0, 4)}>
                     {ev => {
                       const startTime = ev.allDay
                         ? ''
@@ -173,8 +173,8 @@ export function CalendarMonthView(props: {
                       );
                     }}
                   </For>
-                  {dayEvents.length > 4 && (
-                    <div class="more-events-tag">{t('calendar.moreEvents', { count: dayEvents.length - 4 })}</div>
+                  {dayEvts().length > 4 && (
+                    <div class="more-events-tag">{t('calendar.moreEvents', { count: dayEvts().length - 4 })}</div>
                   )}
                 </div>
               </div>
