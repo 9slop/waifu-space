@@ -3,6 +3,7 @@ import { state, fetchCountryCatalog, setCountryHolidays } from '../lib/store';
 import { CountryInfo, countryFlagEmoji } from '../lib/countries';
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
+import { SettingsIcon } from './icons';
 
 const TITLE_ID = 'holidays-modal-title';
 
@@ -72,7 +73,9 @@ export function CountryHolidaysModal(props: { isOpen: boolean; onClose: () => vo
     >
       <div class="gcal-modal" style={{ 'max-width': '440px' }}>
         <div class="modal-header">
-          <h3 id={TITLE_ID}>🌍 {t('calendar.holidays.title')}</h3>
+          <h3 id={TITLE_ID}>
+            <SettingsIcon size={16} class="modal-title-icon" /> {t('calendar.holidays.title')}
+          </h3>
           <button class="modal-close-btn" type="button" onClick={props.onClose} aria-label={t('common.close')}>
             ✕
           </button>

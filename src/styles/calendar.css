@@ -1267,6 +1267,12 @@ body.is-resizing-event {
   50% { opacity: 0.4; transform: scale(0.8); }
 }
 
+.modal-title-icon {
+  vertical-align: -2px;
+  margin-right: 6px;
+  color: var(--text-secondary, #9092b0);
+}
+
 .holiday-modal-body {
   display: flex;
   flex-direction: column;

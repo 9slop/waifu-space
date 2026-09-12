@@ -27,6 +27,7 @@ import { CalendarWeekView } from './CalendarWeekView';
 import { CalendarDayView } from './CalendarDayView';
 import { t, getLocale, formatDate } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
+import { SettingsIcon } from './icons';
 
 export function CalendarPlanner() {
   const [currentDate, setCurrentDate] = createSignal(new Date());
@@ -419,7 +420,7 @@ const sidebarTasks = createMemo(() => {
             title={t('calendar.toolbar.countryHolidaysTooltip')}
             aria-label={t('calendar.toolbar.countryHolidaysTooltip')}
           >
-            🌍
+            <SettingsIcon size={18} />
             <Show when={((state.settings.countryHolidays || []) as string[]).length > 0}>
               <span class="holiday-count-badge">{(state.settings.countryHolidays || []).length}</span>
             </Show>
