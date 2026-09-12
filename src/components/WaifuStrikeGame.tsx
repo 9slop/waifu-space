@@ -1406,7 +1406,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
             <span>{loadout().melee === 'katana' ? 'Katana' : 'Knife'}</span>
           </div>
           <div
-            class={`hud-weapon-slot ${grenadeCount() > 0 ? '' : 'disabled'} ${grenadeArmed() ? 'active' : ''}`}
+            class={`hud-weapon-slot ${grenadeCount() > 0 ? '' : 'disabled'} ${grenadeArmed() ? 'active grenade-armed' : ''}`}
             title="Press 4 or G to arm grenade, hold LMB to aim, release to throw"
             onClick={() => (grenadeArmed() ? engine()?.throwGrenade() : engine()?.armGrenade())}
           >

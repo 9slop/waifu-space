@@ -435,6 +435,29 @@
   color: #00cec9;
 }
 
+/* Grenade arm animation — bounce pop + persistent orange glow pulse */
+@keyframes grenade-arm-bounce {
+  0%   { transform: scale(1) translateY(0); }
+  18%  { transform: scale(1.22) translateY(-5px); }
+  38%  { transform: scale(0.93) translateY(2px); }
+  58%  { transform: scale(1.08) translateY(-2px); }
+  75%  { transform: scale(0.98) translateY(0); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+@keyframes grenade-glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px 2px rgba(255, 140, 0, 0.55), inset 0 0 6px rgba(255, 140, 0, 0.15); }
+  50%       { box-shadow: 0 0 18px 5px rgba(255, 180, 0, 0.80), inset 0 0 10px rgba(255, 170, 0, 0.25); }
+}
+
+.hud-weapon-slot.grenade-armed {
+  animation:
+    grenade-arm-bounce 0.38s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards,
+    grenade-glow-pulse 0.9s ease-in-out infinite 0.38s;
+  border-color: #ffaa00 !important;
+  color: #ffe18a !important;
+}
+
 /* Ammo Card */
 .hud-ammo-card {
   background: rgba(16, 20, 28, 0.85);
