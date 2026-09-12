@@ -5,8 +5,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     id: 'rifle',
     name: 'Type-89 Sakura Rifle',
     category: 'primary',
-    damage: 34, // 3-4 body hits to eliminate 100 HP + armor
-    headshotMultiplier: 3.2, // ~109 headshot (one-tap unarmored, ~74 armored)
+    damage: 24, // 5 shots unarmored (24 * 5 = 120), ~6-7 shots armored (takes 4-5+ bullets to kill)
+    headshotMultiplier: 2.2, // 52-53 headshot damage (~36 armored, requiring 2 headshots or 1 head + 2-3 body)
     fireRateRpm: 600, // 10 rounds/sec = 100ms between shots
     magazineSize: 30,
     reserveAmmo: 90,
@@ -27,8 +27,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     id: 'sniper',
     name: 'Aether Railgun (AWP)',
     category: 'primary',
-    damage: 115, // lethal 1-shot kill to chest/stomach on 100 HP, pinpoint accuracy when scoped
-    headshotMultiplier: 4.0, // 460 headshot damage
+    damage: 105, // 1-shot kill to chest on 100 HP (~72 armored, lethal on unarmored or 1-tap headshot)
+    headshotMultiplier: 1.6, // 168 headshot damage (clean lethal headshot through armor, no absurd 460/480 overkills)
     fireRateRpm: 48, // Responsive bolting
     magazineSize: 5,
     reserveAmmo: 30,
@@ -49,8 +49,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     id: 'pistol',
     name: 'Neo Deagle',
     category: 'secondary',
-    damage: 48, // 3 body hits to eliminate 100 HP + armor
-    headshotMultiplier: 3.0, // 144 headshot damage
+    damage: 32, // 4 body hits to eliminate 100 HP (32 * 4 = 128), ~5 hits armored
+    headshotMultiplier: 2.2, // ~70 headshot damage (~48 armored, requiring 2 headshots or 1 head + 2 body)
     fireRateRpm: 320, // 187ms between shots
     magazineSize: 7,
     reserveAmmo: 70,

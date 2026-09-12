@@ -17,18 +17,18 @@ describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
     expect(WEAPON_CATALOG.knife.category).toBe('melee');
     expect(WEAPON_CATALOG.katana.category).toBe('melee');
 
-    // Rifle headshot should be instant kill on unarmored (>= 100 dmg)
-    const rifleHeadshot = WEAPON_CATALOG.rifle.damage * WEAPON_CATALOG.rifle.headshotMultiplier;
-    expect(rifleHeadshot).toBeGreaterThanOrEqual(100);
+    // Rifle: 24 body dmg (takes 4-5 hits to kill 100 HP), 52.8 headshot dmg
+    expect(WEAPON_CATALOG.rifle.damage).toBe(24);
+    expect(WEAPON_CATALOG.rifle.damage * WEAPON_CATALOG.rifle.headshotMultiplier).toBeCloseTo(52.8, 1);
 
-    // Sniper (Railgun / AWM): 115 body dmg (1-shot lethal to 100 HP), 460 headshot dmg
-    expect(WEAPON_CATALOG.sniper.damage).toBe(115);
-    expect(WEAPON_CATALOG.sniper.damage * WEAPON_CATALOG.sniper.headshotMultiplier).toBe(460);
+    // Sniper (Railgun / AWM): 105 body dmg, 168 headshot dmg (sensible headshot vs 100 HP, clean 1-shot through armor)
+    expect(WEAPON_CATALOG.sniper.damage).toBe(105);
+    expect(WEAPON_CATALOG.sniper.damage * WEAPON_CATALOG.sniper.headshotMultiplier).toBe(168);
     expect(WEAPON_CATALOG.sniper.hasScope).toBe(true);
 
-    // Deagle: 48 body dmg (3 shots to kill 100 HP + armor), 144 headshot dmg
-    expect(WEAPON_CATALOG.pistol.damage).toBe(48);
-    expect(WEAPON_CATALOG.pistol.damage * WEAPON_CATALOG.pistol.headshotMultiplier).toBe(144);
+    // Deagle: 32 body dmg (takes 4 hits to kill 100 HP), 70.4 headshot dmg
+    expect(WEAPON_CATALOG.pistol.damage).toBe(32);
+    expect(WEAPON_CATALOG.pistol.damage * WEAPON_CATALOG.pistol.headshotMultiplier).toBeCloseTo(70.4, 1);
 
     // Knife quick and heavy attacks + backstab instant kill (200 damage)
     expect(WEAPON_CATALOG.knife.damage).toBe(35);
