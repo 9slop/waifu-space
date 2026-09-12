@@ -90,7 +90,9 @@ export class StrikeBabylonEngine {
   public health = 150;
   public maxHealth = 150;
   public isDead = false;
+  public isPaused = false;
   private screenShakeTrauma = 0;
+  private currentShakePitch = 0;
   private elapsedGameTime = 0;
 
   // Input & Sensitivity
@@ -203,6 +205,16 @@ export class StrikeBabylonEngine {
     this.mouseButtons = {};
   }
 
+  public setPaused(paused: boolean) {
+    this.isPaused = paused;
+    if (paused) {
+      this.keysDown = {};
+      this.mouseButtons = {};
+      this.velocity.x = 0;
+      this.velocity.z = 0;
+    }
+  }
+
   private setupInputs() {
     this.boundPointerLockChange = () => {
       const plEl = document.pointerLockElement || (document as any).mozPointerLockElement;
@@ -218,7 +230,7 @@ export class StrikeBabylonEngine {
     document.addEventListener('mozpointerlockchange', this.boundPointerLockChange);
 
     this.boundKeyDown = (e) => {
-      if (!this.isPlaying) return;
+      if (!this.isPlaying || this.isPaused) return;
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
         return;
       }
@@ -253,7 +265,7 @@ export class StrikeBabylonEngine {
     window.addEventListener('keyup', this.boundKeyUp);
 
     this.boundPointerMove = (e: PointerEvent) => {
-      if (!this.isPlaying) return;
+      if (!this.isPlaying || this.isPaused) return;
 
       let movementX = e.movementX ?? (e as any).mozMovementX ?? 0;
       let movementY = e.movementY ?? (e as any).mozMovementY ?? 0;
@@ -289,7 +301,7 @@ export class StrikeBabylonEngine {
     window.addEventListener('pointermove', this.boundPointerMove);
 
     this.boundPointerDown = (e: PointerEvent) => {
-      if (!this.isPlaying || this.isDead) return;
+      if (!this.isPlaying || this.isDead || this.isPaused) return;
 
       const target = e.target as HTMLElement | null;
       // Do not intercept clicks on buttons or UI overlays (top banner, controls modal, summary modal, etc.)
@@ -427,7 +439,7 @@ export class StrikeBabylonEngine {
   }
 
   public toggleScope() {
-    if (this.isReloading) return;
+    if (this.isReloading || this.isPaused) return;
     const def = WEAPON_CATALOG[this.activeWeaponId];
     if (!def.hasScope) return;
     this.isScoped = !this.isScoped;
@@ -437,7 +449,7 @@ export class StrikeBabylonEngine {
   }
 
   public reload() {
-    if (this.isReloading || this.isDead) return;
+    if (this.isReloading || this.isDead || this.isPaused) return;
     const def = WEAPON_CATALOG[this.activeWeaponId];
     const needed = def.magazineSize - this.ammoMag[this.activeWeaponId];
     if (needed <= 0 || this.ammoReserve[this.activeWeaponId] <= 0) return;
@@ -456,7 +468,7 @@ export class StrikeBabylonEngine {
   }
 
   public shoot(isHeavy = false) {
-    if (!this.isPlaying || this.isDead || this.isReloading) return;
+    if (!this.isPlaying || this.isDead || this.isReloading || this.isPaused) return;
     const now = performance.now();
     const def = WEAPON_CATALOG[this.activeWeaponId];
 
@@ -669,13 +681,24 @@ export class StrikeBabylonEngine {
       const shakeRoll = (Math.random() - 0.5) * 0.05 * traumaSq;
       const shakePitch = (Math.random() - 0.5) * 0.03 * traumaSq;
       this.camera.rotation.z = shakeRoll;
-      this.camera.rotation.x += shakePitch;
+      this.camera.rotation.x += (shakePitch - this.currentShakePitch);
+      this.currentShakePitch = shakePitch;
       this.screenShakeTrauma = Math.max(0, this.screenShakeTrauma - dt * 2.8);
       if (this.screenShakeTrauma <= 0) {
         this.camera.rotation.z = 0;
+        if (this.currentShakePitch !== 0) {
+          this.camera.rotation.x -= this.currentShakePitch;
+          this.currentShakePitch = 0;
+        }
       }
-    } else if (this.camera.rotation.z !== 0) {
-      this.camera.rotation.z = 0;
+    } else {
+      if (this.camera.rotation.z !== 0) {
+        this.camera.rotation.z = 0;
+      }
+      if (this.currentShakePitch !== 0) {
+        this.camera.rotation.x -= this.currentShakePitch;
+        this.currentShakePitch = 0;
+      }
     }
 
     // Reload timer check
@@ -689,9 +712,9 @@ export class StrikeBabylonEngine {
       this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
     }
 
-    // Crouch and Walk states
-    this.isCrouching = !!this.keysDown[this.keybindings.crouch] || !!this.keysDown['KeyC'] || !!this.keysDown['ControlLeft'];
-    this.isWalking = !!this.keysDown[this.keybindings.walk] || !!this.keysDown['ShiftLeft'] || !!this.keysDown['ShiftRight'];
+    // Crouch and Walk states (disabled while paused in ESC menu)
+    this.isCrouching = !this.isPaused && (!!this.keysDown[this.keybindings.crouch] || !!this.keysDown['KeyC'] || !!this.keysDown['ControlLeft']);
+    this.isWalking = !this.isPaused && (!!this.keysDown[this.keybindings.walk] || !!this.keysDown['ShiftLeft'] || !!this.keysDown['ShiftRight']);
 
     // Speeds in m/s (CS-accurate competitive scale: ~250 units/s ≈ 6.5 m/s)
     const def = WEAPON_CATALOG[this.activeWeaponId];
@@ -705,10 +728,12 @@ export class StrikeBabylonEngine {
     // Movement input direction
     let forward = 0;
     let strafe = 0;
-    if (this.keysDown[this.keybindings.forward]) forward += 1;
-    if (this.keysDown[this.keybindings.backward]) forward -= 1;
-    if (this.keysDown[this.keybindings.left]) strafe -= 1;
-    if (this.keysDown[this.keybindings.right]) strafe += 1;
+    if (!this.isPaused) {
+      if (this.keysDown[this.keybindings.forward]) forward += 1;
+      if (this.keysDown[this.keybindings.backward]) forward -= 1;
+      if (this.keysDown[this.keybindings.left]) strafe -= 1;
+      if (this.keysDown[this.keybindings.right]) strafe += 1;
+    }
 
     // Transform movement direction by camera yaw
     const yaw = this.camera.rotation.y;
@@ -724,8 +749,23 @@ export class StrikeBabylonEngine {
     if (this.onGround) {
       // 1. Counter-Strike Ground Friction Model (sv_friction)
       const curSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-      if (curSpeed > 0.001) {
-        const friction = 5.2; // CS sv_friction
+      if (moveLen === 0) {
+        // Releasing keys: crisp stop without sliding on ice, zeroing micro-drift below threshold
+        if (curSpeed < 0.08) {
+          this.velocity.x = 0;
+          this.velocity.z = 0;
+        } else {
+          const friction = 9.5; // Rapid deceleration (halts in ~0.10s)
+          const stopSpeed = 1.8;
+          const control = Math.max(curSpeed, stopSpeed);
+          const drop = control * friction * dt;
+          const newSpeed = Math.max(0, curSpeed - drop);
+          const frac = newSpeed / curSpeed;
+          this.velocity.x *= frac;
+          this.velocity.z *= frac;
+        }
+      } else if (curSpeed > 0.001) {
+        const friction = 5.2; // CS standard moving friction
         const stopSpeed = 1.0;
         const control = Math.max(curSpeed, stopSpeed);
         const drop = control * friction * dt;
@@ -755,13 +795,13 @@ export class StrikeBabylonEngine {
       }
     } else {
       // 4. Counter-Strike Air Acceleration & Air Speed Cap
-      // In the air, wish speed is strictly capped at 1.2 m/s — preventing unrealistic mid-air sprinting or sharp air turns!
+      // Responsive air steering with 2.2 m/s wish cap
       if (moveLen > 0) {
-        const airWishSpeed = Math.min(maxSpeed, 1.2);
+        const airWishSpeed = Math.min(maxSpeed, 2.2);
         const currentSpeedInWish = this.velocity.x * wishDirX + this.velocity.z * wishDirZ;
         const addSpeed = airWishSpeed - currentSpeedInWish;
         if (addSpeed > 0) {
-          const airAccel = 10.0; // CS air acceleration
+          const airAccel = 14.0;
           const accelSpeed = Math.min(addSpeed, airAccel * airWishSpeed * dt);
           this.velocity.x += wishDirX * accelSpeed;
           this.velocity.z += wishDirZ * accelSpeed;
@@ -792,33 +832,46 @@ export class StrikeBabylonEngine {
 
     // Gravity & Jump
     if (this.onGround) {
-      if (this.keysDown[this.keybindings.jump] || this.keysDown['Space']) {
+      if (!this.isPaused && (this.keysDown[this.keybindings.jump] || this.keysDown['Space'])) {
         this.velocity.y = 5.8; // CS jump impulse (~280 units/s)
         this.onGround = false;
       } else {
-        this.velocity.y = -0.5; // gentle ground stick
+        // When already firmly resting on courtyard floor (y <= 0.852), zero downward stick to eliminate collider jitter
+        if (this.playerCollider.position.y <= 0.852) {
+          this.velocity.y = 0;
+        } else {
+          this.velocity.y = -0.5; // gentle ground stick on slopes/stairs
+        }
       }
     } else {
       this.velocity.y -= 21.0 * dt; // CS gravity (~800 units/s^2)
     }
 
+    const dispY = (this.onGround && this.playerCollider.position.y <= 0.852 && this.velocity.y <= 0)
+      ? 0
+      : this.velocity.y * dt;
+
     // Native Babylon moveWithCollisions on playerCollider slides smoothly along walls & obstacles
     const displacement = new Vector3(
       this.velocity.x * dt,
-      this.velocity.y * dt,
+      dispY,
       this.velocity.z * dt
     );
-    const prevY = this.playerCollider.position.y;
-    this.playerCollider.moveWithCollisions(displacement);
-    const deltaY = this.playerCollider.position.y - prevY;
 
-    // Detect landing on elevated surfaces/stairs/boxes when moving downward
-    if (displacement.y < -0.01 && deltaY > displacement.y * 0.5) {
-      this.onGround = true;
-      this.velocity.y = 0;
-      // Landing friction: slight momentum dampening upon impact
-      this.velocity.x *= 0.85;
-      this.velocity.z *= 0.85;
+    // Only invoke swept-sphere collision solver if there is non-zero displacement
+    if (displacement.lengthSquared() > 1e-7) {
+      const prevY = this.playerCollider.position.y;
+      this.playerCollider.moveWithCollisions(displacement);
+      const deltaY = this.playerCollider.position.y - prevY;
+
+      // Detect landing on elevated surfaces/stairs/boxes when moving downward
+      if (displacement.y < -0.01 && deltaY > displacement.y * 0.5) {
+        this.onGround = true;
+        this.velocity.y = 0;
+        // Landing friction: slight momentum dampening upon impact
+        this.velocity.x *= 0.85;
+        this.velocity.z *= 0.85;
+      }
     }
 
     // Safety ground floor limit (courtyard ground is y = 0, collider center is 0.85)

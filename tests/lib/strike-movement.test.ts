@@ -30,10 +30,21 @@ describe('CS-Style Movement Kinematics', () => {
     expect(walkSpeed).toBeLessThan(baseSpeed);
   });
 
-  it('limits air wish speed to prevent mid-air sprinting / bhop exploits', () => {
+  it('provides responsive air wish speed while capping mid-air acceleration', () => {
     const maxSpeed = 6.6;
-    const airWishSpeed = Math.min(maxSpeed, 1.2);
-    expect(airWishSpeed).toBe(1.2);
-    expect(airWishSpeed).toBeLessThan(maxSpeed * 0.25);
+    const airWishSpeed = Math.min(maxSpeed, 2.2);
+    expect(airWishSpeed).toBe(2.2);
+    expect(airWishSpeed).toBeLessThan(maxSpeed * 0.4);
+  });
+
+  it('calculates rapid crisp halt friction without ice-skating momentum retention', () => {
+    const curSpeed = 5.0;
+    const friction = 9.5;
+    const stopSpeed = 1.8;
+    const dt = 0.05; // 50ms (3-4 frames)
+    const control = Math.max(curSpeed, stopSpeed);
+    const drop = control * friction * dt;
+    const newSpeed = Math.max(0, curSpeed - drop);
+    expect(newSpeed).toBeLessThan(curSpeed * 0.6); // loses >40% speed in just 50ms
   });
 });
