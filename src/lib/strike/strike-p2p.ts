@@ -85,6 +85,7 @@ export class StrikeP2PManager {
   public localShotsFired = 0;
   public localShotsHit = 0;
   private seenChatIds: Set<string> = new Set();
+  private lastSupabaseBroadcastTime = 0;
 
   constructor(engine: StrikeBabylonEngine, callbacks: P2PNetworkCallbacks) {
     this.engine = engine;
@@ -124,8 +125,12 @@ export class StrikeP2PManager {
 
     // Close WebRTC DataChannels and connections
     this.peers.forEach((p) => {
-      p.dc?.close();
-      p.pc?.close();
+      try {
+        if (typeof p.dc?.close === 'function') p.dc.close();
+      } catch {}
+      try {
+        if (typeof p.pc?.close === 'function') p.pc.close();
+      } catch {}
     });
     this.peers.clear();
 
@@ -547,6 +552,10 @@ export class StrikeP2PManager {
     if (!peerId || peerId === this.myPeerId) return;
 
     const wrapper = this.getOrCreatePeerWrapper(peerId, rawState.name);
+    // If WebRTC DataChannel is open with this peer, prioritize direct P2P and ignore delayed WebSocket broadcasts
+    if (wrapper.dc && wrapper.dc.readyState === 'open') {
+      return;
+    }
     this.handleRemoteState(wrapper, rawState);
   }
 
@@ -764,14 +773,15 @@ export class StrikeP2PManager {
     const myYaw = this.engine.camera.rotation.y;
     const myPitch = this.engine.camera.rotation.x;
 
+    // Numerical precision optimization: round floats to reduce JSON packet footprint by ~50%
     const myState: P2PPlayerState = {
       peerId: this.myPeerId,
       name: this.myName,
-      x: myPos.x,
-      y: myPos.y,
-      z: myPos.z,
-      yaw: myYaw,
-      pitch: myPitch,
+      x: Math.round(myPos.x * 100) / 100,
+      y: Math.round(myPos.y * 100) / 100,
+      z: Math.round(myPos.z * 100) / 100,
+      yaw: Math.round(myYaw * 1000) / 1000,
+      pitch: Math.round(myPitch * 1000) / 1000,
       animState: this.engine.velocity.length() > 0.5 ? 1 : 0,
       health: this.engine.health,
       weaponId: this.engine.activeWeaponId,
@@ -784,24 +794,32 @@ export class StrikeP2PManager {
       timestamp: now
     };
 
-    // 1. Send via Supabase Realtime Broadcast (guaranteed delivery to all peers)
-    if (this.channel) {
+    // 1. High-frequency 25 Hz direct P2P sync via WebRTC DataChannels
+    const statePacket = JSON.stringify({ type: 'state', state: myState });
+    let openDcCount = 0;
+    this.peers.forEach((p) => {
+      if (p.dc && p.dc.readyState === 'open') {
+        openDcCount++;
+        try {
+          p.dc.send(statePacket);
+        } catch {}
+      }
+    });
+
+    // 2. Throttle Supabase Realtime WebSocket broadcast to 2 Hz heartbeat/fallback
+    // (or when peers are still establishing WebRTC connection)
+    const shouldBroadcastToSupabase =
+      this.channel &&
+      (openDcCount < this.peers.size || now - this.lastSupabaseBroadcastTime >= 500);
+
+    if (shouldBroadcastToSupabase && this.channel) {
+      this.lastSupabaseBroadcastTime = now;
       this.channel.send({
         type: 'broadcast',
         event: 'p2p-state',
         payload: myState
       });
     }
-
-    // 2. Also send over WebRTC DataChannel if open (for low-latency direct P2P)
-    const statePacket = JSON.stringify({ type: 'state', state: myState });
-    this.peers.forEach((p) => {
-      if (p.dc && p.dc.readyState === 'open') {
-        try {
-          p.dc.send(statePacket);
-        } catch {}
-      }
-    });
 
     this.publishScoreboard();
     this.updateActivePeerCount();

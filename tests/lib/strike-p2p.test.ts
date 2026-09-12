@@ -87,4 +87,42 @@ describe('StrikeP2PManager Remote State Handling', () => {
     expect(mockWrapper.state.health).toBe(150);
     expect(mockWrapper.state.weaponId).toBe('rifle');
   });
+
+  it('deduplicates incoming WebSocket state packets when WebRTC DataChannel is active', () => {
+    const peerId = 'peer_p2p_active';
+    const wrapper = (p2p as any).getOrCreatePeerWrapper(peerId, 'P2PRival');
+    wrapper.dc = { readyState: 'open' };
+    wrapper.state = {
+      peerId,
+      name: 'P2PRival',
+      x: 5,
+      y: 1.62,
+      z: 5,
+      yaw: 0,
+      pitch: 0,
+      animState: 0,
+      health: 150,
+      weaponId: 'rifle',
+      kills: 0,
+      deaths: 0,
+      headshots: 0,
+      streak: 0,
+      seq: 10,
+      timestamp: Date.now()
+    };
+
+    // An incoming slower WebSocket broadcast arrives with stale coordinates
+    (p2p as any).handleIncomingPlayerState({
+      peerId,
+      name: 'P2PRival',
+      x: 0,
+      y: 1.62,
+      z: 0,
+      seq: 9
+    });
+
+    // Wrapper state should not have been overwritten by stale WebSocket packet
+    expect(wrapper.state.x).toBe(5);
+    expect(wrapper.state.z).toBe(5);
+  });
 });
