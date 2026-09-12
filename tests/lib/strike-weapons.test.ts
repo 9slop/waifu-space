@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { WEAPON_CATALOG } from '../../src/lib/strike/strike-weapons';
+import { WEAPON_CATALOG, strikeAudio } from '../../src/lib/strike/strike-weapons';
 import { P2PPlayerState, P2PShootEvent } from '../../src/lib/strike/strike-types';
 
 describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
@@ -85,5 +85,25 @@ describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
     expect(WEAPON_CATALOG.rifle.range).toBe(300);
     expect(WEAPON_CATALOG.sniper.range).toBe(300);
     expect(WEAPON_CATALOG.pistol.range).toBe(300);
+  });
+
+  it('safely handles spatial audio parameters without throwing on partial or alternate keys', () => {
+    expect(() => {
+      strikeAudio.playFootstep(false, {
+        sourcePosition: { x: 10, y: 1.62, z: 5 },
+        listenerPosition: { x: 0, y: 1.62, z: 0 },
+        listenerYaw: 0
+      });
+      strikeAudio.playFootstep(false, {
+        sourcePos: { x: -5, y: 1.62, z: -5 },
+        listenerPos: { x: 0, y: 1.62, z: 0 },
+        listenerYaw: 1.57
+      });
+      strikeAudio.playFootstep(false, {} as any);
+      strikeAudio.playGunfire('rifle', {
+        sourcePosition: { x: 2, y: 1.62, z: 3 }
+      } as any);
+      strikeAudio.playGunfire('rifle', undefined);
+    }).not.toThrow();
   });
 });

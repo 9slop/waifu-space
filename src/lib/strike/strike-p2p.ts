@@ -269,7 +269,8 @@ export class StrikeP2PManager {
   }
 
   private async initiatePeerConnection(targetPeerId: string) {
-    if (this.peers.has(targetPeerId)) return;
+    let wrapper = this.peers.get(targetPeerId);
+    if (wrapper?.pc) return;
     if (typeof RTCPeerConnection === 'undefined') return;
 
     try {
@@ -279,17 +280,22 @@ export class StrikeP2PManager {
         maxRetransmits: 0
       });
 
-      const wrapper: PeerConnectionWrapper = {
-        peerId: targetPeerId,
-        name: 'Player',
-        pc,
-        dc,
-        state: null,
-        lastPacketTime: Date.now(),
-        lastShootTime: 0,
-        iceCandidatesQueue: []
-      };
-      this.peers.set(targetPeerId, wrapper);
+      if (!wrapper) {
+        wrapper = {
+          peerId: targetPeerId,
+          name: 'Player',
+          pc,
+          dc,
+          state: null,
+          lastPacketTime: Date.now(),
+          lastShootTime: 0,
+          iceCandidatesQueue: []
+        };
+        this.peers.set(targetPeerId, wrapper);
+      } else {
+        wrapper.pc = pc;
+        wrapper.dc = dc;
+      }
 
       this.setupDataChannel(wrapper, dc);
 
@@ -322,19 +328,23 @@ export class StrikeP2PManager {
 
     if (msg.type === 'offer') {
       let wrapper = this.peers.get(msg.from);
-      if (!wrapper) {
+      if (!wrapper || !wrapper.pc) {
         const pc = new RTCPeerConnection(ICE_SERVERS);
-        wrapper = {
-          peerId: msg.from,
-          name: 'Player',
-          pc,
-          dc: null,
-          state: null,
-          lastPacketTime: Date.now(),
-          lastShootTime: 0,
-          iceCandidatesQueue: []
-        };
-        this.peers.set(msg.from, wrapper);
+        if (!wrapper) {
+          wrapper = {
+            peerId: msg.from,
+            name: 'Player',
+            pc,
+            dc: null,
+            state: null,
+            lastPacketTime: Date.now(),
+            lastShootTime: 0,
+            iceCandidatesQueue: []
+          };
+          this.peers.set(msg.from, wrapper);
+        } else {
+          wrapper.pc = pc;
+        }
 
         pc.ondatachannel = (evt) => {
           wrapper!.dc = evt.channel;
@@ -353,6 +363,7 @@ export class StrikeP2PManager {
         };
       }
 
+      if (!wrapper.pc) return;
       await wrapper.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
 
       // Flush any ICE candidates received before remote description was ready
@@ -376,7 +387,7 @@ export class StrikeP2PManager {
       });
     } else if (msg.type === 'answer') {
       const wrapper = this.peers.get(msg.from);
-      if (wrapper && wrapper.pc.signalingState !== 'stable') {
+      if (wrapper && wrapper.pc && wrapper.pc.signalingState !== 'stable') {
         await wrapper.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
 
         // Flush any queued ICE candidates
@@ -428,6 +439,8 @@ export class StrikeP2PManager {
   private setupDataChannel(wrapper: PeerConnectionWrapper, dc: RTCDataChannel) {
     const handleOpen = () => {
       this.updateActivePeerCount();
+
+      if (this.engine.isDisposed || !this.engine.scene) return;
 
       // Create 3D Avatar for this human peer if not already created
       if (!this.engine.remoteAvatars.has(wrapper.peerId)) {
@@ -525,6 +538,7 @@ export class StrikeP2PManager {
   // Validates incoming player state packet with boundary and anti-teleport checks
   private handleRemoteState(wrapper: PeerConnectionWrapper, rawState: any) {
     if (!rawState || typeof rawState !== 'object') return;
+    if (this.engine.isDisposed || !this.engine.scene) return;
 
     const now = Date.now();
     const seq = Number(rawState.seq) || 0;
@@ -626,6 +640,7 @@ export class StrikeP2PManager {
   // Validates incoming shoot packet with damage and rate-limit checks
   private handleRemoteShoot(wrapper: PeerConnectionWrapper, shoot: any) {
     if (!shoot || typeof shoot !== 'object') return;
+    if (this.engine.isDisposed || !this.engine.scene) return;
     const now = Date.now();
 
     // Weapon validation

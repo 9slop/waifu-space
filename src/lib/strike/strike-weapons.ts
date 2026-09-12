@@ -88,9 +88,11 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
 };
 
 export interface SpatialAudioParams {
-  sourcePos: { x: number; y: number; z: number };
-  listenerPos: { x: number; y: number; z: number };
-  listenerYaw: number;
+  sourcePosition?: { x: number; y: number; z: number };
+  listenerPosition?: { x: number; y: number; z: number };
+  sourcePos?: { x: number; y: number; z: number };
+  listenerPos?: { x: number; y: number; z: number };
+  listenerYaw?: number;
 }
 
 /**
@@ -131,12 +133,26 @@ class ProceduralAudioEngine {
       return { input: this.masterGain!, output: this.masterGain! };
     }
 
-    const dx = params.sourcePos.x - params.listenerPos.x;
-    const dz = params.sourcePos.z - params.listenerPos.z;
+    const src = params.sourcePosition || params.sourcePos;
+    const listener = params.listenerPosition || params.listenerPos;
+    if (
+      !src ||
+      !listener ||
+      typeof src.x !== 'number' ||
+      typeof listener.x !== 'number' ||
+      typeof src.z !== 'number' ||
+      typeof listener.z !== 'number'
+    ) {
+      return { input: this.masterGain!, output: this.masterGain! };
+    }
+
+    const dx = src.x - listener.x;
+    const dz = src.z - listener.z;
     const dist = Math.hypot(dx, dz);
+    const yaw = params.listenerYaw || 0;
 
     // Relative angle in horizontal plane rotated by listener camera yaw
-    const relX = dx * Math.cos(-params.listenerYaw) - dz * Math.sin(-params.listenerYaw);
+    const relX = dx * Math.cos(-yaw) - dz * Math.sin(-yaw);
     const panVal = Math.max(-0.9, Math.min(0.9, relX / Math.max(2.5, dist)));
 
     // Smooth distance attenuation: 1 / (1 + (dist / 14)^1.4)
@@ -159,7 +175,7 @@ class ProceduralAudioEngine {
 
   public playFootstep(isLocal: boolean, spatial?: SpatialAudioParams) {
     const ctx = this.getContext();
-    if (!ctx || !this.masterGain) return;
+    if (!ctx || !this.masterGain || typeof ctx.createBuffer !== 'function') return;
 
     const t = ctx.currentTime;
     const dest = this.createSpatialNode(ctx, isLocal ? undefined : spatial);
@@ -229,6 +245,8 @@ class ProceduralAudioEngine {
       osc.stop(t + 0.12);
       return;
     }
+
+    if (typeof ctx.createBuffer !== 'function') return;
 
     // Gunshot: Noise burst (crack) + Low-frequency Sine (thump)
     const bufferSize = ctx.sampleRate * 0.15;

@@ -112,7 +112,7 @@ export class StrikeBabylonEngine {
 
   public isPointerLocked = false;
   private callbacks: StrikeBabylonCallbacks;
-  private isDisposed = false;
+  public isDisposed = false;
 
   constructor(canvas: HTMLCanvasElement, callbacks: StrikeBabylonCallbacks) {
     this.canvas = canvas;
