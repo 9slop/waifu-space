@@ -7,6 +7,7 @@ import {
   UniversalCamera,
   Ray,
   MeshBuilder,
+  Mesh,
   StandardMaterial,
   AbstractMesh,
   DynamicTexture,
@@ -30,6 +31,47 @@ import { createKyotoMap, BabylonMapData } from './strike-babylon-map';
 import { BabylonViewmodel, BabylonAvatarModel } from './strike-babylon-avatars';
 import { StrikeGrenadeManager } from './strike-grenades';
 
+/**
+ * Walks the parent chain of a picked mesh to detect whether it belongs to a
+ * remote player avatar (root TransformNode named `PlayerAvatar_<id>`). Avatar
+ * weapon meshes share generic names with the viewmodel (rifleBody, pistolSlide,
+ * etc.), so ancestry is the only reliable check to avoid painting bullet marks
+ * on players and to resolve hits on their held weapons.
+ */
+function isPlayerAffiliatedMesh(mesh: AbstractMesh): boolean {
+  let node: { name?: string; parent?: unknown } | null = mesh;
+  while (node) {
+    const n = node.name || '';
+    if (
+      n.startsWith('PlayerAvatar_') ||
+      n.startsWith('avatarHead_') ||
+      n.startsWith('avatarBody_') ||
+      n.startsWith('nameplate')
+    ) {
+      return true;
+    }
+    node = node.parent && typeof node.parent === 'object'
+      ? (node.parent as { name?: string; parent?: unknown })
+      : null;
+  }
+  return false;
+}
+
+/** Resolves the peer/player id of a mesh that belongs to a remote avatar. */
+function resolveAvatarPlayerId(mesh: AbstractMesh): string | null {
+  let node: { name?: string; parent?: unknown } | null = mesh;
+  while (node) {
+    const n = node.name || '';
+    if (n.startsWith('PlayerAvatar_')) {
+      return n.substring('PlayerAvatar_'.length) || null;
+    }
+    node = node.parent && typeof node.parent === 'object'
+      ? (node.parent as { name?: string; parent?: unknown })
+      : null;
+  }
+  return null;
+}
+
 export interface StrikeBabylonCallbacks {
   onHealthChange: (hp: number, maxHp: number) => void;
   onAmmoChange: (mag: number, reserve: number) => void;
@@ -47,6 +89,7 @@ export interface StrikeBabylonCallbacks {
   onLocalGrenadeThrow?: (type: GrenadeType, origin: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }) => void;
   onLoadoutToggle?: (visible: boolean) => void;
   onSmokeChange?: (inSmoke: boolean) => void;
+  onGrenadeArmedChange?: (armed: boolean) => void;
 }
 
 export class StrikeBabylonEngine {
@@ -127,6 +170,15 @@ export class StrikeBabylonEngine {
   public grenadeCount: number = 1;
   public loadout: PlayerLoadout = { ...DEFAULT_LOADOUT };
   private lastInSmoke: boolean = false;
+  public grenadeArmed = false;
+  public grenadeCharging = false;
+  private grenadeTrajectoryPreview: AbstractMesh | null = null;
+  private jumpQueued = false;
+
+  // Blood FX (CS-style hit blood bursts + wall/floor blood marks)
+  private bloodParticles: { mesh: AbstractMesh; velocity: Vector3; life: number }[] = [];
+  private bloodMarkMaterial: StandardMaterial | null = null;
+  private bloodParticleMaterial: StandardMaterial | null = null;
 
   // Event listener references for leak-free disposal
   private boundPointerLockChange: (() => void) | null = null;
@@ -226,6 +278,12 @@ export class StrikeBabylonEngine {
       });
       this.glowLayer.intensity = 0.85;
       this.glowLayer.isEnabled = this.graphicsSettings.postProcessing;
+
+      // Exclude the sky dome from bloom so the sky stays clean and unmistakable
+      const skyDome = this.scene.getMeshByName('skyDome');
+      if (skyDome) {
+        this.glowLayer.addExcludedMesh(skyDome as Mesh);
+      }
     } catch (err) {
       console.warn('[StrikeEngine] GlowLayer initialization failed:', err);
     }
@@ -301,6 +359,8 @@ export class StrikeBabylonEngine {
     if (paused) {
       this.keysDown = {};
       this.mouseButtons = {};
+      this.grenadeCharging = false;
+      this.hideGrenadeTrajectory();
       this.velocity.x = 0;
       this.velocity.z = 0;
     }
@@ -326,15 +386,16 @@ export class StrikeBabylonEngine {
         return;
       }
       this.keysDown[e.code] = true;
+      // Edge-triggered jump: only a fresh key press jumps (no infinite space-jumps),
+      // but precise re-presses still allow bunnyhopping.
+      if (e.code === this.keybindings.jump || e.code === 'Space') {
+        this.jumpQueued = true;
+      }
       if (e.code === this.keybindings.reload) this.reload();
       if (e.code === this.keybindings.weapon1) this.switchWeapon(this.loadout.primary);
-      if (e.code === this.keybindings.weapon2) this.switchWeapon(this.loadout.primary === 'rifle' ? 'sniper' : 'rifle');
-      if (e.code === this.keybindings.weapon3) this.switchWeapon(this.loadout.secondary);
-      if (e.code === this.keybindings.weapon4) this.switchWeapon(this.loadout.melee);
-      if (e.code === this.keybindings.grenade) this.throwGrenade();
-      if (e.code === this.keybindings.loadout) {
-        this.callbacks.onLoadoutToggle?.(true);
-      }
+      if (e.code === this.keybindings.weapon2) this.switchWeapon(this.loadout.secondary);
+      if (e.code === this.keybindings.weapon3) this.switchWeapon(this.loadout.melee);
+      if (e.code === this.keybindings.weapon4 || e.code === this.keybindings.grenade) this.toggleGrenadeArmed();
       if (e.code === this.keybindings.quickswitch) this.switchWeapon(this.lastWeaponId);
       if (e.code === this.keybindings.fullscreen) {
         this.callbacks.onToggleFullscreen?.();
@@ -427,8 +488,16 @@ export class StrikeBabylonEngine {
 
       this.mouseButtons[e.button] = true;
       if (e.button === 0) {
-        // Immediate shot execution on left click
-        this.shoot(false);
+        if (this.grenadeArmed) {
+          if (this.grenadeCount <= 0) {
+            this.toggleGrenadeArmed();
+          } else {
+            this.grenadeCharging = true;
+          }
+        } else {
+          // Immediate shot execution on left click
+          this.shoot(false);
+        }
       } else if (e.button === 2) {
         // Right click: Melee heavy attack OR Scope toggle
         const def = WEAPON_CATALOG[this.activeWeaponId];
@@ -445,6 +514,11 @@ export class StrikeBabylonEngine {
       this.mouseButtons[e.button] = false;
       this.lastClientX = null;
       this.lastClientY = null;
+      // Release-to-throw while a grenade is armed and charging
+      if (e.button === 0 && this.grenadeArmed && this.grenadeCharging) {
+        this.grenadeCharging = false;
+        this.throwGrenade();
+      }
     };
     window.addEventListener('pointerup', this.boundPointerUp);
 
@@ -569,10 +643,129 @@ export class StrikeBabylonEngine {
       { x: origin.x, y: origin.y, z: origin.z },
       { x: velocity.x, y: velocity.y, z: velocity.z }
     );
+
+    // Leave grenade aim mode after the throw
+    this.grenadeCharging = false;
+    this.disarmGrenade();
+  }
+
+  /**
+   * Toggles grenade aim mode. While armed, holding LMB charges the throw and
+   * shows a simulated trajectory preview; releasing LMB throws the grenade.
+   */
+  public toggleGrenadeArmed() {
+    this.setGrenadeArmed(!this.grenadeArmed);
+  }
+
+  public armGrenade() {
+    this.setGrenadeArmed(true);
+  }
+
+  public disarmGrenade() {
+    this.setGrenadeArmed(false);
+  }
+
+  private setGrenadeArmed(armed: boolean) {
+    if (armed && this.grenadeCount <= 0) {
+      this.callbacks.onGrenadeArmedChange?.(false);
+      return;
+    }
+    if (this.grenadeArmed === armed) return;
+    this.grenadeArmed = armed;
+    this.grenadeCharging = false;
+    if (!armed) {
+      this.hideGrenadeTrajectory();
+    }
+    this.callbacks.onGrenadeArmedChange?.(this.grenadeArmed);
+  }
+
+  /**
+   * Simulates the grenade arc using the same physics as StrikeGrenadeManager
+   * (gravity 18, drag 0.25, wall restitution 0.48) and renders a dashed preview.
+   */
+  private updateGrenadeTrajectory() {
+    if (!this.scene || this.isDisposed) return;
+    const fwdRay = this.camera.getForwardRay(1.0);
+    const origin = this.camera.position.add(fwdRay.direction.scale(0.35)).add(new Vector3(0, -0.1, 0));
+    const velocity = fwdRay.direction.scale(15.5).add(new Vector3(0, 2.8, 0));
+    const points = this.computeGrenadeTrajectory(origin, velocity);
+
+    if (!this.grenadeTrajectoryPreview) {
+      this.grenadeTrajectoryPreview = MeshBuilder.CreateLines(
+        'grenadeTrajectoryPreview',
+        { points, updatable: true },
+        this.scene
+      );
+      const lines = this.grenadeTrajectoryPreview as any;
+      if (lines && typeof lines.color !== 'undefined') {
+        lines.color = Color3.FromHexString('#00ffc9');
+      }
+      this.grenadeTrajectoryPreview.isPickable = false;
+    } else {
+      MeshBuilder.CreateLines(
+        'grenadeTrajectoryPreview',
+        { points, instance: this.grenadeTrajectoryPreview as any, updatable: true },
+        this.scene
+      );
+    }
+  }
+
+  private computeGrenadeTrajectory(origin: Vector3, initialVel: Vector3, maxPoints = 46): Vector3[] {
+    const pts: Vector3[] = [];
+    const pos = origin.clone();
+    let vel = initialVel.clone();
+    const dtStep = 0.047;
+
+    for (let i = 0; i < maxPoints; i++) {
+      pts.push(pos.clone());
+      vel.y -= 18.0 * dtStep;
+      vel.x *= Math.max(0, 1 - 0.25 * dtStep);
+      vel.z *= Math.max(0, 1 - 0.25 * dtStep);
+
+      const step = vel.scale(dtStep);
+      const stepLen = step.length();
+      if (stepLen <= 0.001) break;
+
+      const ray = new Ray(pos, step.clone().normalize(), stepLen + 0.06);
+      const hit = this.scene.pickWithRay(ray, (m) => {
+        return (
+          m.isPickable &&
+          !m.name.startsWith('grenade') &&
+          !m.name.startsWith('Viewmodel') &&
+          !m.name.startsWith('FirstPerson') &&
+          !m.name.startsWith('playerCollider') &&
+          !m.name.startsWith('hitbox')
+        );
+      });
+
+      if (hit && hit.hit && hit.pickedPoint) {
+        pts.push(hit.pickedPoint.clone());
+        const normal = hit.getNormal(true) || Vector3.Up();
+        const dot = Vector3.Dot(vel, normal);
+        vel = vel.subtract(normal.scale(2 * dot)).scale(0.48);
+        pos.copyFrom(hit.pickedPoint.add(normal.scale(0.06)));
+      } else {
+        pos.addInPlace(step);
+      }
+
+      if (pos.y < -0.05) break;
+    }
+    return pts.length > 2 ? pts : [origin, origin.add(initialVel.scale(0.1))];
+  }
+
+  private hideGrenadeTrajectory() {
+    if (this.grenadeTrajectoryPreview) {
+      this.grenadeTrajectoryPreview.dispose();
+      this.grenadeTrajectoryPreview = null;
+    }
   }
 
   public switchWeapon(id: WeaponId) {
     if (this.activeWeaponId === id || this.isDead) return;
+    // Swapping away disarms grenade aim mode (slot 4)
+    if (this.grenadeArmed) {
+      this.disarmGrenade();
+    }
     this.lastWeaponId = this.activeWeaponId;
     this.activeWeaponId = id;
     this.isReloading = false;
@@ -707,6 +900,13 @@ export class StrikeBabylonEngine {
           isHeadshot = false;
           hitPart = 'limb';
           targetId = meshName.split('_')[1] || null;
+        } else if (isPlayerAffiliatedMesh(hit.pickedMesh)) {
+          // Hit a remote avatar's held weapon / accessory mesh (generic names like
+          // rifleBody, pistolSlide). Resolve ownership via the avatar root so the
+          // shot never paints a floating bullet mark and counts as a limb hit.
+          isHeadshot = false;
+          hitPart = 'limb';
+          targetId = resolveAvatarPlayerId(hit.pickedMesh);
         }
       }
     }
@@ -714,11 +914,22 @@ export class StrikeBabylonEngine {
     // Visual Tracer line & Bullet Marks (guns only, melee weapons do not emit bullet tracers or marks)
     if (!isMelee) {
       this.createTracer(forwardRay.origin.add(new Vector3(0, -0.15, 0)), hitPoint, def.color);
-      // Spawn bullet impact mark on world objects (walls, ground, crates, pillars)
-      if (targetId === null && hit && hit.hit && hit.pickedPoint) {
+      // Spawn bullet impact mark on world objects ONLY (walls, ground, crates, pillars).
+      // Player hits (avatars, hitboxes, held weapons) never receive marks because the
+      // player may move, leaving the decal floating in the air.
+      const hitPlayer = targetId !== null || (hit && hit.hit && hit.pickedMesh && isPlayerAffiliatedMesh(hit.pickedMesh));
+      if (!hitPlayer && hit && hit.hit && hit.pickedPoint) {
         const normal = hit.getNormal(true) || Vector3.Up();
         this.spawnBulletMark(hit.pickedPoint, normal);
       }
+    }
+
+    // CS-style blood burst + blood mark on the surface behind the victim when a
+    // bullet connects with a player (firearms only).
+    if (targetId !== null && !isMelee && hit && hit.hit && hit.pickedPoint) {
+      const hitNormal = hit.getNormal(true) || Vector3.Up();
+      this.spawnBloodBurst(hitPoint, hitNormal);
+      this.spawnBloodMarkBehind(hitPoint, forwardRay.direction);
     }
 
     // Check Counter-Strike style backstab angle for melee attacks:
@@ -830,6 +1041,184 @@ export class StrikeBabylonEngine {
     }, 120000);
   }
 
+  /**
+   * CS-style blood burst at a damage point: a handful of small crimson droplets
+   * that spray outward with gravity and fade out within ~0.5s.
+   */
+  public spawnBloodBurst(position: Vector3, normal: Vector3) {
+    if (this.isDisposed || !this.scene) return;
+    const origin = position.add(normal.scale(0.03));
+    const count = 10 + Math.floor(Math.random() * 5);
+
+    for (let i = 0; i < count; i++) {
+      const size = 0.018 + Math.random() * 0.03;
+      const droplet = MeshBuilder.CreateSphere(
+        `bloodDroplet_${i}`,
+        { diameter: size, segments: 4 },
+        this.scene
+      );
+      droplet.position = origin.clone();
+      droplet.material = this.getOrCreateBloodParticleMaterial();
+      droplet.isPickable = false;
+      droplet.doNotSyncBoundingInfo = true;
+
+      const speed = 2.2 + Math.random() * 3.2;
+      const dir = new Vector3(
+        (Math.random() - 0.5),
+        Math.random() * 0.6 + 0.4,
+        (Math.random() - 0.5)
+      ).normalize().add(normal.scale(0.7)).normalize();
+      const velocity = dir.scale(speed * (0.6 + Math.random()));
+
+      this.bloodParticles.push({
+        mesh: droplet,
+        velocity,
+        life: 0.35 + Math.random() * 0.2
+      });
+    }
+
+    // Hard cap to protect against long firefights
+    while (this.bloodParticles.length > 160) {
+      const oldest = this.bloodParticles.shift();
+      if (oldest && !oldest.mesh.isDisposed()) {
+        oldest.mesh.dispose();
+      }
+    }
+  }
+
+  /**
+   * Traces a short ray from a player hit point along the bullet's travel direction
+   * to find the wall/floor behind the victim and splatter a blood mark there.
+   */
+  public spawnBloodMarkBehind(hitPoint: Vector3, dir: Vector3) {
+    if (this.isDisposed || !this.scene) return;
+    const dirN = dir.lengthSquared() > 0.001 ? dir.clone().normalize() : new Vector3(0, 0, 1);
+    const ray = new Ray(hitPoint, dirN, 2.4);
+    const hit = this.scene.pickWithRay(ray, (m) => {
+      return (
+        m.isPickable &&
+        !m.name.startsWith('Viewmodel') &&
+        !m.name.startsWith('FirstPerson') &&
+        !m.name.startsWith('playerCollider') &&
+        !m.name.startsWith('hitbox') &&
+        !isPlayerAffiliatedMesh(m)
+      );
+    });
+    if (hit && hit.hit && hit.pickedPoint) {
+      const normal = hit.getNormal(true) || Vector3.Up();
+      this.spawnBloodMark(hit.pickedPoint, normal);
+    }
+  }
+
+  /** Places a persistent dark-crimson blood splat decal on a world surface. */
+  public spawnBloodMark(position: Vector3, normal: Vector3) {
+    if (this.isDisposed || !this.scene) return;
+    const norm = (normal && normal.lengthSquared() > 0.001) ? normal.normalize() : new Vector3(0, 1, 0);
+
+    const mark = MeshBuilder.CreatePlane('bloodMark', { size: 0.34 + Math.random() * 0.22 }, this.scene);
+    mark.position = position.add(norm.scale(0.012));
+    mark.lookAt(mark.position.add(norm));
+    mark.rotation.z = Math.random() * Math.PI * 2;
+    mark.material = this.getOrCreateBloodMarkMaterial();
+    mark.isPickable = false;
+    mark.doNotSyncBoundingInfo = true;
+    mark.freezeWorldMatrix();
+
+    this.bulletMarks.push(mark);
+    if (this.bulletMarks.length > 250) {
+      const oldest = this.bulletMarks.shift();
+      if (oldest && !oldest.isDisposed()) {
+        oldest.dispose();
+      }
+    }
+
+    setTimeout(() => {
+      if (!mark.isDisposed()) {
+        mark.dispose();
+        const idx = this.bulletMarks.indexOf(mark);
+        if (idx !== -1) {
+          this.bulletMarks.splice(idx, 1);
+        }
+      }
+    }, 60000);
+  }
+
+  private getOrCreateBloodParticleMaterial(): StandardMaterial {
+    if (this.bloodParticleMaterial && this.scene?.materials.includes(this.bloodParticleMaterial)) {
+      return this.bloodParticleMaterial;
+    }
+    const mat = new StandardMaterial('bloodParticleMat', this.scene);
+    mat.diffuseColor = new Color3(0.55, 0.06, 0.05);
+    mat.emissiveColor = new Color3(0.3, 0.02, 0.02);
+    mat.specularColor = new Color3(0, 0, 0);
+    mat.disableLighting = true;
+    mat.backFaceCulling = false;
+    this.bloodParticleMaterial = mat;
+    return mat;
+  }
+
+  private getOrCreateBloodMarkMaterial(): StandardMaterial {
+    if (this.bloodMarkMaterial && this.scene?.materials.includes(this.bloodMarkMaterial)) {
+      return this.bloodMarkMaterial;
+    }
+    const mat = new StandardMaterial('bloodMarkMat', this.scene);
+    const tex = new DynamicTexture('bloodMarkTex', { width: 64, height: 64 }, this.scene, false);
+    const ctx = tex.getContext() as CanvasRenderingContext2D;
+    if (ctx) {
+      ctx.clearRect(0, 0, 64, 64);
+      const grad = ctx.createRadialGradient ? ctx.createRadialGradient(32, 32, 4, 32, 32, 28) : null;
+      if (grad) {
+        grad.addColorStop(0, 'rgba(120, 8, 8, 0.95)');
+        grad.addColorStop(0.45, 'rgba(100, 10, 12, 0.85)');
+        grad.addColorStop(0.85, 'rgba(70, 12, 14, 0.4)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 64, 64);
+      }
+      // Irregular spray splatter asymmetry
+      for (let i = 0; i < 26; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 6 + Math.random() * 18;
+        ctx.beginPath();
+        ctx.arc(32 + Math.cos(a) * r, 32 + Math.sin(a) * r, 1.5 + Math.random() * 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(110, 8, 10, ${(0.3 + Math.random() * 0.5).toFixed(2)})`;
+        ctx.fill();
+      }
+      tex.hasAlpha = true;
+      tex.update();
+    }
+    mat.diffuseTexture = tex;
+    mat.useAlphaFromDiffuseTexture = true;
+    mat.specularColor = new Color3(0, 0, 0);
+    mat.emissiveColor = new Color3(0.02, 0.01, 0.01);
+    mat.backFaceCulling = false;
+    mat.disableLighting = true;
+    this.bloodMarkMaterial = mat;
+    return mat;
+  }
+
+  private updateBloodParticles(dt: number) {
+    if (this.bloodParticles.length === 0) return;
+    for (let i = this.bloodParticles.length - 1; i >= 0; i--) {
+      const p = this.bloodParticles[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        if (!p.mesh.isDisposed()) p.mesh.dispose();
+        this.bloodParticles.splice(i, 1);
+        continue;
+      }
+      p.velocity.y -= 9.8 * dt;
+      const pos = p.mesh.position;
+      pos.x += p.velocity.x * dt;
+      pos.y += p.velocity.y * dt;
+      pos.z += p.velocity.z * dt;
+      p.mesh.position = pos;
+      // Quick fade via scaling down
+      const s = Math.max(0.05, p.life / 0.45);
+      p.mesh.scaling.set(s, s, s);
+    }
+  }
+
   private getOrCreateBulletMarkMaterial(): StandardMaterial {
     // Only reuse the cached material while it is still alive and registered to the
     // current scene. Babylon 9 dropped the `isDisposed()` method on Materials (it is
@@ -917,8 +1306,16 @@ export class StrikeBabylonEngine {
     this.createTracer(startVec, hitPoint, tracerColor);
 
     if (hit && hit.hit && hit.pickedMesh && hit.pickedPoint) {
-      const isPlayer = hit.pickedMesh.metadata?.isHitbox || hit.pickedMesh.name.startsWith('avatar') || hit.pickedMesh.name.startsWith('hitbox');
-      if (!isPlayer) {
+      const isPlayer = hit.pickedMesh.metadata?.isHitbox ||
+        isPlayerAffiliatedMesh(hit.pickedMesh) ||
+        hit.pickedMesh.name.startsWith('avatar') ||
+        hit.pickedMesh.name.startsWith('hitbox');
+      if (isPlayer) {
+        // Blood FX when a bullet connects with a player (owner shoots, others see it)
+        const normal = hit.getNormal(true) || Vector3.Up();
+        this.spawnBloodBurst(hit.pickedPoint, normal);
+        this.spawnBloodMarkBehind(hit.pickedPoint, dirVec);
+      } else {
         const normal = hit.getNormal(true) || Vector3.Up();
         this.spawnBulletMark(hit.pickedPoint, normal);
       }
@@ -940,6 +1337,25 @@ export class StrikeBabylonEngine {
     this.screenShakeTrauma = Math.min(1.0, this.screenShakeTrauma + Math.max(0.3, dmg / 45));
     this.callbacks.onDamageReceived?.(dmg, this.health);
 
+    // Blood spray on the local player's chest + a splatter on the floor beneath
+    if (this.scene) {
+      this.spawnBloodBurst(this.camera.position.add(new Vector3(0, 0.25, 0)), new Vector3(0, 1, 0));
+      const downRay = new Ray(this.camera.position, new Vector3(0, -1, 0), 2.8);
+      const floorHit = this.scene.pickWithRay(downRay, (m) => {
+        return (
+          m.isPickable &&
+          !m.name.startsWith('Viewmodel') &&
+          !m.name.startsWith('FirstPerson') &&
+          !m.name.startsWith('playerCollider') &&
+          !m.name.startsWith('hitbox')
+        );
+      });
+      if (floorHit && floorHit.hit && floorHit.pickedPoint) {
+        const normal = floorHit.getNormal(true) || Vector3.Up();
+        this.spawnBloodMark(floorHit.pickedPoint, normal);
+      }
+    }
+
     if (this.health <= 0) {
       this.isDead = true;
       this.isScoped = false;
@@ -959,6 +1375,14 @@ export class StrikeBabylonEngine {
     this.elapsedGameTime += dt;
     this.mapData?.updateDayNightCycle?.(this.elapsedGameTime);
     this.grenadeManager.update(dt, this.playerCollider ? this.playerCollider.position : this.camera.position);
+    this.updateBloodParticles(dt);
+
+    // Grenade aim trajectory preview while holding LMB to charge the throw
+    if (this.grenadeArmed && this.grenadeCharging && this.mouseButtons[0]) {
+      this.updateGrenadeTrajectory();
+    } else if (this.grenadeTrajectoryPreview && !this.grenadeCharging) {
+      this.hideGrenadeTrajectory();
+    }
 
     const inSmoke = this.grenadeManager.isPositionInSmoke(this.camera.position);
     if (inSmoke !== this.lastInSmoke) {
@@ -1078,20 +1502,20 @@ export class StrikeBabylonEngine {
           this.velocity.z *= Math.max(0, 1 - dt * 18);
         }
 
-        // 3. Ground Acceleration (sv_accelerate)
+        // 3. Ground Acceleration (Source/CS sv_accelerate style ramp)
         const addSpeed = maxSpeed - (this.velocity.x * wishDirX + this.velocity.z * wishDirZ);
         if (addSpeed > 0) {
-          const accel = 5.8; // CS ground acceleration
+          const accel = 8.0; // Source-like ground acceleration ramp (smooth build-up)
           const accelSpeed = Math.min(addSpeed, accel * maxSpeed * dt);
           this.velocity.x += wishDirX * accelSpeed;
           this.velocity.z += wishDirZ * accelSpeed;
         }
       }
     } else {
-      // 4. Counter-Strike Air Acceleration & Air Speed Cap
-      // Responsive air steering with 2.2 m/s wish cap
+      // 4. Counter-Strike / Source Air Acceleration & Air Speed Cap
+      // Responsive air steering with a slightly stronger air-control ramp
       if (moveLen > 0) {
-        const airWishSpeed = Math.min(maxSpeed, 2.2);
+        const airWishSpeed = Math.min(maxSpeed, 2.6);
         const currentSpeedInWish = this.velocity.x * wishDirX + this.velocity.z * wishDirZ;
         const addSpeed = airWishSpeed - currentSpeedInWish;
         if (addSpeed > 0) {
@@ -1124,9 +1548,15 @@ export class StrikeBabylonEngine {
       }
     }
 
-    // Gravity & Jump
+    // Gravity & Jump (edge-triggered press: holding Space no longer re-jumps on
+    // every landing, but a fresh press while landing still bunnyhops).
+    let jumpPressed = false;
+    if (this.jumpQueued) {
+      this.jumpQueued = false;
+      jumpPressed = true;
+    }
     if (this.onGround) {
-      if (!this.isPaused && (this.keysDown[this.keybindings.jump] || this.keysDown['Space'])) {
+      if (!this.isPaused && jumpPressed) {
         this.velocity.y = 5.8; // CS jump impulse (~280 units/s)
         this.onGround = false;
       } else {
@@ -1229,8 +1659,8 @@ export class StrikeBabylonEngine {
       this.footstepAccumulator = 0;
     }
 
-    // Full-auto continuous shooting / knife holding
-    if (this.mouseButtons[0]) {
+    // Full-auto continuous shooting / knife holding (blocked while a grenade is armed)
+    if (this.mouseButtons[0] && !this.grenadeArmed) {
       if (def.isAutomatic || this.activeWeaponId === 'knife') {
         this.shoot(false);
       }
@@ -1285,6 +1715,15 @@ export class StrikeBabylonEngine {
     this.bulletMarks = [];
     this.bulletMarkMaterial?.dispose();
     this.bulletMarkMaterial = null;
+    this.bloodParticles.forEach((p) => {
+      if (!p.mesh.isDisposed()) p.mesh.dispose();
+    });
+    this.bloodParticles = [];
+    this.bloodMarkMaterial?.dispose();
+    this.bloodMarkMaterial = null;
+    this.bloodParticleMaterial?.dispose();
+    this.bloodParticleMaterial = null;
+    this.hideGrenadeTrajectory();
     if (this.glowLayer) {
       this.glowLayer.dispose();
       this.glowLayer = null;
