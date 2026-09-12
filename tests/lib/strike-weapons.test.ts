@@ -55,20 +55,28 @@ describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
   it('validates P2P shoot events and hit detection payloads', () => {
     const shoot: P2PShootEvent = {
       shooterId: 'peer_123',
+      shooterName: 'Commander',
       weaponId: 'sniper',
       origin: { x: 0, y: 1.62, z: 20 },
       direction: { x: 0, y: 0, z: -1 },
-      targetId: 'bot_1',
+      targetId: 'peer_456',
       isHeadshot: true,
-      damage: 402
+      damage: 100
     };
 
     const serialized = JSON.stringify({ type: 'shoot', shoot });
     const parsed = JSON.parse(serialized);
 
     expect(parsed.type).toBe('shoot');
+    expect(parsed.shoot.shooterName).toBe('Commander');
     expect(parsed.shoot.weaponId).toBe('sniper');
     expect(parsed.shoot.isHeadshot).toBe(true);
-    expect(parsed.shoot.damage).toBeGreaterThanOrEqual(400);
+    expect(parsed.shoot.damage).toBe(100);
+  });
+
+  it('verifies all firearms use yellow tracers (#ffd32a)', () => {
+    expect(WEAPON_CATALOG.rifle.color).toBe('#ffd32a');
+    expect(WEAPON_CATALOG.sniper.color).toBe('#ffd32a');
+    expect(WEAPON_CATALOG.pistol.color).toBe('#ffd32a');
   });
 });

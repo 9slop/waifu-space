@@ -95,11 +95,14 @@ export class StrikeBabylonEngine {
   private boundPointerLockChange: (() => void) | null = null;
   private boundKeyDown: ((e: KeyboardEvent) => void) | null = null;
   private boundKeyUp: ((e: KeyboardEvent) => void) | null = null;
-  private boundMouseMove: ((e: MouseEvent) => void) | null = null;
-  private boundMouseDown: ((e: MouseEvent) => void) | null = null;
-  private boundMouseUp: ((e: MouseEvent) => void) | null = null;
+  private boundPointerMove: ((e: PointerEvent) => void) | null = null;
+  private boundPointerDown: ((e: PointerEvent) => void) | null = null;
+  private boundPointerUp: ((e: PointerEvent) => void) | null = null;
   private boundContextMenu: ((e: MouseEvent) => void) | null = null;
   private boundWheel: ((e: WheelEvent) => void) | null = null;
+
+  private lastClientX: number | null = null;
+  private lastClientY: number | null = null;
 
   public isPointerLocked = false;
   private callbacks: StrikeBabylonCallbacks;
@@ -178,6 +181,8 @@ export class StrikeBabylonEngine {
     this.boundPointerLockChange = () => {
       const plEl = document.pointerLockElement || (document as any).mozPointerLockElement;
       this.isPointerLocked = plEl === this.canvas || plEl === this.canvas.parentElement;
+      this.lastClientX = null;
+      this.lastClientY = null;
       if (!this.isPointerLocked) {
         this.keysDown = {};
         this.mouseButtons = {};
@@ -212,13 +217,31 @@ export class StrikeBabylonEngine {
     };
     window.addEventListener('keyup', this.boundKeyUp);
 
-    this.boundMouseMove = (e) => {
+    this.boundPointerMove = (e: PointerEvent) => {
       if (!this.isPlaying) return;
-      const movementX = e.movementX ?? (e as any).mozMovementX ?? 0;
-      const movementY = e.movementY ?? (e as any).mozMovementY ?? 0;
 
-      // Allow camera movement whenever pointer locked or when holding mouse buttons inside the game
-      if (!this.isPointerLocked && !this.mouseButtons[0] && !this.mouseButtons[2]) return;
+      let movementX = e.movementX ?? (e as any).mozMovementX ?? 0;
+      let movementY = e.movementY ?? (e as any).mozMovementY ?? 0;
+
+      // When pointer lock is not active (or in Firefox before lock engages / when holding mouse buttons)
+      if (!this.isPointerLocked) {
+        if (!this.mouseButtons[0] && !this.mouseButtons[2]) {
+          this.lastClientX = e.clientX;
+          this.lastClientY = e.clientY;
+          return;
+        }
+
+        // In Firefox without pointer lock, movementX/Y is 0. Fall back to client delta.
+        if (movementX === 0 && movementY === 0 && this.lastClientX !== null && this.lastClientY !== null) {
+          movementX = e.clientX - this.lastClientX;
+          movementY = e.clientY - this.lastClientY;
+        }
+      }
+
+      this.lastClientX = e.clientX;
+      this.lastClientY = e.clientY;
+
+      if (movementX === 0 && movementY === 0) return;
 
       const sens = this.isScoped ? this.mouseSensitivity * 0.4 : this.mouseSensitivity;
       this.camera.rotation.y += movementX * sens;
@@ -228,9 +251,9 @@ export class StrikeBabylonEngine {
       const maxPitch = (89 * Math.PI) / 180;
       this.camera.rotation.x = Math.max(-maxPitch, Math.min(maxPitch, this.camera.rotation.x));
     };
-    window.addEventListener('mousemove', this.boundMouseMove);
+    window.addEventListener('pointermove', this.boundPointerMove);
 
-    this.boundMouseDown = (e) => {
+    this.boundPointerDown = (e: PointerEvent) => {
       if (!this.isPlaying || this.isDead) return;
 
       const target = e.target as HTMLElement | null;
@@ -241,8 +264,10 @@ export class StrikeBabylonEngine {
 
       if (!isGameTarget) return;
 
-      // CRITICAL: Prevent browser text/element dragging on canvas so mousemove is never cancelled
       e.preventDefault();
+
+      this.lastClientX = e.clientX;
+      this.lastClientY = e.clientY;
 
       if (!this.isPointerLocked) {
         this.requestPointerLock();
@@ -257,21 +282,14 @@ export class StrikeBabylonEngine {
         this.toggleScope();
       }
     };
-    window.addEventListener('mousedown', this.boundMouseDown);
-    this.canvas.addEventListener('mousedown', this.boundMouseDown);
+    window.addEventListener('pointerdown', this.boundPointerDown);
 
-    // Ensure Firefox pointerdown does not trigger native gesture or image drag
-    this.canvas.addEventListener('pointerdown', (e) => {
-      if (this.isPlaying) {
-        e.preventDefault();
-      }
-    });
-
-    this.boundMouseUp = (e) => {
+    this.boundPointerUp = (e: PointerEvent) => {
       this.mouseButtons[e.button] = false;
+      this.lastClientX = null;
+      this.lastClientY = null;
     };
-    window.addEventListener('mouseup', this.boundMouseUp);
-    this.canvas.addEventListener('mouseup', this.boundMouseUp);
+    window.addEventListener('pointerup', this.boundPointerUp);
 
     this.boundContextMenu = (e) => {
       if (this.isPlaying) {
@@ -669,12 +687,13 @@ export class StrikeBabylonEngine {
     // Detach listeners
     if (this.boundPointerLockChange) {
       document.removeEventListener('pointerlockchange', this.boundPointerLockChange);
+      document.removeEventListener('mozpointerlockchange', this.boundPointerLockChange);
     }
     if (this.boundKeyDown) window.removeEventListener('keydown', this.boundKeyDown);
     if (this.boundKeyUp) window.removeEventListener('keyup', this.boundKeyUp);
-    if (this.boundMouseMove) window.removeEventListener('mousemove', this.boundMouseMove);
-    if (this.boundMouseDown) window.removeEventListener('mousedown', this.boundMouseDown);
-    if (this.boundMouseUp) window.removeEventListener('mouseup', this.boundMouseUp);
+    if (this.boundPointerMove) window.removeEventListener('pointermove', this.boundPointerMove);
+    if (this.boundPointerDown) window.removeEventListener('pointerdown', this.boundPointerDown);
+    if (this.boundPointerUp) window.removeEventListener('pointerup', this.boundPointerUp);
     if (this.boundContextMenu) window.removeEventListener('contextmenu', this.boundContextMenu);
     if (this.boundWheel) window.removeEventListener('wheel', this.boundWheel);
 

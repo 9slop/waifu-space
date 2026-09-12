@@ -6,7 +6,8 @@ import {
   StandardMaterial,
   TransformNode,
   AbstractMesh,
-  Camera
+  Camera,
+  DynamicTexture
 } from '@babylonjs/core';
 import { WeaponId } from './strike-types';
 import { WEAPON_CATALOG } from './strike-weapons';
@@ -375,6 +376,8 @@ export class BabylonAvatarModel {
   private rightArm: AbstractMesh;
 
   public playerId: string | number;
+  public nameplateMesh: AbstractMesh;
+  private nameplateTexture: DynamicTexture;
   private scene: Scene;
 
   constructor(id: string | number, opts: BabylonAvatarOptions, scene: Scene) {
@@ -397,6 +400,11 @@ export class BabylonAvatarModel {
 
     const whiteMat = new StandardMaterial(`whiteMat_${id}`, scene);
     whiteMat.diffuseColor = new Color3(0.95, 0.95, 0.95);
+
+    // Hitbox transparent material: alpha 0.001 keeps it pickable by Babylon pickWithRay
+    const hitboxMat = new StandardMaterial(`hitboxMat_${id}`, scene);
+    hitboxMat.alpha = 0.001;
+    hitboxMat.specularColor = new Color3(0, 0, 0);
 
     // ==================== 1. HEAD & HAIR ====================
     // Head Sphere (Hitbox: head)
@@ -449,10 +457,11 @@ export class BabylonAvatarModel {
     rightEye.parent = this.headMesh;
     rightEye.isPickable = false;
 
-    // Generous head hitbox volume for reliable hit registration
+    // Generous head hitbox volume for reliable hit registration (visibility > 0 so pickWithRay hits it)
     const headHitbox = MeshBuilder.CreateSphere(`hitboxHead_${id}`, { diameter: 0.68, segments: 6 }, scene);
     headHitbox.position = new Vector3(0, 1.55, 0);
-    headHitbox.visibility = 0;
+    headHitbox.material = hitboxMat;
+    headHitbox.visibility = 0.999;
     headHitbox.isPickable = true;
     headHitbox.metadata = { isHitbox: true, part: 'head', playerId: id };
     headHitbox.parent = this.root;
@@ -474,10 +483,11 @@ export class BabylonAvatarModel {
     skirt.isPickable = true;
     skirt.metadata = { isHitbox: true, part: 'torso', playerId: id };
 
-    // Torso Hitbox Volume
+    // Torso Hitbox Volume (visibility > 0 so pickWithRay hits it)
     const torsoHitbox = MeshBuilder.CreateBox(`hitboxTorso_${id}`, { width: 0.62, height: 0.72, depth: 0.44 }, scene);
     torsoHitbox.position = new Vector3(0, 1.12, 0);
-    torsoHitbox.visibility = 0;
+    torsoHitbox.material = hitboxMat;
+    torsoHitbox.visibility = 0.999;
     torsoHitbox.isPickable = true;
     torsoHitbox.metadata = { isHitbox: true, part: 'torso', playerId: id };
     torsoHitbox.parent = this.root;
@@ -512,10 +522,11 @@ export class BabylonAvatarModel {
     this.rightArm.isPickable = true;
     this.rightArm.metadata = { isHitbox: true, part: 'limb', playerId: id };
 
-    // Limbs Hitbox Volume
+    // Limbs Hitbox Volume (visibility > 0 so pickWithRay hits it)
     const limbsHitbox = MeshBuilder.CreateBox(`hitboxLimbs_${id}`, { width: 0.65, height: 0.78, depth: 0.42 }, scene);
     limbsHitbox.position = new Vector3(0, 0.4, 0);
-    limbsHitbox.visibility = 0;
+    limbsHitbox.material = hitboxMat;
+    limbsHitbox.visibility = 0.999;
     limbsHitbox.isPickable = true;
     limbsHitbox.metadata = { isHitbox: true, part: 'limb', playerId: id };
     limbsHitbox.parent = this.root;
@@ -523,6 +534,23 @@ export class BabylonAvatarModel {
     this.weaponMount = new TransformNode(`avatarWeaponMount_${id}`, scene);
     this.weaponMount.position = new Vector3(0.25, 1.05, 0.28);
     this.weaponMount.parent = this.root;
+
+    // 3D Billboard Nameplate & Health Bar
+    const nameplateMat = new StandardMaterial(`nameplateMat_${id}`, scene);
+    this.nameplateTexture = new DynamicTexture(`nameplateTex_${id}`, { width: 256, height: 64 }, scene, false);
+    nameplateMat.diffuseTexture = this.nameplateTexture;
+    nameplateMat.specularColor = new Color3(0, 0, 0);
+    nameplateMat.emissiveColor = new Color3(1, 1, 1);
+    nameplateMat.backFaceCulling = false;
+
+    this.nameplateMesh = MeshBuilder.CreatePlane(`nameplate_${id}`, { width: 1.4, height: 0.35 }, scene);
+    this.nameplateMesh.position = new Vector3(0, 2.15, 0);
+    this.nameplateMesh.parent = this.root;
+    this.nameplateMesh.material = nameplateMat;
+    this.nameplateMesh.billboardMode = AbstractMesh.BILLBOARDMODE_ALL;
+    this.nameplateMesh.isPickable = false;
+
+    this.updateNameplate(opts.name || 'Player', 150, 150);
 
     this.setWeapon('rifle');
   }
@@ -582,7 +610,50 @@ export class BabylonAvatarModel {
     }
   }
 
+  public updateNameplate(name: string, hp: number, maxHp = 150) {
+    if (!this.nameplateTexture) return;
+    const ctx = this.nameplateTexture.getContext() as CanvasRenderingContext2D;
+    ctx.clearRect(0, 0, 256, 64);
+
+    // Background rounded pill
+    ctx.fillStyle = 'rgba(12, 16, 23, 0.85)';
+    ctx.beginPath();
+    if (typeof (ctx as any).roundRect === 'function') {
+      (ctx as any).roundRect(4, 4, 248, 56, 10);
+    } else {
+      ctx.rect(4, 4, 248, 56);
+    }
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0, 206, 201, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Name text
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(name.slice(0, 16), 128, 26);
+
+    // Health bar track
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.fillRect(24, 34, 208, 16);
+
+    // Health bar fill
+    const pct = Math.max(0, Math.min(1, hp / maxHp));
+    ctx.fillStyle = pct > 0.5 ? '#2ed573' : pct > 0.25 ? '#ffa502' : '#ff4757';
+    ctx.fillRect(24, 34, Math.round(208 * pct), 16);
+
+    // Health text
+    ctx.font = 'bold 11px monospace';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${hp} HP`, 128, 47);
+
+    this.nameplateTexture.update();
+  }
+
   public dispose() {
+    this.nameplateTexture?.dispose();
     this.root.dispose();
   }
 }

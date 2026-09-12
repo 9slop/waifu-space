@@ -141,6 +141,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
   const handleStartPlay = () => {
     setShowControlsOverlay(false);
+    canvasRef?.focus?.();
     const eng = engine();
     if (eng) {
       eng.startPlaying();

@@ -163,6 +163,7 @@ export interface P2PPlayerState {
 
 export interface P2PShootEvent {
   shooterId: string;
+  shooterName?: string;
   weaponId: WeaponId;
   origin: Vector3D;
   direction: Vector3D;
