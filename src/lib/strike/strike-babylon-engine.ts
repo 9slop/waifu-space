@@ -1416,6 +1416,8 @@ export class StrikeBabylonEngine {
       this.hideGrenadeTrajectory();
     }
 
+    this.excludeRemoteNameplates();
+
     const inSmoke = this.grenadeManager.isPositionInSmoke(this.camera.position);
     if (inSmoke !== this.lastInSmoke) {
       this.lastInSmoke = inSmoke;
@@ -1726,6 +1728,11 @@ export class StrikeBabylonEngine {
 
   public handleResize() {
     this.engine.resize();
+  }
+
+  /** Remote avatar nameplates (UI plates) must never bloom */
+  private excludeRemoteNameplates() {
+    this.remoteAvatars.forEach((av) => this.addGlowExclusion(av.nameplateMesh));
   }
 
   public dispose() {
