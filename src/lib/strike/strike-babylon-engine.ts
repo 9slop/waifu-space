@@ -139,6 +139,8 @@ export class StrikeBabylonEngine {
   };
   public isReloading = false;
   public isScoped = false;
+  // Scope sway (breathing wobble while aiming down a scope)
+  private currentScopePitch = 0;
   public lastShotTime = 0;
   public reloadEndTime = 0;
 
@@ -1453,6 +1455,19 @@ export class StrikeBabylonEngine {
       this.ammoMag[this.activeWeaponId] += available;
       this.ammoReserve[this.activeWeaponId] -= available;
       this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
+    }
+
+    // Subtle breathing sway while aiming down a scope (rifles/scoped weapons).
+    // Removed additively when unscoped so the view returns to exact neutral.
+    if (this.isScoped) {
+      const t = this.elapsedGameTime;
+      const swayPitch = Math.sin(t * 1.15) * 0.0012 + Math.sin(t * 0.6 + 1.7) * 0.0006;
+      this.camera.rotation.x += (swayPitch - this.currentScopePitch);
+      this.currentScopePitch = swayPitch;
+      this.camera.rotation.z += Math.sin(t * 1.5 + 0.8) * 0.0009;
+    } else if (this.currentScopePitch !== 0) {
+      this.camera.rotation.x -= this.currentScopePitch;
+      this.currentScopePitch = 0;
     }
 
     // Crouch and Walk states (disabled while paused in ESC menu)
