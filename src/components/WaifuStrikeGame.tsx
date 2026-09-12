@@ -193,8 +193,17 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     }
   };
 
+  const [chosenGrenadeAnim, setChosenGrenadeAnim] = createSignal<GrenadeType | null>(null);
+  let chosenGrenadeTimer: any = null;
+
   const handleSelectGrenade = (grenade: GrenadeType) => {
     updateLoadout({ grenade });
+    setChosenGrenadeAnim(grenade);
+    clearTimeout(chosenGrenadeTimer);
+    chosenGrenadeTimer = setTimeout(() => setChosenGrenadeAnim(null), 650);
+    try {
+      strikeAudio.playGrenadePin();
+    } catch {}
   };
 
   const handleCloseLoadout = () => {
@@ -1262,7 +1271,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                 <div class="strike-loadout-grid">
                   {/* Molotov */}
                   <div
-                    class={`strike-loadout-card ${loadout().grenade === 'molotov' ? 'is-equipped' : ''}`}
+                    class={`strike-loadout-card ${loadout().grenade === 'molotov' ? 'is-equipped' : ''} ${chosenGrenadeAnim() === 'molotov' ? 'grenade-card-chosen' : ''}`}
                     onClick={() => handleSelectGrenade('molotov')}
                   >
                     <div class="loadout-card-top">
@@ -1282,7 +1291,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
                   {/* Smoke */}
                   <div
-                    class={`strike-loadout-card ${loadout().grenade === 'smoke' ? 'is-equipped' : ''}`}
+                    class={`strike-loadout-card ${loadout().grenade === 'smoke' ? 'is-equipped' : ''} ${chosenGrenadeAnim() === 'smoke' ? 'grenade-card-chosen' : ''}`}
                     onClick={() => handleSelectGrenade('smoke')}
                   >
                     <div class="loadout-card-top">
@@ -1302,7 +1311,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
                   {/* HE Grenade */}
                   <div
-                    class={`strike-loadout-card ${loadout().grenade === 'he' ? 'is-equipped' : ''}`}
+                    class={`strike-loadout-card ${loadout().grenade === 'he' ? 'is-equipped' : ''} ${chosenGrenadeAnim() === 'he' ? 'grenade-card-chosen' : ''}`}
                     onClick={() => handleSelectGrenade('he')}
                   >
                     <div class="loadout-card-top">

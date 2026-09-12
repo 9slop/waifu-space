@@ -1216,6 +1216,21 @@
   box-shadow: 0 0 16px rgba(0, 206, 201, 0.2);
 }
 
+/* Animated pop and glowing pulse when user chooses a grenade */
+@keyframes grenadeCardChoosePop {
+  0%   { transform: scale(1); box-shadow: 0 0 0 rgba(255, 170, 0, 0); }
+  22%  { transform: scale(1.07) translateY(-4px); box-shadow: 0 0 24px rgba(255, 170, 0, 0.75); }
+  52%  { transform: scale(0.97) translateY(1px); }
+  78%  { transform: scale(1.02) translateY(-1px); }
+  100% { transform: scale(1); }
+}
+
+.strike-loadout-card.grenade-card-chosen {
+  animation: grenadeCardChoosePop 0.65s cubic-bezier(0.18, 0.89, 0.32, 1.28) !important;
+  border-color: #ffaa00 !important;
+  background: rgba(255, 170, 0, 0.16) !important;
+}
+
 .loadout-card-top {
   display: flex;
   justify-content: space-between;
