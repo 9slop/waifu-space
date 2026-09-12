@@ -345,6 +345,20 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     ctx.stroke();
   });
 
+  function createMat(
+    name: string,
+    diff: Color3,
+    spec = new Color3(0.08, 0.08, 0.08),
+    emissive?: Color3
+  ): StandardMaterial {
+    const mat = new StandardMaterial(name, scene);
+    mat.diffuseColor = diff;
+    mat.specularColor = spec;
+    if (emissive) mat.emissiveColor = emissive;
+    mat.maxSimultaneousLights = 4;
+    return mat;
+  }
+
   // Central Material Factory helper
   function createTexturedMat(
     name: string,
