@@ -111,7 +111,7 @@ describe('strike-babylon-map (Kyoto v2)', () => {
   });
 
   it('creates textured weapon meshes for all weapon types with non-pickable viewmodel parts', () => {
-    const weapons = ['rifle', 'sniper', 'pistol', 'knife'] as const;
+    const weapons = ['rifle', 'sniper', 'pistol', 'knife', 'katana'] as const;
     for (const wId of weapons) {
       const wMesh = createBabylonWeaponMesh(wId, scene);
       expect(wMesh).toBeDefined();

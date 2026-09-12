@@ -932,8 +932,8 @@ export class StrikeP2PManager {
       }
     }
 
-    // Broadcast tracer line to other peers (guns only, knife does not emit bullet tracers)
-    if (ray.weaponId !== 'knife') {
+    // Broadcast tracer line to other peers (guns only, melee weapons do not emit bullet tracers)
+    if (ray.weaponId !== 'knife' && ray.weaponId !== 'katana') {
       const tracerPacket = {
         shooterId: this.myPeerId,
         origin: ray.origin,

@@ -76,13 +76,15 @@ export class StrikeBabylonEngine {
     rifle: 30,
     sniper: 5,
     pistol: 7,
-    knife: 1
+    knife: 1,
+    katana: 1
   };
   public ammoReserve: Record<WeaponId, number> = {
     rifle: 90,
     sniper: 25,
     pistol: 35,
-    knife: 1
+    knife: 1,
+    katana: 1
   };
   public isReloading = false;
   public isScoped = false;
@@ -402,8 +404,9 @@ export class StrikeBabylonEngine {
         // Immediate shot execution on left click
         this.shoot(false);
       } else if (e.button === 2) {
-        // Right click: Knife heavy attack OR Scope toggle
-        if (this.activeWeaponId === 'knife') {
+        // Right click: Melee heavy attack OR Scope toggle
+        const def = WEAPON_CATALOG[this.activeWeaponId];
+        if (def.category === 'melee' || this.activeWeaponId === 'knife' || this.activeWeaponId === 'katana') {
           this.shoot(true);
         } else {
           this.toggleScope();
@@ -436,7 +439,7 @@ export class StrikeBabylonEngine {
     });
 
     // Mouse wheel weapon cycling
-    const weaponCycle: WeaponId[] = ['rifle', 'sniper', 'pistol', 'knife'];
+    const weaponCycle: WeaponId[] = ['rifle', 'sniper', 'pistol', 'knife', 'katana'];
     this.boundWheel = (e) => {
       if (!this.isPointerLocked || !this.isPlaying) return;
       e.preventDefault();
@@ -483,8 +486,8 @@ export class StrikeBabylonEngine {
     this.invulnerableUntil = performance.now() + 2000;
 
     // Replenish ammo
-    this.ammoMag = { rifle: 30, sniper: 5, pistol: 7, knife: 1 };
-    this.ammoReserve = { rifle: 90, sniper: 25, pistol: 35, knife: 1 };
+    this.ammoMag = { rifle: 30, sniper: 5, pistol: 7, knife: 1, katana: 1 };
+    this.ammoReserve = { rifle: 90, sniper: 25, pistol: 35, knife: 1, katana: 1 };
 
     this.callbacks.onHealthChange(this.health, this.maxHealth);
     this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
@@ -538,34 +541,35 @@ export class StrikeBabylonEngine {
     if (!this.isPlaying || this.isDead || this.isReloading || this.isPaused) return;
     const now = performance.now();
     const def = WEAPON_CATALOG[this.activeWeaponId];
+    const isMelee = def.category === 'melee' || this.activeWeaponId === 'knife' || this.activeWeaponId === 'katana';
 
-    // If weapon is out of ammo, clicking triggers reload immediately even during fire cooldown
-    if (this.activeWeaponId !== 'knife' && this.ammoMag[this.activeWeaponId] <= 0) {
+    // If firearm is out of ammo, clicking triggers reload immediately even during fire cooldown
+    if (!isMelee && this.ammoMag[this.activeWeaponId] <= 0) {
       this.reload();
       return;
     }
 
-    const rpm = (this.activeWeaponId === 'knife' && isHeavy) ? (def.heavyFireRateRpm || 60) : def.fireRateRpm;
+    const rpm = (isMelee && isHeavy) ? (def.heavyFireRateRpm || 50) : def.fireRateRpm;
     const shotCooldown = (60 / rpm) * 1000;
     if (now - this.lastShotTime < shotCooldown) return;
 
     this.lastShotTime = now;
-    if (this.activeWeaponId !== 'knife') {
+    if (!isMelee) {
       this.ammoMag[this.activeWeaponId]--;
       this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
     }
 
     // Raycast shooting via Babylon.js scene picking (BEFORE applying recoil so aim hits true crosshair center)
-    // Knife is strictly capped at close melee combat range (2.3m), firearms at 300m
-    const maxRayDist = this.activeWeaponId === 'knife' ? (def.range || 2.3) : 300;
+    // Melee weapons are capped at close combat range (knife 2.2m, katana 2.8m), firearms at 300m
+    const maxRayDist = isMelee ? (def.range || 2.4) : 300;
     const forwardRay = this.camera.getForwardRay(maxRayDist);
 
-    // Audio & Viewmodel attack animation (knife slash or gun recoil)
+    // Audio & Viewmodel attack animation (melee slash/thrust or gun recoil)
     strikeAudio.playGunfire(this.activeWeaponId, undefined, isHeavy);
     this.viewmodel.triggerAttack(this.activeWeaponId, def.recoilVertical, def.recoilHorizontal, isHeavy);
 
     // Apply slight pitch recoil to camera AFTER forward ray is computed (guns only)
-    if (this.activeWeaponId !== 'knife') {
+    if (!isMelee) {
       this.camera.rotation.x -= def.recoilVertical * 0.35;
       this.camera.rotation.y += (Math.random() - 0.5) * def.recoilHorizontal;
     }
@@ -629,8 +633,8 @@ export class StrikeBabylonEngine {
       }
     }
 
-    // Visual Tracer line (guns only, knife does not emit bullet tracers)
-    if (this.activeWeaponId !== 'knife') {
+    // Visual Tracer line & Bullet Marks (guns only, melee weapons do not emit bullet tracers or marks)
+    if (!isMelee) {
       this.createTracer(forwardRay.origin.add(new Vector3(0, -0.15, 0)), hitPoint, def.color);
       // Spawn bullet impact mark on world objects (walls, ground, crates, pillars)
       if (targetId === null && hit && hit.hit && hit.pickedPoint) {
@@ -639,10 +643,10 @@ export class StrikeBabylonEngine {
       }
     }
 
-    // Check Counter-Strike style backstab angle for knife attacks:
+    // Check Counter-Strike style backstab angle for melee attacks:
     // Attacker looking forward dot victim facing direction > 0.45 (within ~63 degrees behind victim)
     let isBackstab = false;
-    if (this.activeWeaponId === 'knife' && targetId !== null) {
+    if (isMelee && targetId !== null) {
       const victim = this.remoteAvatars.get(targetId) || this.remoteAvatars.get(Number(targetId));
       if (victim) {
         const victimYaw = victim.root.rotation.y;
@@ -658,12 +662,12 @@ export class StrikeBabylonEngine {
     }
 
     let calculatedDmg = def.damage;
-    if (this.activeWeaponId === 'knife') {
+    if (isMelee) {
       if (isHeavy) {
-        // Right click heavy attack: 65 frontal, 200 backstab (instant kill!)
+        // Right click heavy attack: frontal heavy damage vs backstab instant kill
         calculatedDmg = isBackstab ? (def.backstabDamage || 200) : (def.heavyDamage || 65);
       } else {
-        // Left click quick attack: 35 frontal, 70 backstab
+        // Left click quick attack
         calculatedDmg = isBackstab ? (def.quickBackstabDamage || 70) : def.damage;
       }
     } else {
@@ -920,6 +924,7 @@ export class StrikeBabylonEngine {
     const def = WEAPON_CATALOG[this.activeWeaponId];
     let maxSpeed = 6.6; // rifle baseline (~250 units/s)
     if (def.id === 'knife') maxSpeed = 7.0; // knife fast sprint (~260 units/s)
+    if (def.id === 'katana') maxSpeed = 6.2; // katana is heavier to carry (~235 units/s)
     if (def.id === 'sniper') maxSpeed = 5.6; // AWP carry speed (~200 units/s)
     if (def.id === 'pistol') maxSpeed = 6.8; // Deagle carry speed (~255 units/s)
     if (this.isCrouching) maxSpeed *= 0.35; // CS duck speed (~85 units/s)

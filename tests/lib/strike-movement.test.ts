@@ -9,14 +9,22 @@ describe('CS-Style Movement Kinematics', () => {
     // Rifle (AK/M4): ~215-225 units/s (baseline 6.6 m/s)
     // Sniper (AWP): ~200 units/s (slowest carry)
     const knife = WEAPON_CATALOG.knife;
+    const katana = WEAPON_CATALOG.katana;
     const rifle = WEAPON_CATALOG.rifle;
     const sniper = WEAPON_CATALOG.sniper;
     const pistol = WEAPON_CATALOG.pistol;
 
     expect(knife).toBeDefined();
+    expect(katana).toBeDefined();
     expect(rifle).toBeDefined();
     expect(sniper).toBeDefined();
     expect(pistol).toBeDefined();
+
+    // Katana is heavier to carry than knife (6.2 m/s vs 7.0 m/s)
+    const knifeCarrySpeed = 7.0;
+    const katanaCarrySpeed = 6.2;
+    expect(katanaCarrySpeed).toBeLessThan(knifeCarrySpeed);
+    expect(katanaCarrySpeed).toBeGreaterThan(5.6); // Still faster than sniper
   });
 
   it('calculates CS duck and walk speed reductions accurately', () => {

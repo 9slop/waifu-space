@@ -510,6 +510,126 @@ export function createBabylonWeaponMesh(weaponId: WeaponId, scene: Scene): Trans
     handle.position = new Vector3(0, 0, -0.09);
     handle.material = knifeHandleMat;
     handle.parent = root;
+  } else if (weaponId === 'katana') {
+    // Cached Textured Katana Materials
+    const katanaBladeMat = getOrCreateWeaponMat(scene, 'katanaBlade', () =>
+      createTexturedMat('katanaBlade', scene, new Color3(0.98, 0.98, 1.0), 256, 128, (ctx, w, h) => {
+        // High polished mirror steel
+        ctx.fillStyle = '#cfd8dc';
+        ctx.fillRect(0, 0, w, h);
+        // Traditional wavy Hamon temper line
+        ctx.fillStyle = '#f8fafc';
+        ctx.beginPath();
+        ctx.moveTo(0, h * 0.45);
+        for (let x = 0; x <= w; x += 12) {
+          const wave = Math.sin(x * 0.15) * 6 + Math.cos(x * 0.3) * 3;
+          ctx.lineTo(x, h * 0.45 + wave);
+        }
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
+        ctx.closePath();
+        ctx.fill();
+        // Spine hi (fuller groove)
+        ctx.strokeStyle = '#455a64';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(w * 0.05, h * 0.2);
+        ctx.lineTo(w * 0.95, h * 0.2);
+        ctx.stroke();
+      }, new Color3(0.7, 0.72, 0.8), undefined, 128)
+    );
+
+    const katanaHabakiMat = getOrCreateWeaponMat(scene, 'katanaHabaki', () =>
+      createTexturedMat('katanaHabaki', scene, new Color3(1.0, 0.85, 0.35), 64, 64, (ctx, w, h) => {
+        ctx.fillStyle = '#d4af37'; // Burnished gold
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#997a15';
+        ctx.lineWidth = 2;
+        if (ctx.strokeRect) ctx.strokeRect(2, 2, w - 4, h - 4);
+      }, new Color3(0.6, 0.5, 0.2), undefined, 64)
+    );
+
+    const katanaTsubaMat = getOrCreateWeaponMat(scene, 'katanaTsuba', () =>
+      createTexturedMat('katanaTsuba', scene, new Color3(0.2, 0.2, 0.22), 128, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#1e2124'; // Forged blackened iron
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#f1c40f'; // Gold inlay rim
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, w * 0.44, 0, Math.PI * 2);
+        ctx.stroke();
+        // Sakura blossom cutouts
+        ctx.fillStyle = '#f1c40f';
+        ctx.beginPath();
+        ctx.arc(w * 0.32, h * 0.32, 5, 0, Math.PI * 2);
+        ctx.arc(w * 0.68, h * 0.68, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }, new Color3(0.3, 0.3, 0.35), undefined, 48)
+    );
+
+    const katanaTsukaMat = getOrCreateWeaponMat(scene, 'katanaTsuka', () =>
+      createTexturedMat('katanaTsuka', scene, new Color3(0.9, 0.9, 0.9), 128, 256, (ctx, w, h) => {
+        // White rayskin (samegawa) background
+        ctx.fillStyle = '#f5f6fa';
+        ctx.fillRect(0, 0, w, h);
+        for (let y = 0; y < h; y += 6) {
+          for (let x = 0; x < w; x += 6) {
+            ctx.fillStyle = ((x + y) % 12 === 0) ? '#dcdde1' : '#f5f6fa';
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        // Black diamond tsuka-ito cord wrap
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = '#0c162d';
+        for (let y = 0; y < h; y += 24) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w / 2, y + 12);
+          ctx.lineTo(0, y + 24);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(w, y);
+          ctx.lineTo(w / 2, y + 12);
+          ctx.lineTo(w, y + 24);
+          ctx.stroke();
+        }
+      }, new Color3(0.2, 0.2, 0.25), undefined, 24)
+    );
+
+    // Blade: Longer, sleek katana steel blade (0.72m long vs knife 0.28m)
+    const blade = MeshBuilder.CreateBox('katanaBlade', { width: 0.016, height: 0.052, depth: 0.72 }, scene);
+    blade.position = new Vector3(0, 0.01, 0.38);
+    blade.material = katanaBladeMat;
+    blade.parent = root;
+
+    // Habaki: Gold collar at blade base
+    const habaki = MeshBuilder.CreateBox('katanaHabaki', { width: 0.022, height: 0.058, depth: 0.045 }, scene);
+    habaki.position = new Vector3(0, 0.01, 0.035);
+    habaki.material = katanaHabakiMat;
+    habaki.parent = root;
+
+    // Tsuba: Circular engraved guard
+    const tsuba = MeshBuilder.CreateCylinder('katanaTsuba', { height: 0.012, diameter: 0.11 }, scene);
+    tsuba.rotation.x = Math.PI / 2;
+    tsuba.position = new Vector3(0, 0.01, 0.01);
+    tsuba.material = katanaTsubaMat;
+    tsuba.parent = root;
+
+    // Tsuka: Long two-handed samurai grip
+    const tsuka = MeshBuilder.CreateCylinder('katanaTsuka', { height: 0.26, diameter: 0.032 }, scene);
+    tsuka.rotation.x = Math.PI / 2;
+    tsuka.position = new Vector3(0, 0.01, -0.12);
+    tsuka.material = katanaTsukaMat;
+    tsuka.parent = root;
+
+    // Kashira: Golden pommel cap
+    const kashira = MeshBuilder.CreateCylinder('katanaKashira', { height: 0.02, diameter: 0.035 }, scene);
+    kashira.rotation.x = Math.PI / 2;
+    kashira.position = new Vector3(0, 0.01, -0.25);
+    kashira.material = katanaHabakiMat;
+    kashira.parent = root;
   }
 
   // Ensure weapon viewmodel parts never block player shooting raycasts
@@ -621,8 +741,8 @@ export class BabylonViewmodel {
    * Triggers visual weapon attack animation (knife slash/thrust or gun recoil).
    */
   public triggerAttack(weaponId: WeaponId, vertical = 0.03, horizontal = 0.015, isHeavy = false) {
-    if (weaponId === 'knife') {
-      // Dynamic anime knife slash/thrust animation
+    if (weaponId === 'knife' || weaponId === 'katana') {
+      // Dynamic anime knife / katana slash/thrust animation
       this.isMeleeAttacking = true;
       this.isHeavyMelee = isHeavy;
       this.meleeProgress = 1.0;
@@ -1266,7 +1386,7 @@ export class BabylonAvatarModel {
       this.attackProgress -= dt * 4.0;
       if (this.attackProgress <= 0) this.attackProgress = 0;
       const ap = Math.sin(this.attackProgress * Math.PI);
-      if (this.attackWeaponId === 'knife') {
+      if (this.attackWeaponId === 'knife' || this.attackWeaponId === 'katana') {
         this.rightArm.rotation.x = -0.3 - ap * 1.1; // Forward slash
         this.rightArm.rotation.y = ap * 0.55;
       } else {

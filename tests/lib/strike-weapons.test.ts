@@ -3,11 +3,19 @@ import { WEAPON_CATALOG, strikeAudio } from '../../src/lib/strike/strike-weapons
 import { P2PPlayerState, P2PShootEvent } from '../../src/lib/strike/strike-types';
 
 describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
-  it('defines all 4 core weapons with balanced CS-style stats', () => {
+  it('defines all 4 core weapons and Muramasa katana with balanced CS-style stats', () => {
     expect(WEAPON_CATALOG.rifle).toBeDefined();
     expect(WEAPON_CATALOG.sniper).toBeDefined();
     expect(WEAPON_CATALOG.pistol).toBeDefined();
     expect(WEAPON_CATALOG.knife).toBeDefined();
+    expect(WEAPON_CATALOG.katana).toBeDefined();
+
+    // Weapon category reorganization:
+    expect(WEAPON_CATALOG.rifle.category).toBe('primary');
+    expect(WEAPON_CATALOG.sniper.category).toBe('primary');
+    expect(WEAPON_CATALOG.pistol.category).toBe('secondary');
+    expect(WEAPON_CATALOG.knife.category).toBe('melee');
+    expect(WEAPON_CATALOG.katana.category).toBe('melee');
 
     // Rifle headshot should be instant kill (>= 100 dmg)
     const rifleHeadshot = WEAPON_CATALOG.rifle.damage * WEAPON_CATALOG.rifle.headshotMultiplier;
@@ -28,6 +36,15 @@ describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
     expect(WEAPON_CATALOG.knife.backstabDamage).toBe(200);
     expect(WEAPON_CATALOG.knife.quickBackstabDamage).toBe(70);
     expect(WEAPON_CATALOG.knife.backstabDamage!).toBeGreaterThanOrEqual(150); // Instant kill for 150 HP waifu
+
+    // Katana: heavier hand weapon with higher damage than knife
+    expect(WEAPON_CATALOG.katana.damage).toBeGreaterThan(WEAPON_CATALOG.knife.damage);
+    expect(WEAPON_CATALOG.katana.damage).toBe(55);
+    expect(WEAPON_CATALOG.katana.heavyDamage).toBeGreaterThan(WEAPON_CATALOG.knife.heavyDamage!);
+    expect(WEAPON_CATALOG.katana.heavyDamage).toBe(95);
+    expect(WEAPON_CATALOG.katana.backstabDamage).toBe(220);
+    expect(WEAPON_CATALOG.katana.quickBackstabDamage).toBe(110);
+    expect(WEAPON_CATALOG.katana.range).toBeGreaterThan(WEAPON_CATALOG.knife.range!);
   });
 
   it('validates knife backstab angle detection math', () => {

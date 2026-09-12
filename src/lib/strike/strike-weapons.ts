@@ -88,6 +88,31 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     color: '#fdcb6e',
     viewmodelScale: 0.65,
     range: 2.2 // authentic close-quarters combat
+  },
+  katana: {
+    id: 'katana',
+    name: 'Muramasa Katana',
+    category: 'melee',
+    damage: 55, // Quick slash base damage (higher than knife 35)
+    heavyDamage: 95, // Heavy right-click stab frontal damage (higher than knife 65)
+    backstabDamage: 220, // Heavy backstab instant kill (higher than knife 200)
+    quickBackstabDamage: 110, // Quick backstab (higher than knife 70)
+    headshotMultiplier: 1.5,
+    fireRateRpm: 120, // 500ms cooldown for quick slashes
+    heavyFireRateRpm: 50, // 1200ms cooldown for heavy thrusts
+    magazineSize: 1,
+    reserveAmmo: 1,
+    reloadTimeMs: 0,
+    spreadMoving: 0,
+    spreadStill: 0,
+    recoilVertical: 0,
+    recoilHorizontal: 0,
+    isAutomatic: false,
+    hasScope: false,
+    scopeZoom: 1.0,
+    color: '#ff4757',
+    viewmodelScale: 0.75,
+    range: 2.8 // longer reach than knife 2.2
   }
 };
 
@@ -234,19 +259,20 @@ class ProceduralAudioEngine {
     const dest = this.createSpatialNode(ctx, spatial);
     const t = ctx.currentTime;
 
-    if (weaponId === 'knife') {
+    if (weaponId === 'knife' || weaponId === 'katana') {
       // Whoosh sound (sharp slash vs heavy thrust)
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = isHeavy ? 'triangle' : 'sine';
-      osc.frequency.setValueAtTime(isHeavy ? 320 : 450, t);
-      osc.frequency.exponentialRampToValueAtTime(isHeavy ? 45 : 80, t + (isHeavy ? 0.22 : 0.12));
-      gain.gain.setValueAtTime(isHeavy ? 0.45 : 0.3, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + (isHeavy ? 0.22 : 0.12));
+      const isKatana = weaponId === 'katana';
+      osc.type = (isHeavy || isKatana) ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(isKatana ? (isHeavy ? 280 : 380) : (isHeavy ? 320 : 450), t);
+      osc.frequency.exponentialRampToValueAtTime(isHeavy ? 45 : 80, t + (isHeavy ? 0.24 : 0.14));
+      gain.gain.setValueAtTime(isKatana ? 0.48 : (isHeavy ? 0.45 : 0.3), t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + (isHeavy ? 0.24 : 0.14));
       osc.connect(gain);
       gain.connect(dest.input);
       osc.start(t);
-      osc.stop(t + (isHeavy ? 0.22 : 0.12));
+      osc.stop(t + (isHeavy ? 0.24 : 0.14));
       return;
     }
 

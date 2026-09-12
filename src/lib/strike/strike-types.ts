@@ -1,4 +1,4 @@
-export type WeaponId = 'rifle' | 'sniper' | 'pistol' | 'knife';
+export type WeaponId = 'rifle' | 'sniper' | 'pistol' | 'knife' | 'katana';
 
 export interface WeaponDef {
   id: WeaponId;

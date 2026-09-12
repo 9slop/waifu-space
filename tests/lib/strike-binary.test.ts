@@ -110,4 +110,29 @@ describe('Waifu Strike: Binary Serialization & Bandwidth Budget', () => {
     expect(decoded.weaponId).toBe('rifle');
     expect(decoded.isHeadshot).toBe(true);
   });
+
+  it('encodes and decodes katana melee packets accurately', () => {
+    const buffer = encodeShootPacket(
+      2,
+      'katana',
+      {
+        origin: { x: 5, y: 1.6, z: 12 },
+        direction: { x: 0, y: 0, z: 1 },
+        maxDistance: 2.8,
+        shooterId: 2,
+        weaponId: 'katana'
+      },
+      false,
+      4
+    );
+    expect(buffer.byteLength).toBe(17);
+
+    const decoded = decodeShootPacket(buffer);
+    expect(decoded.weaponId).toBe('katana');
+    expect(decoded.targetId).toBe(4);
+
+    const killBuf = encodeKillEventPacket(2, 4, 'katana', false);
+    const decodedKill = decodeKillEventPacket(killBuf);
+    expect(decodedKill.weaponId).toBe('katana');
+  });
 });

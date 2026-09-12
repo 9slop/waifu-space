@@ -12,10 +12,11 @@ const WEAPON_INDEX_MAP: Record<WeaponId, number> = {
   rifle: 0,
   sniper: 1,
   pistol: 2,
-  knife: 3
+  knife: 3,
+  katana: 4
 };
 
-const INDEX_WEAPON_MAP: WeaponId[] = ['rifle', 'sniper', 'pistol', 'knife'];
+const INDEX_WEAPON_MAP: WeaponId[] = ['rifle', 'sniper', 'pistol', 'knife', 'katana'];
 
 export function weaponToId(w: WeaponId): number {
   return WEAPON_INDEX_MAP[w] ?? 0;
