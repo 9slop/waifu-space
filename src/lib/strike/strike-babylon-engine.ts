@@ -523,6 +523,30 @@ export class StrikeBabylonEngine {
     this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
   }
 
+  /**
+   * Replenishes bullets to reserve ammo for the weapon used to secure a kill.
+   * Returns updated reserve count, or 0 if melee.
+   */
+  public replenishReserveAmmo(weaponId: WeaponId, amount: number): number {
+    if (weaponId === 'knife' || weaponId === 'katana') return 0;
+
+    const maxReserves: Record<string, number> = {
+      rifle: 180,
+      sniper: 40,
+      pistol: 70
+    };
+    const maxRes = maxReserves[weaponId] || 150;
+
+    if (this.ammoReserve[weaponId] !== undefined) {
+      this.ammoReserve[weaponId] = Math.min(maxRes, this.ammoReserve[weaponId] + amount);
+      if (this.activeWeaponId === weaponId) {
+        this.callbacks.onAmmoChange(this.ammoMag[weaponId], this.ammoReserve[weaponId]);
+      }
+      return this.ammoReserve[weaponId];
+    }
+    return 0;
+  }
+
   public setLoadout(loadout: Partial<PlayerLoadout>) {
     this.loadout = { ...this.loadout, ...loadout };
     this.callbacks.onGrenadeCountChange?.(this.grenadeCount, this.loadout.grenade);

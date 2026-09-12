@@ -540,6 +540,38 @@ class ProceduralAudioEngine {
     }
   }
 
+  public playAmmoReplenish() {
+    const ctx = this.getContext();
+    if (!ctx || !this.masterGain) return;
+    const t = ctx.currentTime;
+
+    // Crisp high-frequency metallic slide
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1400, t);
+    osc.frequency.exponentialRampToValueAtTime(800, t + 0.06);
+    g.gain.setValueAtTime(0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    osc.connect(g);
+    g.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.06);
+
+    // Mechanical chamber lock click
+    const osc2 = ctx.createOscillator();
+    const g2 = ctx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(950, t + 0.05);
+    osc2.frequency.exponentialRampToValueAtTime(320, t + 0.12);
+    g2.gain.setValueAtTime(0.4, t + 0.05);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    osc2.connect(g2);
+    g2.connect(this.masterGain);
+    osc2.start(t + 0.05);
+    osc2.stop(t + 0.12);
+  }
+
 }
 
 export const strikeAudio = new ProceduralAudioEngine();

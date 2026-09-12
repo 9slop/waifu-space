@@ -921,14 +921,34 @@ export class StrikeP2PManager {
             timestamp: Date.now()
           });
 
+          // Replenish reserve ammo for the weapon used to secure the kill
+          let ammoReplenished = 0;
+          if (ray.weaponId === 'rifle') {
+            ammoReplenished = 30;
+          } else if (ray.weaponId === 'sniper') {
+            ammoReplenished = 5;
+          } else if (ray.weaponId === 'pistol') {
+            ammoReplenished = 14;
+          }
+
+          if (ammoReplenished > 0) {
+            this.engine.replenishReserveAmmo(ray.weaponId, ammoReplenished);
+            strikeAudio.playAmmoReplenish();
+          }
+
+          const weaponLabel = ray.weaponId === 'rifle' ? 'RIFLE' : ray.weaponId === 'sniper' ? 'RAILGUN' : ray.weaponId === 'pistol' ? 'DEAGLE' : '';
+          const ammoSub = ammoReplenished > 0 ? `+${ammoReplenished} ${weaponLabel} AMMO REPLENISHED` : '+150 PTS';
+
           if (isHeadshot) {
-            this.callbacks.onMedalAnnouncement('HEADSHOT!', '+150 PTS');
+            this.callbacks.onMedalAnnouncement('HEADSHOT!', ammoSub);
           } else if (this.localCurrentStreak === 3) {
-            this.callbacks.onMedalAnnouncement('TRIPLE KILL!', '3 FRAG STREAK');
+            this.callbacks.onMedalAnnouncement('TRIPLE KILL!', ammoSub || '3 FRAG STREAK');
           } else if (this.localCurrentStreak === 5) {
-            this.callbacks.onMedalAnnouncement('RAMPAGE!', '5 FRAG STREAK 🔥');
+            this.callbacks.onMedalAnnouncement('RAMPAGE!', ammoSub || '5 FRAG STREAK 🔥');
           } else if (this.localCurrentStreak === 10) {
-            this.callbacks.onMedalAnnouncement('UNSTOPPABLE!', '10 FRAG STREAK ⚡');
+            this.callbacks.onMedalAnnouncement('UNSTOPPABLE!', ammoSub || '10 FRAG STREAK ⚡');
+          } else if (ammoReplenished > 0) {
+            this.callbacks.onMedalAnnouncement('FRAG CONFIRMED!', ammoSub);
           }
 
           if (this.localCurrentStreak >= 5 && this.localCurrentStreak % 5 === 0) {
