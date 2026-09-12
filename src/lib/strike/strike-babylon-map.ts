@@ -34,7 +34,7 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
     mat.diffuseColor = diff;
     mat.specularColor = spec;
     if (emissive) mat.emissiveColor = emissive;
-    mat.maxSimultaneousLights = 6;
+    mat.maxSimultaneousLights = 12;
     return mat;
   }
 
@@ -235,8 +235,38 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
   addBox('crateOuterSW', 2.4, 1.8, 2.4, new Vector3(-32, 0.9, 15), crateMat);
   addBox('crateOuterSE', 2.4, 1.8, 2.4, new Vector3(32, 0.9, 15), crateMat);
 
+  // Outer Perimeter Tactical Obstacles (filling previously empty edges of the 84x84m map)
+  // North Edge (Z = -36)
+  addBox('northEdgeWallNW', 8.0, 3.2, 0.8, new Vector3(-26, 1.6, -36), wallMat);
+  addBox('northEdgeWallNE', 8.0, 3.2, 0.8, new Vector3(26, 1.6, -36), wallMat);
+  addBox('northEdgeCrateL', 2.2, 1.8, 2.2, new Vector3(-19, 0.9, -35), crateMat);
+  addBox('northEdgeCrateR', 2.2, 1.8, 2.2, new Vector3(19, 0.9, -35), crateMat);
+  addBox('northEdgeCrateStackL', 1.8, 1.4, 1.8, new Vector3(-19, 2.5, -35), crateMat);
+  addBox('northEdgeCrateStackR', 1.8, 1.4, 1.8, new Vector3(19, 2.5, -35), crateMat);
+
+  // South Edge (Z = 36)
+  addBox('southEdgeBarricadeSW', 7.5, 1.8, 0.8, new Vector3(-25, 0.9, 36), stoneMat);
+  addBox('southEdgeBarricadeSE', 7.5, 1.8, 0.8, new Vector3(25, 0.9, 36), stoneMat);
+  addBox('southEdgeCratesSW', 2.2, 1.8, 2.2, new Vector3(-15, 0.9, 35), crateMat);
+  addBox('southEdgeCratesSE', 2.2, 1.8, 2.2, new Vector3(15, 0.9, 35), crateMat);
+
+  // West Flank Edge (X = -36)
+  addBox('westEdgeDepot1', 2.4, 1.8, 2.4, new Vector3(-36, 0.9, -4), crateMat);
+  addBox('westEdgeDepot2', 2.4, 1.8, 2.4, new Vector3(-36, 0.9, 4), crateMat);
+  addBox('westEdgeDepotStack', 2.0, 1.5, 2.0, new Vector3(-36, 2.55, 0), crateMat);
+  addBox('westEdgeCoverN', 5.0, 1.4, 0.8, new Vector3(-35, 0.7, -26), stoneMat);
+  addBox('westEdgeCoverS', 5.0, 1.4, 0.8, new Vector3(-35, 0.7, 26), stoneMat);
+
+  // East Flank Edge (X = 36)
+  addBox('eastEdgeDepot1', 2.4, 1.8, 2.4, new Vector3(36, 0.9, -4), stoneMat);
+  addBox('eastEdgeDepot2', 2.4, 1.8, 2.4, new Vector3(36, 0.9, 4), stoneMat);
+  addBox('eastEdgeDepotStack', 2.0, 1.5, 2.0, new Vector3(36, 2.55, 0), stoneMat);
+  addBox('eastEdgeCoverN', 5.0, 1.4, 0.8, new Vector3(35, 0.7, -26), wallMat);
+  addBox('eastEdgeCoverS', 5.0, 1.4, 0.8, new Vector3(35, 0.7, 26), wallMat);
+
   // ==================== 9. STONE LANTERNS WITH WARM LIGHTING ====================
   const lanternPositions = [
+    // Center & avenues
     new Vector3(-6.5, 0.9, -6.5),
     new Vector3(6.5, 0.9, -6.5),
     new Vector3(-6.5, 0.9, 14),
@@ -244,7 +274,16 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
     new Vector3(-18, 0.9, -14),
     new Vector3(18, 0.9, -14),
     new Vector3(-25, 4.4, -8), // On Catwalk
-    new Vector3(25, 1.9, -7)   // Near East Pavilion
+    new Vector3(25, 1.9, -7),  // Near East Pavilion
+    // Outer perimeter & corners (eliminates dark edge zones)
+    new Vector3(-35, 0.9, -35),
+    new Vector3(35, 0.9, -35),
+    new Vector3(-35, 0.9, 35),
+    new Vector3(35, 0.9, 35),
+    new Vector3(-36, 0.9, 0),
+    new Vector3(36, 0.9, 0),
+    new Vector3(0, 0.9, -36),
+    new Vector3(0, 0.9, 36)
   ];
 
   for (let i = 0; i < lanternPositions.length; i++) {
@@ -254,31 +293,31 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
 
     // Warm point light radiating from lantern
     const pLight = new PointLight(`lanternLight_${i}`, new Vector3(pos.x, pos.y + 1.2, pos.z), scene);
-    pLight.diffuse = new Color3(1.0, 0.82, 0.52);
+    pLight.diffuse = new Color3(1.0, 0.84, 0.58);
     pLight.specular = new Color3(0.5, 0.4, 0.2);
-    pLight.intensity = 1.6;
-    pLight.range = 15;
+    pLight.intensity = 2.0;
+    pLight.range = 24;
   }
 
   // ==================== 10. BRIGHT AMBIENT & MULTI-DIRECTIONAL SUNLIGHT ====================
   // Bright Hemispheric Light - Sky and ground fill
   const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, 0), scene);
-  hemiLight.diffuse = new Color3(1.15, 1.22, 1.35);
-  hemiLight.groundColor = new Color3(0.68, 0.70, 0.78);
-  hemiLight.intensity = 1.45;
+  hemiLight.diffuse = new Color3(1.35, 1.4, 1.55);
+  hemiLight.groundColor = new Color3(0.85, 0.88, 0.95);
+  hemiLight.intensity = 1.85;
 
   // Primary warm sunlight from southwest
   const sunLight = new DirectionalLight('sunLight', new Vector3(0.45, -1, 0.45), scene);
   sunLight.position = new Vector3(-25, 45, -25);
-  sunLight.diffuse = new Color3(1.0, 0.96, 0.90);
-  sunLight.specular = new Color3(0.4, 0.4, 0.4);
-  sunLight.intensity = 1.35;
+  sunLight.diffuse = new Color3(1.15, 1.1, 1.05);
+  sunLight.specular = new Color3(0.45, 0.45, 0.45);
+  sunLight.intensity = 1.7;
 
   // Secondary cool sky fill light from opposite angle to prevent dark black shadow pockets
   const fillLight = new DirectionalLight('fillLight', new Vector3(-0.45, -0.85, -0.45), scene);
   fillLight.position = new Vector3(25, 35, 25);
-  fillLight.diffuse = new Color3(0.85, 0.90, 1.0);
-  fillLight.intensity = 0.85;
+  fillLight.diffuse = new Color3(1.0, 1.05, 1.15);
+  fillLight.intensity = 1.3;
 
   // ==================== 11. SPAWN POINTS ====================
   const spawnPoints: BabylonSpawnPoint[] = [

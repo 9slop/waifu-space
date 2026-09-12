@@ -79,4 +79,11 @@ describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
     expect(WEAPON_CATALOG.sniper.color).toBe('#ffd32a');
     expect(WEAPON_CATALOG.pistol.color).toBe('#ffd32a');
   });
+
+  it('enforces knife close-range stabbing limit vs firearm range', () => {
+    expect(WEAPON_CATALOG.knife.range).toBe(2.2);
+    expect(WEAPON_CATALOG.rifle.range).toBe(300);
+    expect(WEAPON_CATALOG.sniper.range).toBe(300);
+    expect(WEAPON_CATALOG.pistol.range).toBe(300);
+  });
 });

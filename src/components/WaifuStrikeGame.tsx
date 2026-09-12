@@ -1,6 +1,7 @@
 import { createSignal, onMount, onCleanup, For, Show } from 'solid-js';
 import { StrikeBabylonEngine } from '../lib/strike/strike-babylon-engine';
 import { StrikeP2PManager } from '../lib/strike/strike-p2p';
+import { StrikeWeatherManager, WeatherType } from '../lib/strike/strike-weather';
 import { WeaponDef, ScoreboardPlayer, KillfeedEntry, StrikeMatchStats } from '../lib/strike/strike-types';
 import { WEAPON_CATALOG, strikeAudio } from '../lib/strike/strike-weapons';
 import { t } from '../lib/i18n';
@@ -43,6 +44,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   // Settings
   const [mouseSens, setMouseSens] = createSignal(1.2);
   const [audioVol, setAudioVol] = createSignal(50);
+  const [weather, setWeather] = createSignal<WeatherType>('normal');
 
   let matchStartTime = Date.now();
 
@@ -90,10 +92,18 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       },
       onPlayerDeath: (attacker) => {
         net?.registerPlayerDeath(attacker);
+      },
+      onToggleFullscreen: () => {
+        toggleFullscreen();
       }
     });
 
     eng.setSensitivity(1.2);
+
+    const weatherManager = new StrikeWeatherManager(eng.scene, eng.camera, (w) => {
+      setWeather(w);
+    });
+    setWeather(weatherManager.currentWeather);
 
     net = new StrikeP2PManager(eng, {
       onScoreboardUpdate: (players) => setScoreboard(players),
@@ -134,6 +144,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     onCleanup(() => {
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      weatherManager.dispose();
       eng.dispose();
       net?.stop();
     });
@@ -269,6 +280,15 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       <div class="strike-top-banner">
         <span class="strike-room-tag">⚡ {t('strike.modeTitle') || 'Waifu Strike DM'}</span>
         <span>⛩️ {t('strike.mapName') || 'Cyber Shrine'}</span>
+        <span class="strike-weather-tag" style={{
+          color: weather() === 'rain' ? '#70a1ff' : weather() === 'snow' ? '#ffffff' : '#ff9ff3',
+          background: 'rgba(255, 255, 255, 0.08)',
+          padding: '2px 8px',
+          'border-radius': '6px',
+          'font-size': '0.85rem'
+        }}>
+          {weather() === 'rain' ? '🌧️ Rain' : weather() === 'snow' ? '❄️ Snow' : '🌸 Sakura'}
+        </span>
         <Show when={peerCount() > 0}>
           <span style={{ color: '#2ed573' }}>👥 {peerCount()} P2P Peer{peerCount() > 1 ? 's' : ''}</span>
         </Show>
@@ -283,9 +303,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
             cursor: 'pointer'
           }}
           onClick={toggleFullscreen}
-          title="Toggle Fullscreen"
+          title="Toggle Fullscreen (F)"
         >
-          {isFullscreen() ? '🗗 Exit Fullscreen' : '⛶ Fullscreen'}
+          {isFullscreen() ? '🗗 Exit Fullscreen [F]' : '⛶ Fullscreen [F]'}
         </button>
         <button
           class="btn-controls-toggle"
@@ -457,6 +477,10 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
               <div class="strike-ctrl-pill">
                 <span>Scoreboard</span>
                 <span class="strike-ctrl-key">Hold Tab</span>
+              </div>
+              <div class="strike-ctrl-pill">
+                <span>Fullscreen</span>
+                <span class="strike-ctrl-key">F</span>
               </div>
             </div>
 

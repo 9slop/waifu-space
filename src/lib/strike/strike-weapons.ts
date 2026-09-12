@@ -19,7 +19,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     hasScope: false,
     scopeZoom: 1.0,
     color: '#ffd32a', // Vibrant yellow bullet tracer
-    viewmodelScale: 1.0
+    viewmodelScale: 1.0,
+    range: 300
   },
   sniper: {
     id: 'sniper',
@@ -39,7 +40,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     hasScope: true,
     scopeZoom: 0.28,
     color: '#ffd32a', // Vibrant yellow bullet tracer
-    viewmodelScale: 1.25
+    viewmodelScale: 1.25,
+    range: 300
   },
   pistol: {
     id: 'pistol',
@@ -59,7 +61,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     hasScope: false,
     scopeZoom: 1.0,
     color: '#ffd32a', // Vibrant yellow bullet tracer
-    viewmodelScale: 0.75
+    viewmodelScale: 0.75,
+    range: 300
   },
   knife: {
     id: 'knife',
@@ -79,12 +82,19 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     hasScope: false,
     scopeZoom: 1.0,
     color: '#fdcb6e',
-    viewmodelScale: 0.65
+    viewmodelScale: 0.65,
+    range: 2.2 // authentic close-quarters combat
   }
 };
 
+export interface SpatialAudioParams {
+  sourcePos: { x: number; y: number; z: number };
+  listenerPos: { x: number; y: number; z: number };
+  listenerYaw: number;
+}
+
 /**
- * Procedural Web Audio sound synthesizer for realistic, instantaneous gunfire and feedback.
+ * Procedural Web Audio sound synthesizer for realistic, instantaneous gunfire, spatial feedback, and quiet footsteps.
  * Zero external audio assets required.
  */
 class ProceduralAudioEngine {
@@ -116,10 +126,92 @@ class ProceduralAudioEngine {
     }
   }
 
-  public playGunfire(weaponId: WeaponId) {
+  private createSpatialNode(ctx: AudioContext, params?: SpatialAudioParams): { input: AudioNode; output: AudioNode } {
+    if (!params || !this.masterGain) {
+      return { input: this.masterGain!, output: this.masterGain! };
+    }
+
+    const dx = params.sourcePos.x - params.listenerPos.x;
+    const dz = params.sourcePos.z - params.listenerPos.z;
+    const dist = Math.hypot(dx, dz);
+
+    // Relative angle in horizontal plane rotated by listener camera yaw
+    const relX = dx * Math.cos(-params.listenerYaw) - dz * Math.sin(-params.listenerYaw);
+    const panVal = Math.max(-0.9, Math.min(0.9, relX / Math.max(2.5, dist)));
+
+    // Smooth distance attenuation: 1 / (1 + (dist / 14)^1.4)
+    const distAttenuation = Math.max(0.08, Math.min(1.0, 1 / (1 + Math.pow(dist / 14, 1.4))));
+
+    const spatialGain = ctx.createGain();
+    spatialGain.gain.setValueAtTime(distAttenuation, ctx.currentTime);
+
+    if (typeof ctx.createStereoPanner === 'function') {
+      const panner = ctx.createStereoPanner();
+      panner.pan.setValueAtTime(panVal, ctx.currentTime);
+      spatialGain.connect(panner);
+      panner.connect(this.masterGain);
+    } else {
+      spatialGain.connect(this.masterGain);
+    }
+
+    return { input: spatialGain, output: spatialGain };
+  }
+
+  public playFootstep(isLocal: boolean, spatial?: SpatialAudioParams) {
     const ctx = this.getContext();
     if (!ctx || !this.masterGain) return;
 
+    const t = ctx.currentTime;
+    const dest = this.createSpatialNode(ctx, isLocal ? undefined : spatial);
+
+    // Subtle, quiet footstep tap (low frequency pop + filtered noise)
+    const baseVol = isLocal ? 0.08 : 0.065;
+
+    // Filtered noise step
+    const bufferSize = Math.floor(ctx.sampleRate * 0.04);
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * 0.35;
+    }
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+
+    const noiseFilter = ctx.createBiquadFilter();
+    noiseFilter.type = 'lowpass';
+    noiseFilter.frequency.setValueAtTime(450, t);
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(baseVol * 0.65, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(dest.input);
+    noiseSource.start(t);
+    noiseSource.stop(t + 0.04);
+
+    // Low wood/stone tap thump
+    const osc = ctx.createOscillator();
+    const oscGain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(105, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.05);
+
+    oscGain.gain.setValueAtTime(baseVol, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+
+    osc.connect(oscGain);
+    oscGain.connect(dest.input);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+
+  public playGunfire(weaponId: WeaponId, spatial?: SpatialAudioParams) {
+    const ctx = this.getContext();
+    if (!ctx || !this.masterGain) return;
+
+    const dest = this.createSpatialNode(ctx, spatial);
     const t = ctx.currentTime;
 
     if (weaponId === 'knife') {
@@ -132,7 +224,7 @@ class ProceduralAudioEngine {
       gain.gain.setValueAtTime(0.3, t);
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
       osc.connect(gain);
-      gain.connect(this.masterGain);
+      gain.connect(dest.input);
       osc.start(t);
       osc.stop(t + 0.12);
       return;
@@ -161,7 +253,7 @@ class ProceduralAudioEngine {
 
     whiteNoise.connect(filter);
     filter.connect(noiseGain);
-    noiseGain.connect(this.masterGain);
+    noiseGain.connect(dest.input);
     whiteNoise.start(t);
     whiteNoise.stop(t + duration);
 
@@ -176,7 +268,7 @@ class ProceduralAudioEngine {
     bassGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
     bass.connect(bassGain);
-    bassGain.connect(this.masterGain);
+    bassGain.connect(dest.input);
     bass.start(t);
     bass.stop(t + duration);
   }
@@ -246,24 +338,6 @@ class ProceduralAudioEngine {
     click2.stop(t + 0.47);
   }
 
-  public playFootstep() {
-    const ctx = this.getContext();
-    if (!ctx || !this.masterGain) return;
-    const t = ctx.currentTime;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(90, t);
-    osc.frequency.exponentialRampToValueAtTime(30, t + 0.08);
-    gain.gain.setValueAtTime(0.12, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-
-    osc.connect(gain);
-    gain.connect(this.masterGain);
-    osc.start(t);
-    osc.stop(t + 0.08);
-  }
 }
 
 export const strikeAudio = new ProceduralAudioEngine();

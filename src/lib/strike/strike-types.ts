@@ -19,6 +19,7 @@ export interface WeaponDef {
   scopeZoom: number; // FOV multiplier e.g. 0.3 for sniper
   color: string;
   viewmodelScale: number;
+  range?: number;
 }
 
 export interface PlayerInput {

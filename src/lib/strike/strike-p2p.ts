@@ -29,6 +29,8 @@ interface PeerConnectionWrapper {
   lastPacketTime: number;
   lastShootTime: number;
   iceCandidatesQueue: RTCIceCandidateInit[];
+  isDead?: boolean;
+  lastFootstepTime?: number;
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -112,7 +114,7 @@ export class StrikeP2PManager {
     // Close WebRTC DataChannels and connections
     this.peers.forEach((p) => {
       p.dc?.close();
-      p.pc.close();
+      p.pc?.close();
     });
     this.peers.clear();
 
@@ -168,7 +170,15 @@ export class StrikeP2PManager {
       this.channel.on('broadcast', { event: 'p2p-tracer' }, ({ payload }) => {
         if (payload && payload.shooterId && payload.shooterId !== this.myPeerId) {
           if (payload.weaponId && payload.weaponId !== 'knife') {
-            strikeAudio.playGunfire(payload.weaponId);
+            const camPos = this.engine.camera.position;
+            const camYaw = this.engine.camera.rotation.y;
+            const peer = this.peers.get(payload.shooterId);
+            const shooterPos = payload.origin || (peer?.state ? { x: peer.state.x, y: peer.state.y, z: peer.state.z } : null);
+            strikeAudio.playGunfire(payload.weaponId, shooterPos ? {
+              sourcePosition: shooterPos,
+              listenerPosition: { x: camPos.x, y: camPos.y, z: camPos.z },
+              listenerYaw: camYaw
+            } : undefined);
           }
         }
       });
@@ -382,7 +392,7 @@ export class StrikeP2PManager {
     } else if (msg.type === 'ice-candidate') {
       const wrapper = this.peers.get(msg.from);
       if (wrapper && msg.candidate) {
-        if (!wrapper.pc.remoteDescription) {
+        if (!wrapper.pc || !wrapper.pc.remoteDescription) {
           wrapper.iceCandidatesQueue.push(msg.candidate);
         } else {
           try {
@@ -454,7 +464,14 @@ export class StrikeP2PManager {
           this.handleRemoteShoot(wrapper, data.shoot);
         } else if (data.type === 'tracer') {
           if (data.weaponId && data.weaponId !== 'knife') {
-            strikeAudio.playGunfire(data.weaponId);
+            const camPos = this.engine.camera.position;
+            const camYaw = this.engine.camera.rotation.y;
+            const shooterPos = data.origin || (wrapper.state ? { x: wrapper.state.x, y: wrapper.state.y, z: wrapper.state.z } : null);
+            strikeAudio.playGunfire(data.weaponId, shooterPos ? {
+              sourcePosition: shooterPos,
+              listenerPosition: { x: camPos.x, y: camPos.y, z: camPos.z },
+              listenerYaw: camYaw
+            } : undefined);
           }
         }
       } catch {}
@@ -486,6 +503,15 @@ export class StrikeP2PManager {
 
   private handleRemoteDeath(payload: any) {
     if (!payload || payload.victimId === this.myPeerId) return;
+    const victimWrapper = this.peers.get(payload.victimId);
+    if (victimWrapper) {
+      victimWrapper.isDead = true;
+      if (victimWrapper.state) victimWrapper.state.health = 0;
+    }
+    const av = this.engine.remoteAvatars.get(payload.victimId);
+    if (av) {
+      av.root.setEnabled(false);
+    }
     this.callbacks.onKillfeedEntry({
       id: `death_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       killerName: String(payload.killerName || 'Enemy'),
@@ -558,18 +584,39 @@ export class StrikeP2PManager {
     }
 
     if (av) {
-      const targetPos = new Vector3(x, y - 1.62, z);
-      const dist = Vector3.Distance(av.root.position, targetPos);
-      if (dist > 12) {
-        // Instant teleport/respawn
-        av.root.position = targetPos;
+      if (hp <= 0 || wrapper.isDead) {
+        av.root.setEnabled(false);
       } else {
-        av.root.position = Vector3.Lerp(av.root.position, targetPos, 0.55);
+        av.root.setEnabled(true);
+        wrapper.isDead = false;
+        const targetPos = new Vector3(x, y - 1.62, z);
+        const dist = Vector3.Distance(av.root.position, targetPos);
+        if (dist > 12) {
+          // Instant teleport/respawn
+          av.root.position = targetPos;
+        } else {
+          av.root.position = Vector3.Lerp(av.root.position, targetPos, 0.55);
+        }
+        av.root.rotation.y = Number(rawState.yaw) || 0;
+        av.updateAnimation(Number(rawState.animState) || 0, 0.04);
+        av.setWeapon(weaponId);
+        av.updateNameplate(playerName, hp, 150);
+
+        // Quiet spatial footstep audio if walking
+        const isMoving = Number(rawState.animState) === 1;
+        if (isMoving) {
+          if (!wrapper.lastFootstepTime || now - wrapper.lastFootstepTime > 380) {
+            wrapper.lastFootstepTime = now;
+            const camPos = this.engine.camera.position;
+            const camYaw = this.engine.camera.rotation.y;
+            strikeAudio.playFootstep(false, {
+              sourcePosition: { x, y, z },
+              listenerPosition: { x: camPos.x, y: camPos.y, z: camPos.z },
+              listenerYaw: camYaw
+            });
+          }
+        }
       }
-      av.root.rotation.y = Number(rawState.yaw) || 0;
-      av.updateAnimation(Number(rawState.animState) || 0, 0.04);
-      av.setWeapon(weaponId);
-      av.updateNameplate(playerName, hp, 150);
     }
 
     this.publishScoreboard();
@@ -593,7 +640,14 @@ export class StrikeP2PManager {
     wrapper.lastShootTime = now;
 
     if (weaponId !== 'knife') {
-      strikeAudio.playGunfire(weaponId);
+      const camPos = this.engine.camera.position;
+      const camYaw = this.engine.camera.rotation.y;
+      const shooterPos = wrapper.state ? { x: wrapper.state.x, y: wrapper.state.y, z: wrapper.state.z } : (shoot.origin ? shoot.origin : null);
+      strikeAudio.playGunfire(weaponId, shooterPos ? {
+        sourcePosition: shooterPos,
+        listenerPosition: { x: camPos.x, y: camPos.y, z: camPos.z },
+        listenerYaw: camYaw
+      } : undefined);
     }
 
     // Trigger visual firing/slash animation on remote avatar
@@ -731,6 +785,12 @@ export class StrikeP2PManager {
 
       const peer = this.peers.get(targetId);
       if (peer && peer.state) {
+        // If already dead, prevent duplicate kill messages and corpse shooting
+        if (peer.isDead || peer.state.health <= 0) {
+          return;
+        }
+
+        const wasAlive = peer.state.health > 0;
         // Optimistically apply damage to local cached peer state
         peer.state.health = Math.max(0, peer.state.health - damage);
         const av = this.engine.remoteAvatars.get(targetId);
@@ -738,8 +798,12 @@ export class StrikeP2PManager {
           av.updateNameplate(peer.name, peer.state.health, 150);
         }
 
-        // Check if lethal
-        if (peer.state.health <= 0) {
+        // Check if lethal (only trigger once)
+        if (wasAlive && peer.state.health <= 0) {
+          peer.isDead = true;
+          if (av) {
+            av.root.setEnabled(false);
+          }
           this.localKills++;
           this.localCurrentStreak++;
           if (this.localCurrentStreak > this.localBestStreak) {

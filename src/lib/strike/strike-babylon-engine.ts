@@ -31,6 +31,7 @@ export interface StrikeBabylonCallbacks {
   onScoreboardToggle: (visible: boolean) => void;
   onScopeChange?: (isScoped: boolean) => void;
   onPlayerDeath?: (attackerName: string) => void;
+  onToggleFullscreen?: () => void;
 }
 
 export class StrikeBabylonEngine {
@@ -55,6 +56,11 @@ export class StrikeBabylonEngine {
   public isWalking = false;
   public baseEyeHeight = 1.62;
   public currentEyeHeight = 1.62;
+
+  // Spawn invulnerability (1s god mode)
+  public isInvulnerable = false;
+  public invulnerableUntil = 0;
+  private footstepAccumulator = 0;
 
   // Weapon State
   public activeWeaponId: WeaponId = 'rifle';
@@ -200,6 +206,9 @@ export class StrikeBabylonEngine {
       if (e.code === 'Digit3') this.switchWeapon('pistol');
       if (e.code === 'Digit4') this.switchWeapon('knife');
       if (e.code === 'KeyQ') this.switchWeapon(this.lastWeaponId);
+      if (e.code === 'KeyF') {
+        this.callbacks.onToggleFullscreen?.();
+      }
       if (e.code === 'Tab') {
         e.preventDefault();
         this.callbacks.onScoreboardToggle(true);
@@ -350,6 +359,10 @@ export class StrikeBabylonEngine {
     this.viewmodel.root.setEnabled(true);
     this.callbacks.onScopeChange?.(false);
 
+    // 1-second god mode upon spawn
+    this.isInvulnerable = true;
+    this.invulnerableUntil = performance.now() + 1000;
+
     // Replenish ammo
     this.ammoMag = { rifle: 30, sniper: 5, pistol: 7, knife: 1 };
     this.ammoReserve = { rifle: 90, sniper: 25, pistol: 35, knife: 1 };
@@ -431,7 +444,9 @@ export class StrikeBabylonEngine {
     }
 
     // Raycast shooting via Babylon.js scene picking (excluding viewmodel & local player collider)
-    const forwardRay = this.camera.getForwardRay(300);
+    // Knife is strictly capped at close melee combat range (2.2m), firearms at 300m
+    const maxRayDist = this.activeWeaponId === 'knife' ? (def.range || 2.2) : 300;
+    const forwardRay = this.camera.getForwardRay(maxRayDist);
     const hit = this.scene.pickWithRay(forwardRay, (mesh) => {
       return (
         mesh.isPickable &&
@@ -445,7 +460,7 @@ export class StrikeBabylonEngine {
     let isHeadshot = false;
     let targetId: string | null = null;
     let hitPart: 'head' | 'torso' | 'limb' = 'torso';
-    let hitPoint = forwardRay.origin.add(forwardRay.direction.scale(300));
+    let hitPoint = forwardRay.origin.add(forwardRay.direction.scale(maxRayDist));
 
     if (hit && hit.hit && hit.pickedMesh) {
       if (hit.pickedPoint) {
@@ -512,7 +527,7 @@ export class StrikeBabylonEngine {
       {
         origin: { x: forwardRay.origin.x, y: forwardRay.origin.y, z: forwardRay.origin.z },
         direction: { x: forwardRay.direction.x, y: forwardRay.direction.y, z: forwardRay.direction.z },
-        maxDistance: 300,
+        maxDistance: maxRayDist,
         shooterId: 0,
         weaponId: this.activeWeaponId
       },
@@ -542,6 +557,12 @@ export class StrikeBabylonEngine {
 
   public applyDamage(dmg: number, attackerName: string) {
     if (!this.isPlaying || this.isDead) return;
+    // 1-second god mode check on spawn
+    if (this.isInvulnerable && performance.now() < this.invulnerableUntil) {
+      return;
+    }
+    this.isInvulnerable = false;
+
     this.health = Math.max(0, this.health - dmg);
     this.callbacks.onHealthChange(this.health, this.maxHealth);
 
@@ -610,6 +631,24 @@ export class StrikeBabylonEngine {
     this.velocity.x += (targetVelX - this.velocity.x) * Math.min(1, dt * accel);
     this.velocity.z += (targetVelZ - this.velocity.z) * Math.min(1, dt * accel);
 
+    // Ground presence check: if on high ground, verify ground exists directly underneath collider
+    if (this.onGround && this.playerCollider.position.y > 0.88) {
+      const downRay = new Ray(this.playerCollider.position, new Vector3(0, -1, 0), 1.05);
+      const groundHit = this.scene.pickWithRay(downRay, (mesh) => {
+        return (
+          mesh.isPickable &&
+          mesh !== this.playerCollider &&
+          !mesh.name.startsWith('playerCollider') &&
+          !mesh.name.startsWith('hitbox') &&
+          !mesh.name.startsWith('avatar') &&
+          !mesh.name.startsWith('Viewmodel')
+        );
+      });
+      if (!groundHit || !groundHit.hit || groundHit.distance > 0.96) {
+        this.onGround = false;
+      }
+    }
+
     // Gravity & Jump
     if (this.onGround) {
       if (this.keysDown['Space']) {
@@ -657,6 +696,18 @@ export class StrikeBabylonEngine {
     // Viewmodel update
     const curSpeed = Math.hypot(this.velocity.x, this.velocity.z);
     this.viewmodel.update(dt, curSpeed > 0.5, curSpeed / maxSpeed);
+
+    // Footstep audio when moving on ground
+    if (this.onGround && curSpeed > 0.8) {
+      const stepInterval = this.isWalking ? 0.38 : this.isCrouching ? 0.44 : 0.28;
+      this.footstepAccumulator += dt;
+      if (this.footstepAccumulator >= stepInterval) {
+        this.footstepAccumulator = 0;
+        strikeAudio.playFootstep(true);
+      }
+    } else {
+      this.footstepAccumulator = 0;
+    }
 
     // Full-auto continuous shooting
     if (this.mouseButtons[0]) {
