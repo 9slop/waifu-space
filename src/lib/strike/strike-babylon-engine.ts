@@ -126,8 +126,8 @@ export class StrikeBabylonEngine {
     });
 
     this.scene = new Scene(this.engine);
-    // Vibrant daytime Japanese sunny blue sky clear color
-    this.scene.clearColor = new Color4(0.53, 0.77, 0.98, 1.0);
+    // Balanced daytime Japanese sky clear color
+    this.scene.clearColor = new Color4(0.42, 0.65, 0.88, 1.0);
     this.scene.collisionsEnabled = true;
 
     // 2. Setup FPS Universal Camera & Physics Collider

@@ -61,42 +61,42 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   }
 
   // Street & courtyard stone pavement
-  const groundMat = createMat('matGround', new Color3(0.42, 0.44, 0.47));
+  const groundMat = createMat('matGround', new Color3(0.38, 0.40, 0.43));
   // Raked zen sand / gravel (A-Site garden)
-  const zenSandMat = createMat('matZenSand', new Color3(0.78, 0.77, 0.73), new Color3(0.04, 0.04, 0.04));
+  const zenSandMat = createMat('matZenSand', new Color3(0.68, 0.67, 0.62), new Color3(0.04, 0.04, 0.04));
   // Polished cedar planks (verandas, decks)
-  const woodDeckMat = createMat('matWoodDeck', new Color3(0.38, 0.24, 0.15), new Color3(0.06, 0.06, 0.06));
+  const woodDeckMat = createMat('matWoodDeck', new Color3(0.34, 0.22, 0.14), new Color3(0.06, 0.06, 0.06));
   // Perimeter boundary walls
-  const wallMat = createMat('matWall', new Color3(0.26, 0.29, 0.35));
+  const wallMat = createMat('matWall', new Color3(0.24, 0.26, 0.30));
   // Machiya dark timber beams & pillars
-  const timberMat = createMat('matTimber', new Color3(0.24, 0.16, 0.10), new Color3(0.04, 0.04, 0.04));
+  const timberMat = createMat('matTimber', new Color3(0.20, 0.14, 0.09), new Color3(0.04, 0.04, 0.04));
   // Earthen plaster / stucco walls
-  const plasterMat = createMat('matPlaster', new Color3(0.86, 0.84, 0.79), new Color3(0.03, 0.03, 0.03));
+  const plasterMat = createMat('matPlaster', new Color3(0.72, 0.70, 0.65), new Color3(0.03, 0.03, 0.03));
   // Charcoal kawara clay roof tiles
-  const tileRoofMat = createMat('matTileRoof', new Color3(0.18, 0.20, 0.24), new Color3(0.12, 0.12, 0.12));
+  const tileRoofMat = createMat('matTileRoof', new Color3(0.15, 0.17, 0.20), new Color3(0.10, 0.10, 0.10));
   // Rice paper shoji screens (subtle warm glow)
-  const shojiMat = createMat('matShoji', new Color3(0.92, 0.89, 0.82), new Color3(0.02, 0.02, 0.02), new Color3(0.12, 0.11, 0.08));
+  const shojiMat = createMat('matShoji', new Color3(0.82, 0.79, 0.72), new Color3(0.02, 0.02, 0.02), new Color3(0.08, 0.07, 0.05));
   // Vermilion shrine red
-  const shrineRedMat = createMat('matShrineRed', new Color3(0.85, 0.20, 0.18), new Color3(0.16, 0.16, 0.16));
+  const shrineRedMat = createMat('matShrineRed', new Color3(0.78, 0.18, 0.16), new Color3(0.12, 0.12, 0.12));
   // Gold accents & sacred altar
-  const goldMat = createMat('matGold', new Color3(0.95, 0.78, 0.25), new Color3(0.22, 0.22, 0.22), new Color3(0.15, 0.10, 0.02));
+  const goldMat = createMat('matGold', new Color3(0.85, 0.70, 0.22), new Color3(0.18, 0.18, 0.18), new Color3(0.08, 0.06, 0.02));
   // Wooden supply crates
-  const crateMat = createMat('matCrate', new Color3(0.68, 0.40, 0.18));
+  const crateMat = createMat('matCrate', new Color3(0.58, 0.36, 0.16));
   // Stone lanterns & tactical barriers
-  const stoneMat = createMat('matStone', new Color3(0.48, 0.52, 0.56));
+  const stoneMat = createMat('matStone', new Color3(0.42, 0.45, 0.48));
   // Glowing lantern paper
-  const lanternGlowMat = createMat('matLanternGlow', new Color3(1.0, 0.88, 0.55), new Color3(0, 0, 0), new Color3(1.0, 0.82, 0.42));
+  const lanternGlowMat = createMat('matLanternGlow', new Color3(0.95, 0.82, 0.50), new Color3(0, 0, 0), new Color3(0.70, 0.55, 0.25));
   // Sakura foliage
-  const sakuraMat = createMat('matSakura', new Color3(1.0, 0.56, 0.75), new Color3(0.08, 0.08, 0.08), new Color3(0.22, 0.08, 0.14));
+  const sakuraMat = createMat('matSakura', new Color3(0.92, 0.52, 0.68), new Color3(0.08, 0.08, 0.08), new Color3(0.14, 0.05, 0.09));
   // Tree bark
-  const barkMat = createMat('matBark', new Color3(0.32, 0.20, 0.14), new Color3(0.04, 0.04, 0.04));
+  const barkMat = createMat('matBark', new Color3(0.28, 0.18, 0.12), new Color3(0.04, 0.04, 0.04));
   // Bamboo
-  const bambooMat = createMat('matBamboo', new Color3(0.52, 0.62, 0.28));
+  const bambooMat = createMat('matBamboo', new Color3(0.45, 0.54, 0.24));
   // Neon trims (cyber accent)
-  const neonPinkMat = createMat('matNeonPink', new Color3(1.0, 0.40, 0.70), new Color3(0.2, 0.2, 0.2), new Color3(1.0, 0.40, 0.70));
-  const neonCyanMat = createMat('matNeonCyan', new Color3(0.0, 0.90, 0.88), new Color3(0.2, 0.2, 0.2), new Color3(0.0, 0.90, 0.88));
+  const neonPinkMat = createMat('matNeonPink', new Color3(0.90, 0.35, 0.62), new Color3(0.2, 0.2, 0.2), new Color3(0.60, 0.25, 0.42));
+  const neonCyanMat = createMat('matNeonCyan', new Color3(0.0, 0.80, 0.78), new Color3(0.2, 0.2, 0.2), new Color3(0.0, 0.60, 0.58));
   // Dark wood for carts/barrels
-  const darkWoodMat = createMat('matDarkWood', new Color3(0.20, 0.13, 0.08), new Color3(0.04, 0.04, 0.04));
+  const darkWoodMat = createMat('matDarkWood', new Color3(0.18, 0.12, 0.07), new Color3(0.04, 0.04, 0.04));
 
   // ═══════════════════════════════════════════════════════════════════
   // 2. HELPER FUNCTIONS
@@ -641,11 +641,11 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // 12. ZONE 9: SCENIC BACKGROUND — Sky Dome, Mt. Fuji, Mountains, Clouds
   // ═══════════════════════════════════════════════════════════════════
 
-  // Daytime Japan Sky Dome
+  // Daytime Japan Sky Dome (Pleasant balanced sky blue)
   const skyMat = new StandardMaterial('matSky', scene);
   skyMat.backFaceCulling = false;
   skyMat.disableLighting = true;
-  skyMat.emissiveColor = new Color3(0.53, 0.77, 0.98);
+  skyMat.emissiveColor = new Color3(0.42, 0.65, 0.88);
   const skyDome = MeshBuilder.CreateSphere('skyDome', { diameter: 550, segments: 16 }, scene);
   skyDome.material = skyMat;
   skyDome.isPickable = false;
@@ -659,15 +659,15 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   fujiBase.isPickable = false;
   fujiBase.checkCollisions = false;
 
-  const fujiCapMat = createMat('matFujiCap', new Color3(0.98, 0.99, 1.0), new Color3(0.3, 0.3, 0.3), new Color3(0.35, 0.38, 0.42));
+  const fujiCapMat = createMat('matFujiCap', new Color3(0.95, 0.96, 0.98), new Color3(0.2, 0.2, 0.2));
   const fujiCap = MeshBuilder.CreateCylinder('fujiCap', { height: 35, diameterBottom: 72, diameterTop: 26, tessellation: 32 }, scene);
   fujiCap.position = new Vector3(-120, 78, -175);
   fujiCap.material = fujiCapMat;
   fujiCap.isPickable = false;
   fujiCap.checkCollisions = false;
 
-  // Mountain ridges
-  const ridgeMat = createMat('matRidge', new Color3(0.22, 0.35, 0.28), new Color3(0.03, 0.03, 0.03));
+  // Mountain ridges (Natural soft green-slate hills)
+  const ridgeMat = createMat('matRidge', new Color3(0.18, 0.30, 0.24), new Color3(0.02, 0.02, 0.02));
   const ridges = [
     { x: 0, y: 18, z: -130, w: 240, h: 48, d: 30 },
     { x: 0, y: 16, z: 130, w: 240, h: 44, d: 30 },
@@ -705,26 +705,26 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // 13. ZONE 10: LIGHTING
   // ═══════════════════════════════════════════════════════════════════
 
-  // Hemispheric sky fill
+  // Hemispheric sky fill (soft ambient without blowing out diffuse colors)
   const hemiLight = new HemisphericLight('hemi', new Vector3(0, 1, 0), scene);
-  hemiLight.diffuse = new Color3(1.35, 1.40, 1.50);
-  hemiLight.groundColor = new Color3(0.85, 0.88, 0.82);
-  hemiLight.intensity = 1.85;
+  hemiLight.diffuse = new Color3(0.85, 0.90, 0.95);
+  hemiLight.groundColor = new Color3(0.50, 0.52, 0.50);
+  hemiLight.intensity = 0.85;
 
-  // Primary warm sunlight (high southwest)
+  // Primary warm sunlight (high southwest directional light)
   const sunLight = new DirectionalLight('sun', new Vector3(0.45, -1, 0.45), scene);
   sunLight.position = new Vector3(-35, 55, -35);
-  sunLight.diffuse = new Color3(1.30, 1.25, 1.15);
-  sunLight.specular = new Color3(0.5, 0.5, 0.5);
-  sunLight.intensity = 1.75;
+  sunLight.diffuse = new Color3(0.95, 0.92, 0.85);
+  sunLight.specular = new Color3(0.25, 0.25, 0.25);
+  sunLight.intensity = 0.85;
 
-  // Cool sky fill (prevents pitch-black shadows)
+  // Cool sky fill (gentle bounce from opposite side)
   const fillLight = new DirectionalLight('fill', new Vector3(-0.45, -0.85, -0.45), scene);
   fillLight.position = new Vector3(35, 45, 35);
-  fillLight.diffuse = new Color3(1.0, 1.05, 1.15);
-  fillLight.intensity = 1.25;
+  fillLight.diffuse = new Color3(0.70, 0.75, 0.85);
+  fillLight.intensity = 0.45;
 
-  // Tactical focal point lights (warm, limited range)
+  // Tactical focal point lights (warm, subtle atmospheric glow)
   const focalLights = [
     new Vector3(-27, 3.0, -29),   // A-Site Tea House Courtyard
     new Vector3(27, 3.0, -29),    // B-Site Temple Gate
@@ -734,9 +734,9 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   for (let fl = 0; fl < focalLights.length; fl++) {
     const pl = new PointLight(`focal${fl}`, focalLights[fl], scene);
     pl.diffuse = new Color3(1.0, 0.88, 0.68);
-    pl.specular = new Color3(0.35, 0.30, 0.18);
-    pl.intensity = 1.8;
-    pl.range = 28;
+    pl.specular = new Color3(0.15, 0.12, 0.08);
+    pl.intensity = 0.7;
+    pl.range = 22;
   }
 
   // ═══════════════════════════════════════════════════════════════════
