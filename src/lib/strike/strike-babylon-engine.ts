@@ -661,15 +661,16 @@ export class StrikeBabylonEngine {
     this.isCrouching = !!this.keysDown[this.keybindings.crouch] || !!this.keysDown['KeyC'] || !!this.keysDown['ControlLeft'];
     this.isWalking = !!this.keysDown[this.keybindings.walk] || !!this.keysDown['ShiftLeft'] || !!this.keysDown['ShiftRight'];
 
-    // Speeds in m/s
+    // Speeds in m/s (CS-accurate competitive scale: ~250 units/s ≈ 6.5 m/s)
     const def = WEAPON_CATALOG[this.activeWeaponId];
-    let maxSpeed = 7.4;
-    if (def.id === 'knife') maxSpeed = 7.8;
-    if (def.id === 'sniper') maxSpeed = 6.2;
-    if (this.isCrouching) maxSpeed *= 0.45;
-    else if (this.isWalking) maxSpeed *= 0.55;
+    let maxSpeed = 6.6; // rifle baseline (~250 units/s)
+    if (def.id === 'knife') maxSpeed = 7.0; // knife fast sprint (~260 units/s)
+    if (def.id === 'sniper') maxSpeed = 5.6; // AWP carry speed (~200 units/s)
+    if (def.id === 'pistol') maxSpeed = 6.8; // Deagle carry speed (~255 units/s)
+    if (this.isCrouching) maxSpeed *= 0.35; // CS duck speed (~85 units/s)
+    else if (this.isWalking) maxSpeed *= 0.52; // CS sneak walk (~130 units/s)
 
-    // Movement direction
+    // Movement input direction
     let forward = 0;
     let strafe = 0;
     if (this.keysDown[this.keybindings.forward]) forward += 1;
@@ -685,14 +686,59 @@ export class StrikeBabylonEngine {
     const moveX = strafe * cos + forward * sin;
     const moveZ = -strafe * sin + forward * cos;
     const moveLen = Math.hypot(moveX, moveZ);
+    const wishDirX = moveLen > 0 ? moveX / moveLen : 0;
+    const wishDirZ = moveLen > 0 ? moveZ / moveLen : 0;
 
-    const targetVelX = moveLen > 0 ? (moveX / moveLen) * maxSpeed : 0;
-    const targetVelZ = moveLen > 0 ? (moveZ / moveLen) * maxSpeed : 0;
+    if (this.onGround) {
+      // 1. Counter-Strike Ground Friction Model (sv_friction)
+      const curSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      if (curSpeed > 0.001) {
+        const friction = 5.2; // CS sv_friction
+        const stopSpeed = 1.0;
+        const control = Math.max(curSpeed, stopSpeed);
+        const drop = control * friction * dt;
+        const newSpeed = Math.max(0, curSpeed - drop);
+        const frac = newSpeed / curSpeed;
+        this.velocity.x *= frac;
+        this.velocity.z *= frac;
+      }
 
-    // Acceleration & ground friction
-    const accel = this.onGround ? 20 : 6;
-    this.velocity.x += (targetVelX - this.velocity.x) * Math.min(1, dt * accel);
-    this.velocity.z += (targetVelZ - this.velocity.z) * Math.min(1, dt * accel);
+      // 2. Counter-strafing rapid deceleration
+      // Tapping the opposing key halts momentum near-instantaneously for pin-point accuracy stops
+      if (moveLen > 0) {
+        const currentSpeedInWish = this.velocity.x * wishDirX + this.velocity.z * wishDirZ;
+        if (currentSpeedInWish < 0) {
+          this.velocity.x *= Math.max(0, 1 - dt * 18);
+          this.velocity.z *= Math.max(0, 1 - dt * 18);
+        }
+
+        // 3. Ground Acceleration (sv_accelerate)
+        const addSpeed = maxSpeed - (this.velocity.x * wishDirX + this.velocity.z * wishDirZ);
+        if (addSpeed > 0) {
+          const accel = 5.8; // CS ground acceleration
+          const accelSpeed = Math.min(addSpeed, accel * maxSpeed * dt);
+          this.velocity.x += wishDirX * accelSpeed;
+          this.velocity.z += wishDirZ * accelSpeed;
+        }
+      }
+    } else {
+      // 4. Counter-Strike Air Acceleration & Air Speed Cap
+      // In the air, wish speed is strictly capped at 1.2 m/s — preventing unrealistic mid-air sprinting or sharp air turns!
+      if (moveLen > 0) {
+        const airWishSpeed = Math.min(maxSpeed, 1.2);
+        const currentSpeedInWish = this.velocity.x * wishDirX + this.velocity.z * wishDirZ;
+        const addSpeed = airWishSpeed - currentSpeedInWish;
+        if (addSpeed > 0) {
+          const airAccel = 10.0; // CS air acceleration
+          const accelSpeed = Math.min(addSpeed, airAccel * airWishSpeed * dt);
+          this.velocity.x += wishDirX * accelSpeed;
+          this.velocity.z += wishDirZ * accelSpeed;
+        }
+      }
+      // Air drag is minimal to conserve forward momentum
+      this.velocity.x *= Math.max(0, 1 - dt * 0.15);
+      this.velocity.z *= Math.max(0, 1 - dt * 0.15);
+    }
 
     // Ground presence check: if on high ground, verify ground exists directly underneath collider
     if (this.onGround && this.playerCollider.position.y > 0.88) {
@@ -715,13 +761,13 @@ export class StrikeBabylonEngine {
     // Gravity & Jump
     if (this.onGround) {
       if (this.keysDown[this.keybindings.jump] || this.keysDown['Space']) {
-        this.velocity.y = 6.5;
+        this.velocity.y = 5.8; // CS jump impulse (~280 units/s)
         this.onGround = false;
       } else {
         this.velocity.y = -0.5; // gentle ground stick
       }
     } else {
-      this.velocity.y -= 19.6 * dt; // gravity
+      this.velocity.y -= 21.0 * dt; // CS gravity (~800 units/s^2)
     }
 
     // Native Babylon moveWithCollisions on playerCollider slides smoothly along walls & obstacles
@@ -738,6 +784,9 @@ export class StrikeBabylonEngine {
     if (displacement.y < -0.01 && deltaY > displacement.y * 0.5) {
       this.onGround = true;
       this.velocity.y = 0;
+      // Landing friction: slight momentum dampening upon impact
+      this.velocity.x *= 0.85;
+      this.velocity.z *= 0.85;
     }
 
     // Safety ground floor limit (courtyard ground is y = 0, collider center is 0.85)
