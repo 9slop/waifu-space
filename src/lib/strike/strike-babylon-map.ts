@@ -1738,8 +1738,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     hill.checkCollisions = false;
   }
 
-  // Stylized clouds
-  const cloudMat = createMat('matCloud', new Color3(0.97, 0.98, 1.0), new Color3(0.1, 0.1, 0.1), new Color3(0.42, 0.46, 0.52));
+  // Stylized clouds (dim emissive so they never bloom through the sky line)
+  const cloudMat = createMat('matCloud', new Color3(0.88, 0.91, 0.96), new Color3(0.08, 0.08, 0.08), new Color3(0.12, 0.14, 0.16));
   const cloudPos = [
     new Vector3(-55, 56, -75),
     new Vector3(55, 62, -55),

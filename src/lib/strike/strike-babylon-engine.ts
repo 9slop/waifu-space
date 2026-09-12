@@ -168,6 +168,8 @@ export class StrikeBabylonEngine {
   public bulletMarks: AbstractMesh[] = [];
   private bulletMarkMaterial: StandardMaterial | null = null;
   public glowLayer: GlowLayer | null = null;
+  /** Meshes already excluded from the bloom glow layer (sky, clouds, weapons, nameplates). */
+  private glowExcludedMeshes = new WeakSet<AbstractMesh>();
   public grenadeManager: StrikeGrenadeManager;
   public grenadeCount: number = 1;
   public loadout: PlayerLoadout = { ...DEFAULT_LOADOUT };
@@ -272,7 +274,7 @@ export class StrikeBabylonEngine {
       this.scene.render();
     });
 
-    // Post-processing Bloom Glow Layer for map lamps, lasers, and weapon emissives
+    // Post-processing Bloom Glow Layer for map lamps, lanterns and fire
     try {
       this.glowLayer = new GlowLayer('glowLayer', this.scene, {
         blurKernelSize: 24,
@@ -280,12 +282,7 @@ export class StrikeBabylonEngine {
       });
       this.glowLayer.intensity = 0.85;
       this.glowLayer.isEnabled = this.graphicsSettings.postProcessing;
-
-      // Exclude the sky dome from bloom so the sky stays clean and unmistakable
-      const skyDome = this.scene.getMeshByName('skyDome');
-      if (skyDome) {
-        this.glowLayer.addExcludedMesh(skyDome as Mesh);
-      }
+      this.refreshGlowExclusions();
     } catch (err) {
       console.warn('[StrikeEngine] GlowLayer initialization failed:', err);
     }
@@ -337,6 +334,30 @@ export class StrikeBabylonEngine {
     // 5. Post-Processing / Bloom GlowLayer
     if (this.glowLayer) {
       this.glowLayer.isEnabled = !!this.graphicsSettings.postProcessing;
+    }
+  }
+
+  /**
+   * Excludes a mesh from the bloom GlowLayer once (idempotent WeakSet guard so
+   * per-frame calls are cheap and disposed meshes auto-clean).
+   */
+  private addGlowExclusion(mesh: AbstractMesh | null | undefined) {
+    if (!mesh || mesh.isDisposed()) return;
+    if (this.glowExcludedMeshes.has(mesh)) return;
+    if (!this.glowLayer) return;
+    this.glowLayer.addExcludedMesh(mesh as Mesh);
+    this.glowExcludedMeshes.add(mesh);
+  }
+
+  /**
+   * Keeps sky dome + decorative cloud exclusions in sync with the bloom glow
+   * layer so the sky stays clean and unmistakable with zero halo.
+   */
+  private refreshGlowExclusions() {
+    if (!this.glowLayer || !this.glowLayer.isEnabled || !this.scene) return;
+    this.addGlowExclusion(this.scene.getMeshByName('skyDome'));
+    for (const m of this.scene.meshes) {
+      if (m.name.startsWith('cloud')) this.addGlowExclusion(m);
     }
   }
 
@@ -1386,6 +1407,7 @@ export class StrikeBabylonEngine {
     this.mapData?.updateDayNightCycle?.(this.elapsedGameTime);
     this.grenadeManager.update(dt, this.playerCollider ? this.playerCollider.position : this.camera.position);
     this.updateBloodParticles(dt);
+    this.refreshGlowExclusions();
 
     // Grenade aim trajectory preview while holding LMB to charge the throw
     if (this.grenadeArmed && this.grenadeCharging && this.mouseButtons[0]) {
