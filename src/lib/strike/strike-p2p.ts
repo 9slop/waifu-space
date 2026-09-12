@@ -741,6 +741,11 @@ export class StrikeP2PManager {
       av.triggerAttack(weaponId);
     }
 
+    // Render remote bullet tracer & bullet impact mark on world objects
+    if (weaponId !== 'knife' && shoot.origin && shoot.direction) {
+      this.engine.handleRemoteBulletImpact(shoot.origin, shoot.direction, def.range || 300, def.color);
+    }
+
     // If local player was targeted and hit
     if (shoot.targetId === this.myPeerId) {
       const damage = Math.max(1, Math.min(350, Math.round(Number(shoot.damage) || def.damage)));

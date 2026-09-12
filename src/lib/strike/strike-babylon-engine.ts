@@ -8,7 +8,8 @@ import {
   Ray,
   MeshBuilder,
   StandardMaterial,
-  AbstractMesh
+  AbstractMesh,
+  DynamicTexture
 } from '@babylonjs/core';
 import {
   WeaponId,
@@ -108,6 +109,8 @@ export class StrikeBabylonEngine {
   public viewmodel: BabylonViewmodel;
   public remoteAvatars: Map<string | number, BabylonAvatarModel> = new Map();
   public localShadowCaster: AbstractMesh | null = null;
+  public bulletMarks: AbstractMesh[] = [];
+  private bulletMarkMaterial: StandardMaterial | null = null;
 
   // Event listener references for leak-free disposal
   private boundPointerLockChange: (() => void) | null = null;
@@ -610,6 +613,11 @@ export class StrikeBabylonEngine {
     // Visual Tracer line (guns only, knife does not emit bullet tracers)
     if (this.activeWeaponId !== 'knife') {
       this.createTracer(forwardRay.origin.add(new Vector3(0, -0.15, 0)), hitPoint, def.color);
+      // Spawn bullet impact mark on world objects (walls, ground, crates, pillars)
+      if (targetId === null && hit && hit.hit && hit.pickedPoint) {
+        const normal = hit.getNormal(true) || Vector3.Up();
+        this.spawnBulletMark(hit.pickedPoint, normal);
+      }
     }
 
     // Check Counter-Strike style backstab angle for knife attacks:
@@ -667,7 +675,7 @@ export class StrikeBabylonEngine {
     );
   }
 
-  private createTracer(start: Vector3, end: Vector3, colorHex: string) {
+  public createTracer(start: Vector3, end: Vector3, colorHex: string) {
     const tracer = MeshBuilder.CreateLines(
       'bulletTracer',
       {
@@ -682,6 +690,134 @@ export class StrikeBabylonEngine {
     setTimeout(() => {
       tracer.dispose();
     }, 65);
+  }
+
+  /**
+   * Spawns an authentic bullet impact mark on world surfaces.
+   * Auto-removes after 2 minutes (120 seconds).
+   */
+  public spawnBulletMark(position: Vector3, normal: Vector3) {
+    if (this.isDisposed || !this.scene) return;
+    const norm = (normal && normal.lengthSquared() > 0.001) ? normal.normalize() : new Vector3(0, 1, 0);
+
+    const mark = MeshBuilder.CreatePlane('bulletMark', { size: 0.16 }, this.scene);
+    mark.position = position.add(norm.scale(0.006));
+    mark.lookAt(mark.position.add(norm));
+    mark.rotation.z = Math.random() * Math.PI * 2;
+    mark.material = this.getOrCreateBulletMarkMaterial();
+    mark.isPickable = false;
+    mark.doNotSyncBoundingInfo = true;
+    mark.freezeWorldMatrix();
+
+    this.bulletMarks.push(mark);
+    if (this.bulletMarks.length > 250) {
+      const oldest = this.bulletMarks.shift();
+      if (oldest && !oldest.isDisposed()) {
+        oldest.dispose();
+      }
+    }
+
+    // Auto-remove marks after exactly 2 minutes (120 seconds) for client
+    setTimeout(() => {
+      if (!mark.isDisposed()) {
+        mark.dispose();
+        const idx = this.bulletMarks.indexOf(mark);
+        if (idx !== -1) {
+          this.bulletMarks.splice(idx, 1);
+        }
+      }
+    }, 120000);
+  }
+
+  private getOrCreateBulletMarkMaterial(): StandardMaterial {
+    if (this.bulletMarkMaterial && !this.bulletMarkMaterial.isDisposed()) {
+      return this.bulletMarkMaterial;
+    }
+    const mat = new StandardMaterial('bulletMarkMat', this.scene);
+    const tex = new DynamicTexture('bulletMarkTex', { width: 64, height: 64 }, this.scene, false);
+    const ctx = tex.getContext() as CanvasRenderingContext2D;
+    if (ctx) {
+      ctx.clearRect(0, 0, 64, 64);
+
+      // Charred radial scorch
+      const grad = ctx.createRadialGradient ? ctx.createRadialGradient(32, 32, 3, 32, 32, 28) : null;
+      if (grad) {
+        grad.addColorStop(0, 'rgba(15, 15, 18, 0.95)');
+        grad.addColorStop(0.35, 'rgba(35, 35, 40, 0.85)');
+        grad.addColorStop(0.7, 'rgba(60, 60, 65, 0.45)');
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 64, 64);
+      } else {
+        ctx.fillStyle = 'rgba(20, 20, 20, 0.8)';
+        ctx.fillRect(8, 8, 48, 48);
+      }
+
+      // Chipped stone / concrete jagged edge
+      ctx.strokeStyle = 'rgba(180, 180, 190, 0.65)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let a = 0; a < Math.PI * 2; a += 0.45) {
+        const r = 9 + Math.sin(a * 7) * 3;
+        const x = 32 + Math.cos(a) * r;
+        const y = 32 + Math.sin(a) * r;
+        if (a === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      // Deep black core penetration
+      ctx.fillStyle = '#0a0a0c';
+      ctx.beginPath();
+      ctx.arc(32, 32, 7.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      tex.hasAlpha = true;
+      tex.update();
+    }
+    mat.diffuseTexture = tex;
+    mat.useAlphaFromDiffuseTexture = true;
+    mat.specularColor = new Color3(0, 0, 0);
+    mat.emissiveColor = new Color3(0.02, 0.02, 0.02);
+    mat.backFaceCulling = false;
+    mat.disableLighting = true;
+    this.bulletMarkMaterial = mat;
+    return mat;
+  }
+
+  public handleRemoteBulletImpact(
+    origin: { x: number; y: number; z: number },
+    dir: { x: number; y: number; z: number },
+    maxDist = 300,
+    tracerColor = '#ffd32a'
+  ) {
+    if (this.isDisposed || !this.scene) return;
+    const startVec = new Vector3(origin.x, origin.y, origin.z);
+    const dirVec = new Vector3(dir.x, dir.y, dir.z).normalize();
+    const ray = new Ray(startVec, dirVec, maxDist);
+
+    const hit = this.scene.pickWithRay(ray, (mesh) => {
+      return (
+        mesh.isPickable &&
+        mesh !== this.playerCollider &&
+        !mesh.name.startsWith('playerCollider') &&
+        !mesh.name.startsWith('Viewmodel') &&
+        !mesh.name.startsWith('FirstPerson') &&
+        (!this.viewmodel || !mesh.isDescendantOf(this.viewmodel.root))
+      );
+    });
+
+    const hitPoint = hit && hit.hit && hit.pickedPoint ? hit.pickedPoint : startVec.add(dirVec.scale(maxDist));
+    this.createTracer(startVec, hitPoint, tracerColor);
+
+    if (hit && hit.hit && hit.pickedMesh && hit.pickedPoint) {
+      const isPlayer = hit.pickedMesh.metadata?.isHitbox || hit.pickedMesh.name.startsWith('avatar') || hit.pickedMesh.name.startsWith('hitbox');
+      if (!isPlayer) {
+        const normal = hit.getNormal(true) || Vector3.Up();
+        this.spawnBulletMark(hit.pickedPoint, normal);
+      }
+    }
   }
 
   public applyDamage(dmg: number, attackerName: string) {
@@ -1030,10 +1166,16 @@ export class StrikeBabylonEngine {
     if (this.boundContextMenu) window.removeEventListener('contextmenu', this.boundContextMenu);
     if (this.boundWheel) window.removeEventListener('wheel', this.boundWheel);
 
-    // Dispose collider, viewmodel & avatars
+    // Dispose collider, viewmodel, bullet marks & avatars
     this.playerCollider?.dispose();
     this.localShadowCaster?.dispose();
     this.localShadowCaster = null;
+    this.bulletMarks.forEach((m) => {
+      if (!m.isDisposed()) m.dispose();
+    });
+    this.bulletMarks = [];
+    this.bulletMarkMaterial?.dispose();
+    this.bulletMarkMaterial = null;
     this.viewmodel.dispose();
     this.remoteAvatars.forEach((av) => av.dispose());
     this.remoteAvatars.clear();
