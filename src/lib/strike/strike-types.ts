@@ -353,7 +353,7 @@ export const DEFAULT_LOADOUT: PlayerLoadout = {
 };
 
 export interface P2PGrenadeThrowEvent {
-  shooterId: string;
+  throwerId: string;
   type: GrenadeType;
   origin: Vector3D;
   velocity: Vector3D;

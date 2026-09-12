@@ -88,10 +88,8 @@ export function generateICSString(events: CalendarEventItem[]): string {
   return lines.join('\r\n');
 }
 
-export function exportToICS(events: CalendarEventItem[]) {
-  const ics = generateICSString(events);
-  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-  downloadBlob(blob, 'waifu-space-calendar.ics');
+export function exportToICS(events: CalendarEventItem[]): string {
+  return generateICSString(events);
 }
 
 export function importFromICS(icsText: string): CalendarEventItem[] {
@@ -191,16 +189,4 @@ function parseICSDate(str: string, isDateOnly?: boolean) {
 
 function pad(n: number) {
   return n < 10 ? '0' + n : n;
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  if (typeof window === 'undefined') return;
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }

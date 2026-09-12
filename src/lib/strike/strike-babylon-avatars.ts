@@ -87,7 +87,7 @@ function getOrCreateWeaponMat(
     mat = factory();
     cache.set(key, mat);
   }
-  return mat;
+  return mat!;
 }
 
 /**
@@ -713,7 +713,6 @@ export class BabylonViewmodel {
     mesh.parent = this.weaponMeshGroup;
 
     // Set rendering group 1 recursively across all viewmodel meshes to prevent wall clipping
-    mesh.renderingGroupId = 1;
     for (const child of mesh.getChildMeshes(false)) {
       child.renderingGroupId = 1;
     }
@@ -1357,6 +1356,11 @@ export class BabylonAvatarModel {
     if (this.weaponMount) {
       this.weaponMount.rotation.x = clamped * 0.75;
     }
+  }
+
+  public triggerAttack(weaponId: WeaponId) {
+    this.attackWeaponId = weaponId;
+    this.attackProgress = 1.0;
   }
 
   public updateAnimation(animState: number, dt: number, pitch?: number) {

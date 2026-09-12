@@ -63,10 +63,12 @@ export function ProfileShowcase() {
   const [copiedLink, setCopiedLink] = createSignal(false);
   const [activeTab, setActiveTab] = createSignal<'showcase' | 'wardrobe' | 'inventory' | 'stats' | 'settings'>('showcase');
 
-  const targetUser = () => {
+  const targetUser = (): string | null => {
     try {
       const [sp] = useSearchParams();
-      return sp.user || sp.username || urlUser();
+      const raw = sp.user || sp.username || urlUser();
+      if (Array.isArray(raw)) return raw[0] ?? null;
+      return raw ?? null;
     } catch {
       return urlUser();
     }
@@ -330,7 +332,7 @@ export function ProfileShowcase() {
       {/* PUBLIC PROFILE BANNER (when visiting someone else's page) */}
       <Show when={isViewingPublic()}>
         <div class="public-profile-banner">
-          <span>👀 {t('profile.publicProfileOf', { name: targetUser() })}</span>
+          <span>👀 {t('profile.publicProfileOf', { name: targetUser() ?? '' })}</span>
           <button
             class="btn-back-profile"
             onClick={clearTargetUser}
