@@ -1692,6 +1692,21 @@ export class StrikeBabylonEngine {
     if (this.mouseButtons[2] && this.activeWeaponId === 'knife') {
       this.shoot(true);
     }
+
+    // Keep held weapons (viewmodel + remote avatar guns) out of the bloom layer
+    this.excludeWeaponGlow();
+  }
+
+  /** Held weapons never bloom: first-person viewmodel + every remote avatar gun */
+  private excludeWeaponGlow() {
+    const viewmodelRoot = this.viewmodel?.root;
+    if (viewmodelRoot) {
+      for (const m of viewmodelRoot.getChildMeshes(false)) this.addGlowExclusion(m);
+    }
+    this.remoteAvatars.forEach((av) => {
+      const children = av.weaponMount?.getChildMeshes?.(false) || [];
+      for (const m of children) this.addGlowExclusion(m);
+    });
   }
 
   public setSensitivity(sens: number) {
