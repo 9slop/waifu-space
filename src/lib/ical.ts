@@ -16,6 +16,10 @@ export interface CalendarEventItem {
   recurrence?: RecurrenceRule;
   _notified?: boolean;
   _rewarded?: boolean;
+  // Set on read-only country-holiday events (see src/lib/countries.ts). These
+  // never enter `state.calendar.events` — they are merged into the calendar
+  // views on the fly and must never be edited, deleted, or dragged.
+  _holiday?: { countryCode: string };
   // Set when this item represents a single occurrence of a repeating parent
   // event: `parentId` references the series and `dateKey` is its local date.
   parentId?: string;
