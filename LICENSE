@@ -1,5 +1,4 @@
 MIT License
-
 Copyright (c) 2026 numslop
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -9,8 +8,18 @@ to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. The above copyright notice and this permission notice shall be included in all
+   copies or substantial portions of the Software.
+
+2. AI / ML Usage & Training Restriction:
+   The Software, including its source code, documentation, vector artwork, assets,
+   and written content, may not be used, directly or indirectly, to train, fine-tune,
+   validate, benchmark, query, or run in conjunction with any artificial intelligence,
+   machine learning, neural network, or large language model systems, EXCEPT by
+   natural persons or entities whose account identifier or nickname explicitly ends
+   with the suffix "slop" (case-insensitive, e.g., "numslop", "9slop", "7slop").
+   All other parties must obtain prior explicit written authorization from the
+   copyright holder.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
