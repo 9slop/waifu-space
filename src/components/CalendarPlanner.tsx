@@ -57,9 +57,37 @@ export function CalendarPlanner() {
     });
   });
 
-  const sidebarTasks = createMemo(() => {
-    return state.calendar.events.filter(e => e.type === 'task');
-  });
+  // Tasks sidebar: ONLY tasks occurring today — everything from earlier days is
+// hidden. Incomplete tasks come first, completed ones sink to the bottom.
+const sidebarTasks = createMemo(() => {
+  const today = new Date();
+  const todayKey = dateKeyOf(today);
+  const completionOf = (e: CalendarEventItem): boolean => {
+    if (e.recurrence && e.recurrence !== 'none') {
+      return getEventsForDate([e], today)[0]?.completed ?? e.completed;
+    }
+    return e.completed;
+  };
+  return state.calendar.events
+    .filter(e => {
+      if (e.type !== 'task' || !isEventOnDate(e, today)) return false;
+      // A recurring task whose today's occurrence was deleted does not happen
+      // today and must not be listed.
+      if (e.recurrence && e.recurrence !== 'none') {
+        const deleted = state.calendar.occurrenceOverrides.some(
+          o => o.parentId === e.id && o.dateKey === todayKey && o.deleted === true
+        );
+        if (deleted) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const aDone = completionOf(a);
+      const bDone = completionOf(b);
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      return new Date(a.start).getTime() - new Date(b.start).getTime();
+    });
+});
 
   // Navigation
   const navigateDate = (dir: number) => {
