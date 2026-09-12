@@ -34,7 +34,7 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
     mat.diffuseColor = diff;
     mat.specularColor = spec;
     if (emissive) mat.emissiveColor = emissive;
-    mat.maxSimultaneousLights = 12;
+    mat.maxSimultaneousLights = 4;
     return mat;
   }
 
@@ -55,6 +55,9 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
 
   // Stone Lantern Granite
   const stoneMat = createMat('matStone', new Color3(0.48, 0.52, 0.58), new Color3(0.1, 0.1, 0.1));
+
+  // Glowing Lantern Paper/Glass (Emissive warm golden glow)
+  const lanternGlowMat = createMat('matLanternGlow', new Color3(1.0, 0.9, 0.6), new Color3(0, 0, 0), new Color3(1.0, 0.8, 0.45));
 
   // Sakura Tree Foliage (Anime pink)
   const sakuraMat = createMat('matSakura', new Color3(1.0, 0.55, 0.74), new Color3(0.1, 0.1, 0.1), new Color3(0.25, 0.10, 0.16));
@@ -290,21 +293,35 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
     const pos = lanternPositions[i];
     // Base & body
     addBox(`lanternBase_${i}`, 0.8, 2.0, 0.8, pos, stoneMat);
+    // Glowing lantern window cap (bright emissive warm glow visible from all angles)
+    addBox(`lanternGlow_${i}`, 0.6, 0.6, 0.6, new Vector3(pos.x, pos.y + 0.8, pos.z), lanternGlowMat, false);
+  }
 
-    // Warm point light radiating from lantern
-    const pLight = new PointLight(`lanternLight_${i}`, new Vector3(pos.x, pos.y + 1.2, pos.z), scene);
-    pLight.diffuse = new Color3(1.0, 0.84, 0.58);
-    pLight.specular = new Color3(0.5, 0.4, 0.2);
-    pLight.intensity = 2.0;
-    pLight.range = 24;
+  // Key tactical focal point lights (shrine, catwalk, gazebo, torii avenue)
+  const keyLightPositions = [
+    new Vector3(0, 2.8, -20),   // Central Shrine Pavilion
+    new Vector3(0, 2.5, 0),     // Mid Courtyard / Torii
+    new Vector3(-25, 5.0, 0),   // West Catwalk Balcony
+    new Vector3(25, 2.6, 0),    // East Zen Pavilion
+    new Vector3(0, 2.5, 26),    // South Entrance Avenue
+    new Vector3(0, 2.8, -34)    // North Rear Corridor
+  ];
+
+  for (let j = 0; j < keyLightPositions.length; j++) {
+    const kPos = keyLightPositions[j];
+    const pLight = new PointLight(`tacticalLight_${j}`, kPos, scene);
+    pLight.diffuse = new Color3(1.0, 0.86, 0.65);
+    pLight.specular = new Color3(0.4, 0.35, 0.2);
+    pLight.intensity = 2.2;
+    pLight.range = 28;
   }
 
   // ==================== 10. BRIGHT AMBIENT & MULTI-DIRECTIONAL SUNLIGHT ====================
   // Bright Hemispheric Light - Sky and ground fill
   const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, 0), scene);
-  hemiLight.diffuse = new Color3(1.35, 1.4, 1.55);
-  hemiLight.groundColor = new Color3(0.85, 0.88, 0.95);
-  hemiLight.intensity = 1.85;
+  hemiLight.diffuse = new Color3(1.4, 1.45, 1.6);
+  hemiLight.groundColor = new Color3(0.9, 0.92, 0.98);
+  hemiLight.intensity = 1.95;
 
   // Primary warm sunlight from southwest
   const sunLight = new DirectionalLight('sunLight', new Vector3(0.45, -1, 0.45), scene);
@@ -317,7 +334,7 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
   const fillLight = new DirectionalLight('fillLight', new Vector3(-0.45, -0.85, -0.45), scene);
   fillLight.position = new Vector3(25, 35, 25);
   fillLight.diffuse = new Color3(1.0, 1.05, 1.15);
-  fillLight.intensity = 1.3;
+  fillLight.intensity = 1.35;
 
   // ==================== 11. SPAWN POINTS ====================
   const spawnPoints: BabylonSpawnPoint[] = [
