@@ -143,6 +143,8 @@ export class StrikeBabylonEngine {
   public isScoped = false;
   // Scope sway (breathing wobble while aiming down a scope)
   private currentScopePitch = 0;
+  // Footstep camera bob (vertical bounce while moving)
+  private currentWalkBob = 0;
   public lastShotTime = 0;
   public reloadEndTime = 0;
 
@@ -392,9 +394,10 @@ export class StrikeBabylonEngine {
       this.velocity.z = 0;
       // Restore the camera to neutral so pausing never leaves a tilted screen
       this.camera.rotation.z = 0;
-      this.camera.rotation.x -= this.currentShakePitch + this.currentScopePitch;
+      this.camera.rotation.x -= this.currentShakePitch + this.currentScopePitch + this.currentWalkBob;
       this.currentShakePitch = 0;
       this.currentScopePitch = 0;
+      this.currentWalkBob = 0;
       this.shakeRoll = 0;
       this.shakePitch = 0;
       this.screenShakeTrauma = 0;
@@ -1489,17 +1492,34 @@ export class StrikeBabylonEngine {
       this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
     }
 
-    // Subtle breathing sway while aiming down a scope (rifles/scoped weapons).
+    // Breathing sway while aiming down a scope — amplitude increased to be clearly visible.
     // Removed additively when unscoped so the view returns to exact neutral.
     if (this.isScoped) {
       const t = this.elapsedGameTime;
-      const swayPitch = Math.sin(t * 1.15) * 0.0012 + Math.sin(t * 0.6 + 1.7) * 0.0006;
+      // Multi-frequency Lissajous breathing pattern (pitch + roll)
+      const swayPitch = Math.sin(t * 1.15) * 0.004 + Math.sin(t * 0.6 + 1.7) * 0.002;
       this.camera.rotation.x += (swayPitch - this.currentScopePitch);
       this.currentScopePitch = swayPitch;
-      this.camera.rotation.z += Math.sin(t * 1.5 + 0.8) * 0.0009;
+      this.camera.rotation.z += Math.sin(t * 1.5 + 0.8) * 0.003;
     } else if (this.currentScopePitch !== 0) {
       this.camera.rotation.x -= this.currentScopePitch;
       this.currentScopePitch = 0;
+    }
+
+    // Footstep camera bob — vertical bounce proportional to horizontal movement speed.
+    // Only active when on the ground and not scoped (scoped suppresses bob for stable aim).
+    {
+      const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      const speedFrac = Math.min(1.0, horizSpeed / 5.5);
+      let targetBob = 0;
+      if (this.onGround && speedFrac > 0.05 && !this.isScoped) {
+        const bobFreq = 10 + speedFrac * 4; // faster bob at higher speed
+        targetBob = Math.sin(this.elapsedGameTime * bobFreq) * 0.0025 * speedFrac;
+      }
+      // Smooth transition to/from bob to prevent jarring snaps
+      const newBob = this.currentWalkBob + (targetBob - this.currentWalkBob) * Math.min(1, dt * 14);
+      this.camera.rotation.x += (newBob - this.currentWalkBob);
+      this.currentWalkBob = newBob;
     }
 
     // Crouch and Walk states (disabled while paused in ESC menu)
