@@ -951,8 +951,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     const pl = new PointLight(`${name}_PL`, new Vector3(pos.x, pos.y + 2.05, pos.z), scene);
     pl.diffuse = new Color3(1.0, 0.82, 0.45);
     pl.specular = new Color3(0.18, 0.14, 0.08);
-    pl.intensity = 0.85;
-    pl.range = 10.5;
+    pl.intensity = 1.2;
+    pl.range = 13;
     lanternLights.push(pl);
   }
 
@@ -964,8 +964,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     const pl = new PointLight(`${name}_PL`, new Vector3(pos.x, pos.y, pos.z), scene);
     pl.diffuse = new Color3(1.0, 0.80, 0.42);
     pl.specular = new Color3(0.15, 0.12, 0.06);
-    pl.intensity = 0.75;
-    pl.range = 9.0;
+    pl.intensity = 1.05;
+    pl.range = 11.5;
     lanternLights.push(pl);
   }
 
@@ -1087,7 +1087,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     const winPL = new PointLight(`${prefix}_WinPL`, new Vector3(pos.x, pos.y + h * 0.65, pos.z + d / 2 + 0.6), scene);
     winPL.diffuse = new Color3(1.0, 0.85, 0.5);
     winPL.specular = new Color3(0.4, 0.3, 0.15);
-    winPL.range = 9;
+    winPL.intensity = 1.2;
+    winPL.range = 11;
     lanternLights.push(winPL);
 
     // Heavy kawara tile roof
@@ -1374,12 +1375,14 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   const teaWinPL1 = new PointLight('teaWinPL1', new Vector3(-36, 2.8, -24.2), scene);
   teaWinPL1.diffuse = new Color3(1.0, 0.85, 0.5);
   teaWinPL1.specular = new Color3(0.4, 0.3, 0.15);
-  teaWinPL1.range = 8;
+  teaWinPL1.intensity = 1.2;
+  teaWinPL1.range = 11;
   lanternLights.push(teaWinPL1);
   const teaWinPL2 = new PointLight('teaWinPL2', new Vector3(-30, 2.8, -24.2), scene);
   teaWinPL2.diffuse = new Color3(1.0, 0.85, 0.5);
   teaWinPL2.specular = new Color3(0.4, 0.3, 0.15);
-  teaWinPL2.range = 8;
+  teaWinPL2.intensity = 1.2;
+  teaWinPL2.range = 11;
   lanternLights.push(teaWinPL2);
 
   // --- Waist-high stone planter (default position cover) ---
@@ -1893,7 +1896,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
       }
 
       // Lanterns & lit windows remain luminous during daytime with warm ambient glow
-      const lanternIntensity = Math.max(1.0, 1.55 - sunElevation * 0.4);
+      const lanternIntensity = Math.max(1.6, 2.15 - sunElevation * 0.45);
       lanternLights.forEach((l) => (l.intensity = lanternIntensity));
     } else {
       // Nighttime (Directional light becomes cool moonlight)
@@ -1914,7 +1917,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
       skyMat.emissiveColor = new Color3(0.12, 0.15, 0.28);
 
       // Lanterns & lit windows shine brightly at night!
-      lanternLights.forEach((l) => (l.intensity = 1.7));
+      lanternLights.forEach((l) => (l.intensity = 3.4));
     }
   };
 
