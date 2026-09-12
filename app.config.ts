@@ -5,7 +5,10 @@ export default defineConfig({
   vite: {
     plugins: [
       Icons({ compiler: "solid" })
-    ]
+    ],
+    build: {
+      chunkSizeWarningLimit: 1200
+    }
   },
   server: {
     prerender: {
@@ -15,11 +18,6 @@ export default defineConfig({
   solid: {
     babel: {
       compact: true
-    }
-  },
-  vite: {
-    build: {
-      chunkSizeWarningLimit: 1200
     }
   }
 });

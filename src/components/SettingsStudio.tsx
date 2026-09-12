@@ -14,6 +14,7 @@ import { PERSONALITIES } from '../lib/personality';
 import { STOCK_WALLPAPERS } from '../lib/wallpapers';
 import { exportToICS, importFromICS } from '../lib/ical';
 import { WaifuAvatar } from './WaifuAvatar';
+import { PhGearSix } from './icons';
 import { t, SUPPORTED_LANGUAGES, setLanguage, SupportedLanguage, getPersonalityName, getCosmeticName, getMoodName } from '../lib/i18n';
 
 import { compressImage } from '../lib/image-compress';
