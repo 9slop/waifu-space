@@ -880,10 +880,14 @@ export class StrikeBabylonEngine {
     strikeAudio.playGunfire(this.activeWeaponId, undefined, isHeavy);
     this.viewmodel.triggerAttack(this.activeWeaponId, def.recoilVertical, def.recoilHorizontal, isHeavy);
 
-    // Apply slight pitch recoil to camera AFTER forward ray is computed (guns only)
+    // Apply pitch/yaw recoil to camera AFTER forward ray is computed (guns only).
+    // Recoil is amplified when the player is moving (harder to control spray while running)
+    // and halved while scoped in (trained breath control / supported aim).
     if (!isMelee) {
-      this.camera.rotation.x -= def.recoilVertical * 0.35;
-      this.camera.rotation.y += (Math.random() - 0.5) * def.recoilHorizontal;
+      const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      const moveMult = this.isScoped ? 0.5 : 1.0 + Math.min(1.0, horizSpeed / 3.5);
+      this.camera.rotation.x -= def.recoilVertical * 0.35 * moveMult;
+      this.camera.rotation.y += (Math.random() - 0.5) * def.recoilHorizontal * moveMult;
     }
 
     const hit = this.scene.pickWithRay(forwardRay, (mesh) => {
