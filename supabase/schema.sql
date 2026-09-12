@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS public.user_progress (
   defense_victories INT DEFAULT 0 NOT NULL,
   goblins_defeated INT DEFAULT 0 NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-  calendar_overrides JSONB DEFAULT '[]'::jsonb NOT NULL
+  calendar_overrides JSONB DEFAULT '[]'::jsonb NOT NULL,
+  calendar_synced_at TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_progress_defense_wave ON public.user_progress(defense_high_wave DESC);
@@ -79,6 +80,7 @@ CREATE TABLE IF NOT EXISTS public.calendar_items (
   all_day BOOLEAN DEFAULT FALSE NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('event', 'task', 'birthday')),
   completed BOOLEAN DEFAULT FALSE NOT NULL,
+  rewarded BOOLEAN DEFAULT FALSE NOT NULL,
   color TEXT DEFAULT '#ff6584' NOT NULL,
   description TEXT DEFAULT '' NOT NULL,
   location TEXT DEFAULT '' NOT NULL,
@@ -88,6 +90,103 @@ CREATE TABLE IF NOT EXISTS public.calendar_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_calendar_items_user_start ON public.calendar_items(user_id, start_at);
+
+-- ==========================================================
+-- Calendar Sync (atomic replace, prevents partial-wipe data loss)
+-- ==========================================================
+-- Replaces the user's calendar_items rows with the client snapshot in a
+-- single transaction: incoming rows are upserted, rows absent from the
+-- snapshot are deleted, and the whole thing rolls back on any error — so a
+-- malformed or cut-off push can never wipe calendar data.
+CREATE OR REPLACE FUNCTION public.sync_calendar_items(
+  p_user_id uuid,
+  p_items jsonb,
+  p_updated_at timestamptz DEFAULT now()
+) RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_incoming_ids text[];
+  v_count int;
+BEGIN
+  IF jsonb_typeof(p_items) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'p_items must be a JSON array';
+  END IF;
+
+  SELECT COALESCE(array_agg(item_id), '{}'::text[])
+    INTO v_incoming_ids
+    FROM jsonb_to_recordset(p_items) AS x(item_id text)
+   WHERE x.item_id IS NOT NULL AND x.item_id <> '';
+
+  -- Delete rows no longer present on the client. This runs inside the same
+  -- transaction as the upserts below, so a later failure rolls it back.
+  DELETE FROM public.calendar_items ci
+   WHERE ci.user_id = p_user_id
+     AND NOT (ci.item_id = ANY(v_incoming_ids));
+
+  INSERT INTO public.calendar_items (
+    user_id, item_id, title, start_at, end_at, all_day, type,
+    completed, rewarded, color, description, location, recurrence, updated_at
+  )
+  SELECT
+    p_user_id,
+    x.item_id,
+    x.title,
+    x.start_at::timestamptz,
+    x.end_at::timestamptz,
+    COALESCE(x.all_day, false),
+    x.type,
+    COALESCE(x.completed, false),
+    COALESCE(x.rewarded, false),
+    COALESCE(x.color, '#ff6584'),
+    COALESCE(x.description, ''),
+    COALESCE(x.location, ''),
+    x.recurrence,
+    p_updated_at
+  FROM jsonb_to_recordset(p_items) AS x(
+    item_id text,
+    title text,
+    start_at text,
+    end_at text,
+    all_day boolean,
+    type text,
+    completed boolean,
+    rewarded boolean,
+    color text,
+    description text,
+    location text,
+    recurrence text
+  )
+  WHERE x.item_id IS NOT NULL AND x.item_id <> ''
+    AND x.title IS NOT NULL AND x.title <> ''
+    AND x.start_at IS NOT NULL AND x.end_at IS NOT NULL
+    AND x.type IN ('event', 'task', 'birthday')
+    AND x.recurrence IN ('none', 'daily', 'weekly', 'monthly', 'weekdays')
+  ON CONFLICT (user_id, item_id) DO UPDATE SET
+    title       = EXCLUDED.title,
+    start_at    = EXCLUDED.start_at,
+    end_at      = EXCLUDED.end_at,
+    all_day     = EXCLUDED.all_day,
+    type        = EXCLUDED.type,
+    completed   = EXCLUDED.completed,
+    rewarded    = EXCLUDED.rewarded,
+    color       = EXCLUDED.color,
+    description = EXCLUDED.description,
+    location    = EXCLUDED.location,
+    recurrence  = EXCLUDED.recurrence,
+    updated_at  = EXCLUDED.updated_at;
+
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+  RETURN v_count;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.sync_calendar_items(uuid, jsonb, timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.sync_calendar_items(uuid, jsonb, timestamptz) FROM anon;
+REVOKE ALL ON FUNCTION public.sync_calendar_items(uuid, jsonb, timestamptz) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.sync_calendar_items(uuid, jsonb, timestamptz) TO service_role;
 
 -- 6. Audit & Action Logs (tracks server rolls & anti-cheat records)
 CREATE TABLE IF NOT EXISTS public.action_logs (

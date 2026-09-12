@@ -8,6 +8,8 @@ import {
   updateCalendarEvent,
   moveCalendarEvent,
   getEventsForDate,
+  getOccurrenceForDate,
+  isEventOnDate,
   dateKeyOf,
   showToast,
 } from '../lib/store';
@@ -41,6 +43,9 @@ export function CalendarPlanner() {
   const [popoverPos, setPopoverPos] = createSignal<{ top: number; left: number } | null>(null);
 
   const [repeatScopeRequest, setRepeatScopeRequest] = createSignal<RepeatScopeRequest | null>(null);
+
+  // Pending single-event delete confirmation (protects against accidental data loss)
+  const [pendingDelete, setPendingDelete] = createSignal<CalendarEventItem | null>(null);
 
   // Filtered events
   const filteredEvents = createMemo(() => {
@@ -122,9 +127,22 @@ export function CalendarPlanner() {
       setRepeatScopeRequest({ action: 'delete', event: ev, dateKey: ev.dateKey });
       return;
     }
+    // Single (non-recurring) events / whole series get an explicit confirmation
+    // so a stray click can never wipe calendar data.
+    setPendingDelete(ev);
+  };
+
+  const confirmDelete = () => {
+    const ev = pendingDelete();
+    if (!ev) return;
     deleteCalendarEvent(ev.id);
     showToast(t('calendar.toasts.eventDeleted', { title: ev.title }));
+    setPendingDelete(null);
     closePopover();
+  };
+
+  const cancelDelete = () => {
+    setPendingDelete(null);
   };
 
   const handleRequestMove = (
@@ -427,12 +445,22 @@ export function CalendarPlanner() {
             <div class="tasks-list-container">
               <For each={sidebarTasks()}>
                 {tk => {
-                  const todayOccurrence = () =>
-                    tk.recurrence && tk.recurrence !== 'none'
-                      ? getEventsForDate([tk], new Date())[0]
-                      : tk;
+                  const occursToday = () => {
+                    if (!tk.recurrence || tk.recurrence === 'none') return true;
+                    return isEventOnDate(tk, new Date());
+                  };
+                  // For recurring tasks this is the occurrence shown for today.
+                  // If the series does not fall on today there is no occurrence, so
+                  // we fall back to the base record instead of crashing on [0].
+                  const todayOccurrence = () => {
+                    if (tk.recurrence && tk.recurrence !== 'none' && occursToday()) {
+                      return getEventsForDate([tk], new Date())[0] ?? getOccurrenceForDate(tk, new Date());
+                    }
+                    return tk;
+                  };
                   const toggle = () => {
                     if (tk.recurrence && tk.recurrence !== 'none') {
+                      if (!occursToday()) return;
                       toggleTask(tk.id, dateKeyOf(new Date()));
                     } else {
                       toggleTask(tk.id);
@@ -450,6 +478,7 @@ export function CalendarPlanner() {
                       <input
                         type="checkbox"
                         checked={todayOccurrence().completed}
+                        disabled={!occursToday()}
                         onClick={e => {
                           e.stopPropagation();
                           toggle();
@@ -471,7 +500,11 @@ export function CalendarPlanner() {
                       <button
                         type="button"
                         class="task-del-btn"
-                        onClick={() => deleteCalendarEvent(tk.id)}
+                        aria-label={t('calendar.a11y.deleteTask', { title: tk.title })}
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDeleteEvent(tk);
+                        }}
                       >
                         ✕
                       </button>
@@ -544,6 +577,56 @@ export function CalendarPlanner() {
         onSelect={resolveRepeatScope}
         onClose={() => setRepeatScopeRequest(null)}
       />
+
+      {/* DELETE CONFIRMATION (guards against accidental data loss) */}
+      {(() => {
+        const ev = pendingDelete();
+        if (!ev) return null;
+        const isSeries = !!(ev.recurrence && ev.recurrence !== 'none');
+        return (
+          <div
+            class="gcal-modal-overlay active"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-delete-title"
+            onClick={e => {
+              if (e.target === e.currentTarget) cancelDelete();
+            }}
+          >
+            <div class="gcal-modal" style={{ 'max-width': '360px' }}>
+              <div class="modal-header">
+                <h3 id="confirm-delete-title">{t('calendar.deleteConfirm.title')}</h3>
+                <button
+                  class="modal-close-btn"
+                  type="button"
+                  onClick={cancelDelete}
+                  aria-label={t('common.close')}
+                >
+                  ✕
+                </button>
+              </div>
+              <div class="repeat-scope-body">
+                <p class="repeat-scope-event">"{ev.title}"</p>
+                <p class="repeat-scope-subtitle">
+                  {isSeries
+                    ? t('calendar.deleteConfirm.seriesMessage')
+                    : t('calendar.deleteConfirm.message')}
+                </p>
+                <div class="repeat-scope-actions">
+                  <button type="button" class="gcal-btn gcal-btn-outline" onClick={cancelDelete}>
+                    {t('calendar.deleteConfirm.cancel')}
+                  </button>
+                  <button type="button" class="gcal-btn gcal-btn-danger" onClick={confirmDelete}>
+                    {isSeries
+                      ? t('calendar.deleteConfirm.deleteSeries')
+                      : t('calendar.deleteConfirm.confirm')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

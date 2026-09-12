@@ -191,6 +191,7 @@
       "description": "説明 / メモ",
       "descriptionPlaceholder": "説明を追加...",
       "delete": "削除",
+      "confirmDeleteAction": "本当に削除？",
       "cancel": "キャンセル",
       "save": "保存"
     },
@@ -209,14 +210,22 @@
       "close": "閉じる",
       "completed": "完了済み"
     },
-    "repeatScope": {
+"repeatScope": {
       "title": "繰り返し予定の変更",
-      "subtitle": "変更する範囲を選択してください",
-      "thisEvent": "この予定のみ",
-      "thisEventDesc": "{date} のこの1回だけ変更",
-      "allEvents": "すべての予定",
-      "allEventsDesc": "この予定を含む全シリーズを変更",
+      "subtitle": "何を変更しますか？",
+      "thisEvent": "このイベントのみ",
+      "thisEventDesc": "{date} のこの発生のみ",
+      "allEvents": "すべてのイベント",
+      "allEventsDesc": "これとシリーズのすべての発生",
       "cancel": "キャンセル"
+    },
+    "deleteConfirm": {
+      "title": "削除しますか？",
+      "message": "この予定/タスクは完全に削除されます。元に戻せません。",
+      "seriesMessage": "これは繰り返し予定です。削除するとシリーズのすべての発生が削除されます。",
+      "cancel": "キャンセル",
+      "confirm": "削除",
+      "deleteSeries": "シリーズを削除"
     },
     "weekdays": {
       "sun": "日",
@@ -267,14 +276,15 @@
       "invalidRecurrence": "繰り返し設定が無効です。",
       "invalidColor": "色は有効な16進数カラーコードで指定してください。"
     },
-    "a11y": {
+"a11y": {
       "miniCalendar": "ミニカレンダー",
       "prevMonth": "前の月",
       "nextMonth": "次の月",
-      "selectDay": "{date}を選択",
-      "openEvent": "{title}を開く",
+      "selectDay": "{date} を選択",
+      "openEvent": "{title} を開く",
       "quickTask": "クイックタスクを追加",
-      "closeDialog": "ダイアログを閉じる"
+      "closeDialog": "ダイアログを閉じる",
+      "deleteTask": "{title} を削除"
     }
   },
   "rpg": {

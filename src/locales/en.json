@@ -191,6 +191,7 @@
       "description": "Description / Notes",
       "descriptionPlaceholder": "Add description...",
       "delete": "Delete",
+      "confirmDeleteAction": "Confirm delete?",
       "cancel": "Cancel",
       "save": "Save"
     },
@@ -217,6 +218,14 @@
       "allEvents": "All events",
       "allEventsDesc": "This and every occurrence of the series",
       "cancel": "Cancel"
+    },
+    "deleteConfirm": {
+      "title": "Delete?",
+      "message": "This will permanently delete this event/task. This cannot be undone.",
+      "seriesMessage": "This is a repeating event. Deleting it will remove every occurrence of the entire series.",
+      "cancel": "Cancel",
+      "confirm": "Delete",
+      "deleteSeries": "Delete Series"
     },
     "weekdays": {
       "sun": "SUN",
@@ -274,7 +283,8 @@
       "selectDay": "Select {date}",
       "openEvent": "Open {title}",
       "quickTask": "Add a quick task",
-      "closeDialog": "Close dialog"
+      "closeDialog": "Close dialog",
+      "deleteTask": "Delete {title}"
     }
   },
   "rpg": {

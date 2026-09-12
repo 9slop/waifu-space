@@ -188,10 +188,53 @@ function buildFakeClient() {
     }))
   };
 
+  // Mirrors public.sync_calendar_items: atomically replace the user's calendar
+  // rows in-place (delete absent ids + upsert incoming), skipping rows that
+  // fail the SQL validation (bad type/recurrence).
+  const syncCalendarItems = (params: { p_user_id: string; p_items: any[]; p_updated_at: string }) => {
+    const table = db.calendar_items || (db.calendar_items = []);
+    const incomingIds = (params.p_items || [])
+      .map((it: any) => it.item_id)
+      .filter((id: any): id is string => typeof id === 'string' && id !== '');
+    for (let i = table.length - 1; i >= 0; i--) {
+      if (table[i].user_id === params.p_user_id && !incomingIds.includes(table[i].item_id)) {
+        table.splice(i, 1);
+      }
+    }
+    for (const raw of params.p_items || []) {
+      const row = {
+        user_id: params.p_user_id,
+        item_id: raw.item_id,
+        title: raw.title,
+        start_at: raw.start_at,
+        end_at: raw.end_at,
+        all_day: raw.all_day ?? false,
+        type: raw.type,
+        completed: raw.completed ?? false,
+        rewarded: raw.rewarded ?? false,
+        color: raw.color ?? '#ff6584',
+        description: raw.description ?? '',
+        location: raw.location ?? '',
+        recurrence: raw.recurrence ?? 'none',
+        updated_at: params.p_updated_at
+      };
+      if (!['event', 'task', 'birthday'].includes(row.type)) continue;
+      if (!['none', 'daily', 'weekly', 'monthly', 'weekdays'].includes(row.recurrence)) continue;
+      const idx = table.findIndex(r => r.user_id === params.p_user_id && r.item_id === row.item_id);
+      if (idx >= 0) table[idx] = { ...table[idx], ...row };
+      else table.push({ ...row });
+    }
+    return { data: null, error: null };
+  };
+
   return {
     auth,
     storage,
-    from: (table: string) => chains[table]?.() ?? chains[table]
+    from: (table: string) => chains[table]?.() ?? chains[table],
+    rpc: vi.fn(async (fn: string, params: any) => {
+      if (fn === 'sync_calendar_items') return syncCalendarItems(params);
+      return { data: null, error: { message: `Unknown RPC: ${fn}` } };
+    })
   } as unknown as SupabaseClient;
 }
 
@@ -583,6 +626,7 @@ describe('Supabase-backed API routes (regression guard)', () => {
         allDay: false,
         type: 'event',
         completed: false,
+        _rewarded: false,
         color: '#6c5ce7',
         description: 'from the cloud',
         location: 'Cafe',
