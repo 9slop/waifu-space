@@ -171,6 +171,31 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     engine()?.setLoadout(updated);
   };
 
+  const handleSelectPrimary = (weapon: 'rifle' | 'sniper') => {
+    updateLoadout({ primary: weapon });
+    const eng = engine();
+    if (eng && (eng.activeWeaponId === 'rifle' || eng.activeWeaponId === 'sniper')) {
+      eng.switchWeapon(weapon);
+    }
+  };
+
+  const handleSelectMelee = (weapon: 'knife' | 'katana') => {
+    updateLoadout({ melee: weapon });
+    const eng = engine();
+    if (eng && (eng.activeWeaponId === 'knife' || eng.activeWeaponId === 'katana')) {
+      eng.switchWeapon(weapon);
+    }
+  };
+
+  const handleSelectGrenade = (grenade: GrenadeType) => {
+    updateLoadout({ grenade });
+  };
+
+  const handleCloseLoadout = () => {
+    setIsLoadoutOpen(false);
+    engine()?.requestPointerLock();
+  };
+
   // Match Summary Data
   const [matchSummary, setMatchSummary] = createSignal<StrikeMatchStats | null>(null);
   const [matchRewards, setMatchRewards] = createSignal<{ coins: number; exp: number } | null>(null);
@@ -939,6 +964,234 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                   </div>
                 </div>
               </Show>
+            </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* Tactical Loadout Customization Modal [B] */}
+      <Show when={isLoadoutOpen()}>
+        <div class="strike-loadout-overlay" onClick={handleCloseLoadout}>
+          <div class="strike-loadout-modal" onClick={(e) => e.stopPropagation()}>
+            <div class="strike-loadout-header">
+              <div>
+                <h2>🎒 Tactical Armory & Loadout</h2>
+                <div class="strike-loadout-sub">
+                  Select your primary rifle, sidearm, melee blade, and tactical ordnance [Press B or Esc to close]
+                </div>
+              </div>
+              <button class="strike-loadout-close" onClick={handleCloseLoadout}>✕</button>
+            </div>
+
+            <div class="strike-loadout-body">
+              {/* Category 1: PRIMARY WEAPONS */}
+              <div class="strike-loadout-cat">
+                <div class="strike-loadout-cat-title">
+                  <span>🔫 PRIMARY WEAPON</span>
+                  <span class="strike-loadout-cat-hint">Select your main firearm</span>
+                </div>
+                <div class="strike-loadout-grid">
+                  {/* Sakura Rifle */}
+                  <div
+                    class={`strike-loadout-card ${loadout().primary === 'rifle' ? 'is-equipped' : ''}`}
+                    onClick={() => handleSelectPrimary('rifle')}
+                  >
+                    <div class="loadout-card-top">
+                      <span class="loadout-card-tag">Assault Rifle</span>
+                      <Show when={loadout().primary === 'rifle'}>
+                        <span class="loadout-equipped-badge">EQUIPPED</span>
+                      </Show>
+                    </div>
+                    <div class="loadout-card-name">🌸 Sakura Rifle (AR-47)</div>
+                    <div class="loadout-card-desc">Fully automatic assault rifle forged from Kyoto high-tensile steel. Balanced recoil and lethal headshots.</div>
+                    <div class="loadout-stats-grid">
+                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">34 (102 Head)</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Fire Rate</span><span class="stat-val">600 RPM</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Magazine</span><span class="stat-val">30 / 90</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Mobility</span><span class="stat-val">6.0 m/s</span></div>
+                    </div>
+                  </div>
+
+                  {/* Aether Railgun */}
+                  <div
+                    class={`strike-loadout-card ${loadout().primary === 'sniper' ? 'is-equipped' : ''}`}
+                    onClick={() => handleSelectPrimary('sniper')}
+                  >
+                    <div class="loadout-card-top">
+                      <span class="loadout-card-tag">Marksman Railgun</span>
+                      <Show when={loadout().primary === 'sniper'}>
+                        <span class="loadout-equipped-badge">EQUIPPED</span>
+                      </Show>
+                    </div>
+                    <div class="loadout-card-name">⚡ Aether Railgun (SR-99)</div>
+                    <div class="loadout-card-desc">Electromagnetic particle sniper rifle with long-range zoom scope. Massive stopping power across sightlines.</div>
+                    <div class="loadout-stats-grid">
+                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">52 (78 Head)</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Optic</span><span class="stat-val">Zoom Scope</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Magazine</span><span class="stat-val">5 / 25</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Mobility</span><span class="stat-val">5.2 m/s</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category 2: SECONDARY WEAPON */}
+              <div class="strike-loadout-cat">
+                <div class="strike-loadout-cat-title">
+                  <span>🔫 SECONDARY SIDEARM</span>
+                  <span class="strike-loadout-cat-hint">Standard issue heavy sidearm</span>
+                </div>
+                <div class="strike-loadout-grid">
+                  <div class="strike-loadout-card is-equipped">
+                    <div class="loadout-card-top">
+                      <span class="loadout-card-tag">Heavy Hand Cannon</span>
+                      <span class="loadout-equipped-badge">EQUIPPED</span>
+                    </div>
+                    <div class="loadout-card-name">🦅 Neo Deagle (.50 AE)</div>
+                    <div class="loadout-card-desc">High-caliber semi-automatic hand cannon with devastating stopping power and high armor penetration.</div>
+                    <div class="loadout-stats-grid">
+                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">40 (80 Head)</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Fire Rate</span><span class="stat-val">260 RPM</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Magazine</span><span class="stat-val">7 / 35</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Mobility</span><span class="stat-val">6.2 m/s</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category 3: HAND / MELEE WEAPONS */}
+              <div class="strike-loadout-cat">
+                <div class="strike-loadout-cat-title">
+                  <span>🗡️ HAND / MELEE WEAPON</span>
+                  <span class="strike-loadout-cat-hint">Choose between sprint agility or lethal sword damage</span>
+                </div>
+                <div class="strike-loadout-grid">
+                  {/* Kitsune Knife */}
+                  <div
+                    class={`strike-loadout-card ${loadout().melee === 'knife' ? 'is-equipped' : ''}`}
+                    onClick={() => handleSelectMelee('knife')}
+                  >
+                    <div class="loadout-card-top">
+                      <span class="loadout-card-tag">Agile Combat Blade</span>
+                      <Show when={loadout().melee === 'knife'}>
+                        <span class="loadout-equipped-badge">EQUIPPED</span>
+                      </Show>
+                    </div>
+                    <div class="loadout-card-name">🦊 Kitsune Knife</div>
+                    <div class="loadout-card-desc">Ultra-lightweight titanium combat dagger. Maximizes movement and sprint speed for swift rotations.</div>
+                    <div class="loadout-stats-grid">
+                      <div class="loadout-stat"><span class="stat-lbl">Slash</span><span class="stat-val">35 DMG</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Heavy</span><span class="stat-val">65 DMG</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Backstab</span><span class="stat-val">200 DMG (Instant)</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Sprint Speed</span><span class="stat-val" style={{ color: '#00cec9' }}>7.0 m/s (Fastest)</span></div>
+                    </div>
+                  </div>
+
+                  {/* Muramasa Katana */}
+                  <div
+                    class={`strike-loadout-card ${loadout().melee === 'katana' ? 'is-equipped' : ''}`}
+                    onClick={() => handleSelectMelee('katana')}
+                  >
+                    <div class="loadout-card-top">
+                      <span class="loadout-card-tag">Heavy Samurai Blade</span>
+                      <Show when={loadout().melee === 'katana'}>
+                        <span class="loadout-equipped-badge">EQUIPPED</span>
+                      </Show>
+                    </div>
+                    <div class="loadout-card-name">⚔️ Muramasa Katana</div>
+                    <div class="loadout-card-desc">Forged folded-steel katana with extended reach and devastating damage. Heavier carry weight reduces speed.</div>
+                    <div class="loadout-stats-grid">
+                      <div class="loadout-stat"><span class="stat-lbl">Slash</span><span class="stat-val" style={{ color: '#ff7597' }}>55 DMG</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Heavy</span><span class="stat-val" style={{ color: '#ff7597' }}>95 DMG</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Backstab</span><span class="stat-val">220 DMG (Instant)</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Sprint Speed</span><span class="stat-val">6.2 m/s (Heavy)</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category 4: TACTICAL GRENADE */}
+              <div class="strike-loadout-cat">
+                <div class="strike-loadout-cat-title">
+                  <span>💣 TACTICAL GRENADE (Pick 1)</span>
+                  <span class="strike-loadout-cat-hint">Thrown ordnance equipped every round [G]</span>
+                </div>
+                <div class="strike-loadout-grid">
+                  {/* Molotov */}
+                  <div
+                    class={`strike-loadout-card ${loadout().grenade === 'molotov' ? 'is-equipped' : ''}`}
+                    onClick={() => handleSelectGrenade('molotov')}
+                  >
+                    <div class="loadout-card-top">
+                      <span class="loadout-card-tag">Incendiary</span>
+                      <Show when={loadout().grenade === 'molotov'}>
+                        <span class="loadout-equipped-badge">EQUIPPED</span>
+                      </Show>
+                    </div>
+                    <div class="loadout-card-name">🍾 Kitsune Molotov</div>
+                    <div class="loadout-card-desc">Detonates on ground contact into a 4.5m pool of roaring fire. Denies chokepoints and burns enemies.</div>
+                    <div class="loadout-stats-grid">
+                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">20 DMG/sec (5/0.25s)</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Duration</span><span class="stat-val">6.0s</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Area</span><span class="stat-val">4.5m Radius</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Fuse</span><span class="stat-val">Instant Impact</span></div>
+                    </div>
+                  </div>
+
+                  {/* Smoke */}
+                  <div
+                    class={`strike-loadout-card ${loadout().grenade === 'smoke' ? 'is-equipped' : ''}`}
+                    onClick={() => handleSelectGrenade('smoke')}
+                  >
+                    <div class="loadout-card-top">
+                      <span class="loadout-card-tag">Vision Denial</span>
+                      <Show when={loadout().grenade === 'smoke'}>
+                        <span class="loadout-equipped-badge">EQUIPPED</span>
+                      </Show>
+                    </div>
+                    <div class="loadout-card-name">💨 Mist Veil Smoke</div>
+                    <div class="loadout-card-desc">Deploys an expanding 5.5m dense aerosol screen for 16s to obstruct sniper sightlines and facilitate safe crosses.</div>
+                    <div class="loadout-stats-grid">
+                      <div class="loadout-stat"><span class="stat-lbl">Vision</span><span class="stat-val" style={{ color: '#00cec9' }}>Obstructed</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Duration</span><span class="stat-val">16.0s</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Area</span><span class="stat-val">5.5m Radius</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Fuse</span><span class="stat-val">1.5s</span></div>
+                    </div>
+                  </div>
+
+                  {/* HE Grenade */}
+                  <div
+                    class={`strike-loadout-card ${loadout().grenade === 'he' ? 'is-equipped' : ''}`}
+                    onClick={() => handleSelectGrenade('he')}
+                  >
+                    <div class="loadout-card-top">
+                      <span class="loadout-card-tag">Explosive Frag</span>
+                      <Show when={loadout().grenade === 'he'}>
+                        <span class="loadout-equipped-badge">EQUIPPED</span>
+                      </Show>
+                    </div>
+                    <div class="loadout-card-name">💣 Type-97 HE Grenade</div>
+                    <div class="loadout-card-desc">High-explosive fragmentation grenade dealing devastating blast damage to clear corners and clustered squads.</div>
+                    <div class="loadout-stats-grid">
+                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val" style={{ color: '#ffd32a' }}>100 at Center</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Blast Radius</span><span class="stat-val">6.5m Falloff</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Effect</span><span class="stat-val">Screen Shake</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Fuse</span><span class="stat-val">1.8s</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="strike-loadout-footer">
+              <div class="loadout-summary-chips">
+                <span class="loadout-chip">Primary: {loadout().primary === 'rifle' ? '🌸 Sakura Rifle' : '⚡ Aether Railgun'}</span>
+                <span class="loadout-chip">Melee: {loadout().melee === 'katana' ? '⚔️ Muramasa Katana' : '🦊 Kitsune Knife'}</span>
+                <span class="loadout-chip">Grenade: {GRENADE_CATALOG[loadout().grenade]?.icon || '💣'} {GRENADE_CATALOG[loadout().grenade]?.name || 'HE Grenade'}</span>
+              </div>
+              <button class="btn-loadout-confirm" onClick={handleCloseLoadout}>
+                ✔ Equip & Resume Match [Esc / B]
+              </button>
             </div>
           </div>
         </div>

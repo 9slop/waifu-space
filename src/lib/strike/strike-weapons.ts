@@ -20,7 +20,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     scopeZoom: 1.0,
     color: '#ffd32a', // Vibrant yellow bullet tracer
     viewmodelScale: 1.0,
-    range: 300
+    range: 300,
+    moveSpeed: 6.6
   },
   sniper: {
     id: 'sniper',
@@ -41,7 +42,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     scopeZoom: 0.28,
     color: '#ffd32a', // Vibrant yellow bullet tracer
     viewmodelScale: 1.25,
-    range: 300
+    range: 300,
+    moveSpeed: 5.6
   },
   pistol: {
     id: 'pistol',
@@ -62,7 +64,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     scopeZoom: 1.0,
     color: '#ffd32a', // Vibrant yellow bullet tracer
     viewmodelScale: 0.75,
-    range: 300
+    range: 300,
+    moveSpeed: 6.8
   },
   knife: {
     id: 'knife',
@@ -87,7 +90,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     scopeZoom: 1.0,
     color: '#fdcb6e',
     viewmodelScale: 0.65,
-    range: 2.2 // authentic close-quarters combat
+    range: 2.2, // authentic close-quarters combat
+    moveSpeed: 7.0
   },
   katana: {
     id: 'katana',
@@ -112,7 +116,8 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     scopeZoom: 1.0,
     color: '#ff4757',
     viewmodelScale: 0.75,
-    range: 2.8 // longer reach than knife 2.2
+    range: 2.8, // longer reach than knife 2.2
+    moveSpeed: 6.2
   }
 };
 

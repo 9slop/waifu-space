@@ -24,6 +24,7 @@ export interface WeaponDef {
   color: string;
   viewmodelScale: number;
   range?: number;
+  moveSpeed?: number;
 }
 
 export interface PlayerInput {
