@@ -617,6 +617,9 @@ export class StrikeP2PManager {
       });
     }
 
+    const hp = Math.max(0, Math.min(150, Number(rawState.health ?? rawState.hp ?? 150)));
+    const weaponId = (rawState.weaponId && rawState.weaponId in WEAPON_CATALOG ? rawState.weaponId : 'rifle') as WeaponId;
+
     wrapper.state = {
       peerId: wrapper.peerId,
       name: playerName,
