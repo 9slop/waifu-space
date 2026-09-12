@@ -134,7 +134,7 @@ export class StrikeBabylonEngine {
     this.camera = new UniversalCamera('fpsCamera', new Vector3(0, 1.62, 20), this.scene);
     this.camera.fov = this.defaultFov;
     this.camera.minZ = 0.05;
-    this.camera.maxZ = 300;
+    this.camera.maxZ = 600;
     this.camera.checkCollisions = false;
 
     // Physics collider mesh for smooth swept-sphere / box collision against world geometry

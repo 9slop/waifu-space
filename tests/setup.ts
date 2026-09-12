@@ -70,9 +70,14 @@ if (typeof HTMLCanvasElement !== 'undefined') {
       measureText: () => ({ width: 0 }),
       transform: () => {},
       rect: () => {},
+      strokeRect: () => {},
       clip: () => {},
       setLineDash: () => {},
-      getLineDash: () => []
+      getLineDash: () => [],
+      ellipse: () => {},
+      createLinearGradient: () => ({
+        addColorStop: () => {}
+      })
     } as any;
   }) as any;
 }

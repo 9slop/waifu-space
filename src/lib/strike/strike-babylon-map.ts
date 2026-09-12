@@ -49,301 +49,37 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // 1. MATERIALS PALETTE
   // ═══════════════════════════════════════════════════════════════════
   // ═══════════════════════════════════════════════════════════════════
-  // 1. TEXTURE CACHE & PROCEDURAL MATERIAL FACTORY
+  // 1. PROCEDURAL TEXTURE FACTORY & MATERIAL PALETTE (Zero-Clone Direct Pipeline)
   // ═══════════════════════════════════════════════════════════════════
-  // Centralized texture cache so identical surfaces share exact same GPU texture instances
-  const textureCache = new Map<string, DynamicTexture>();
 
-  function getOrCreateTexture(
-    key: string,
-    width: number,
-    height: number,
-    drawFn: (ctx: CanvasRenderingContext2D, w: number, h: number) => void
+  /**
+   * Generates a dedicated procedural DynamicTexture for a material surface.
+   * Uploads to WebGL synchronously so the texture and meshes are ready on frame 0.
+   */
+  function createProcTexture(
+    name: string,
+    w: number,
+    h: number,
+    uScale: number,
+    vScale: number,
+    drawFn: (ctx: CanvasRenderingContext2D, width: number, height: number) => void
   ): DynamicTexture {
-    if (textureCache.has(key)) {
-      return textureCache.get(key)!;
-    }
-    const dt = new DynamicTexture(`tex_${key}`, { width, height }, scene, false);
-    dt.wrapU = Texture.WRAP_ADDRESS;
-    dt.wrapV = Texture.WRAP_ADDRESS;
+    const dt = new DynamicTexture(`tex_${name}`, { width: w, height: h }, scene, false);
+    dt.uScale = uScale;
+    dt.vScale = vScale;
+    dt.wrapU = Texture.WRAP_ADDRESSMODE;
+    dt.wrapV = Texture.WRAP_ADDRESSMODE;
     const ctx = dt.getContext() as CanvasRenderingContext2D;
     if (ctx) {
-      drawFn(ctx, width, height);
-      dt.update(false); // don't invert Y
+      try {
+        drawFn(ctx, w, h);
+        dt.update(false); // Synchronous GPU upload
+      } catch (err) {
+        console.warn(`[KyotoMap] Texture draw failed for ${name}:`, err);
+      }
     }
-    textureCache.set(key, dt);
     return dt;
   }
-
-  // --- 1A. COBBLESTONE / STONE PAVING ---
-  const stoneDiffTex = getOrCreateTexture('stone_diff', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = '#61656b';
-    ctx.fillRect(0, 0, w, h);
-    // Draw paving stones in alternating courses
-    const rows = 16;
-    const cols = 12;
-    const rh = h / rows;
-    const cw = w / cols;
-    for (let r = 0; r < rows; r++) {
-      const offsetX = (r % 2) * (cw / 2);
-      for (let c = -1; c <= cols; c++) {
-        const x = c * cw + offsetX + 2;
-        const y = r * rh + 2;
-        const sw = cw - 4;
-        const sh = rh - 4;
-        // Stone variation
-        const tone = 88 + Math.floor(Math.sin(r * 7 + c * 13) * 22);
-        ctx.fillStyle = `rgb(${tone}, ${tone + 4}, ${tone + 8})`;
-        ctx.fillRect(x, y, sw, sh);
-
-        // Subtle stone surface grain
-        for (let i = 0; i < 30; i++) {
-          const gx = x + Math.random() * sw;
-          const gy = y + Math.random() * sh;
-          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
-          ctx.fillRect(gx, gy, 3, 3);
-        }
-      }
-    }
-  });
-
-  const stoneBumpTex = getOrCreateTexture('stone_bump', 512, 512, (ctx, w, h) => {
-    // Normal map base: neutral (128, 128, 255)
-    ctx.fillStyle = 'rgb(128, 128, 255)';
-    ctx.fillRect(0, 0, w, h);
-    const rows = 16;
-    const cols = 12;
-    const rh = h / rows;
-    const cw = w / cols;
-    for (let r = 0; r < rows; r++) {
-      const offsetX = (r % 2) * (cw / 2);
-      for (let c = -1; c <= cols; c++) {
-        const x = c * cw + offsetX + 2;
-        const y = r * rh + 2;
-        const sw = cw - 4;
-        const sh = rh - 4;
-        // Beveled mortar edges
-        ctx.fillStyle = 'rgb(190, 128, 220)'; // right/down highlight
-        ctx.fillRect(x, y, sw, sh);
-        ctx.fillStyle = 'rgb(128, 128, 255)';
-        ctx.fillRect(x + 2, y + 2, sw - 4, sh - 4);
-      }
-    }
-  });
-
-  // --- 1B. EARTHEN PLASTER (Shikkui) ---
-  const plasterDiffTex = getOrCreateTexture('plaster_diff', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = '#b8b3a7';
-    ctx.fillRect(0, 0, w, h);
-    // Subtle plaster trowel and sand grain marks
-    for (let i = 0; i < 2400; i++) {
-      const px = Math.random() * w;
-      const py = Math.random() * h;
-      const sz = 1 + Math.random() * 3;
-      const val = Math.random();
-      ctx.fillStyle = val > 0.6 ? 'rgba(255,255,255,0.07)' : 'rgba(30,25,18,0.06)';
-      ctx.fillRect(px, py, sz, sz);
-    }
-  });
-
-  const plasterBumpTex = getOrCreateTexture('plaster_bump', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = 'rgb(128, 128, 255)';
-    ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 3000; i++) {
-      const px = Math.random() * w;
-      const py = Math.random() * h;
-      const noise = (Math.random() - 0.5) * 40;
-      ctx.fillStyle = `rgb(${Math.floor(128 + noise)}, ${Math.floor(128 + noise)}, 255)`;
-      ctx.fillRect(px, py, 2, 2);
-    }
-  });
-
-  // --- 1C. DARK CEDAR TIMBER ---
-  const timberDiffTex = getOrCreateTexture('timber_diff', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = '#332317';
-    ctx.fillRect(0, 0, w, h);
-    // Wood grain linear fiber streaks
-    for (let i = 0; i < w; i += 4) {
-      const alpha = 0.08 + Math.sin(i * 0.35) * 0.06;
-      ctx.fillStyle = `rgba(18, 10, 6, ${alpha})`;
-      ctx.fillRect(i, 0, 2 + Math.floor(Math.random() * 3), h);
-    }
-    // Wood knots & rings
-    for (let k = 0; k < 6; k++) {
-      const kx = Math.random() * w;
-      const ky = Math.random() * h;
-      ctx.strokeStyle = 'rgba(15, 8, 4, 0.25)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.ellipse(kx, ky, 6, 22, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  });
-
-  const timberBumpTex = getOrCreateTexture('timber_bump', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = 'rgb(128, 128, 255)';
-    ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < w; i += 4) {
-      const grain = (Math.sin(i * 0.35) > 0 ? 150 : 106);
-      ctx.fillStyle = `rgb(${grain}, 128, 255)`;
-      ctx.fillRect(i, 0, 2, h);
-    }
-  });
-
-  // --- 1D. KAWARA ROOF TILES ---
-  const tileDiffTex = getOrCreateTexture('tile_diff', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = '#262b33';
-    ctx.fillRect(0, 0, w, h);
-    // Curved overlapping Japanese roof tiles
-    const rows = 20;
-    const cols = 10;
-    const rh = h / rows;
-    const cw = w / cols;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const x = c * cw;
-        const y = r * rh;
-        // Tile gradient (shading under overlap)
-        const grad = ctx.createLinearGradient(x, y, x, y + rh);
-        grad.addColorStop(0, '#353c47');
-        grad.addColorStop(0.7, '#242931');
-        grad.addColorStop(1, '#15191f');
-        ctx.fillStyle = grad;
-        ctx.fillRect(x + 1, y + 1, cw - 2, rh - 2);
-
-        // Tile lip
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.fillRect(x + 2, y + 1, cw - 4, 2);
-      }
-    }
-  });
-
-  const tileBumpTex = getOrCreateTexture('tile_bump', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = 'rgb(128, 128, 255)';
-    ctx.fillRect(0, 0, w, h);
-    const rows = 20;
-    const cols = 10;
-    const rh = h / rows;
-    const cw = w / cols;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const x = c * cw;
-        const y = r * rh;
-        ctx.fillStyle = 'rgb(128, 80, 255)'; // slope pointing down
-        ctx.fillRect(x + 1, y + 1, cw - 2, rh - 2);
-        ctx.fillStyle = 'rgb(128, 180, 255)'; // top edge ridge
-        ctx.fillRect(x + 1, y + 1, cw - 2, 3);
-      }
-    }
-  });
-
-  // --- 1E. RAKED ZEN SAND ---
-  const zenSandDiffTex = getOrCreateTexture('zen_diff', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = '#aba599';
-    ctx.fillRect(0, 0, w, h);
-    // Linear raked gravel comb ridges
-    const waveCount = 32;
-    const waveH = h / waveCount;
-    for (let i = 0; i < waveCount; i++) {
-      const y = i * waveH;
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
-      ctx.fillRect(0, y, w, waveH * 0.4);
-      ctx.fillStyle = 'rgba(40, 36, 30, 0.14)';
-      ctx.fillRect(0, y + waveH * 0.5, w, waveH * 0.5);
-    }
-  });
-
-  const zenSandBumpTex = getOrCreateTexture('zen_bump', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = 'rgb(128, 128, 255)';
-    ctx.fillRect(0, 0, w, h);
-    const waveCount = 32;
-    const waveH = h / waveCount;
-    for (let i = 0; i < waveCount; i++) {
-      const y = i * waveH;
-      ctx.fillStyle = 'rgb(128, 180, 255)';
-      ctx.fillRect(0, y, w, waveH * 0.5);
-      ctx.fillStyle = 'rgb(128, 75, 255)';
-      ctx.fillRect(0, y + waveH * 0.5, w, waveH * 0.5);
-    }
-  });
-
-  // --- 1F. POLISHED WOOD DECK (Engawa) ---
-  const deckDiffTex = getOrCreateTexture('deck_diff', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = '#573824';
-    ctx.fillRect(0, 0, w, h);
-    const plankW = w / 8;
-    for (let i = 0; i < 8; i++) {
-      const x = i * plankW;
-      const tone = 75 + Math.sin(i * 3) * 15;
-      ctx.fillStyle = `rgb(${tone}, ${Math.floor(tone * 0.65)}, ${Math.floor(tone * 0.42)})`;
-      ctx.fillRect(x + 2, 0, plankW - 4, h);
-      // Wood seams
-      ctx.fillStyle = '#1c1008';
-      ctx.fillRect(x, 0, 2, h);
-    }
-  });
-
-  const deckBumpTex = getOrCreateTexture('deck_bump', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = 'rgb(128, 128, 255)';
-    ctx.fillRect(0, 0, w, h);
-    const plankW = w / 8;
-    for (let i = 0; i < 8; i++) {
-      const x = i * plankW;
-      ctx.fillStyle = 'rgb(180, 128, 220)';
-      ctx.fillRect(x + plankW - 3, 0, 3, h);
-      ctx.fillStyle = 'rgb(75, 128, 255)';
-      ctx.fillRect(x, 0, 3, h);
-    }
-  });
-
-  // --- 1G. SHOJI SCREEN ---
-  const shojiDiffTex = getOrCreateTexture('shoji_diff', 512, 512, (ctx, w, h) => {
-    // Rice paper warm base
-    ctx.fillStyle = '#d1cbc0';
-    ctx.fillRect(0, 0, w, h);
-    // Wooden lattice grid
-    const gridSize = 64;
-    ctx.fillStyle = '#402a1a';
-    for (let x = 0; x < w; x += gridSize) {
-      ctx.fillRect(x, 0, 6, h);
-    }
-    for (let y = 0; y < h; y += gridSize) {
-      ctx.fillRect(0, y, w, 6);
-    }
-  });
-
-  // --- 1H. VERMILION SHRINE RED (Lacquered Torii Wood) ---
-  const shrineDiffTex = getOrCreateTexture('shrine_diff', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = '#c72e29';
-    ctx.fillRect(0, 0, w, h);
-    // Subtle lacquered grain
-    for (let y = 0; y < h; y += 8) {
-      ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 90, 80, 0.08)' : 'rgba(80, 10, 10, 0.08)';
-      ctx.fillRect(0, y, w, 4);
-    }
-  });
-
-  // --- 1I. WOODEN CRATE / PLANKS ---
-  const crateDiffTex = getOrCreateTexture('crate_diff', 512, 512, (ctx, w, h) => {
-    ctx.fillStyle = '#945c29';
-    ctx.fillRect(0, 0, w, h);
-    // Planks
-    const ph = h / 4;
-    for (let i = 0; i < 4; i++) {
-      ctx.fillStyle = (i % 2 === 0) ? '#a0652e' : '#885425';
-      ctx.fillRect(4, i * ph + 2, w - 8, ph - 4);
-      ctx.fillStyle = '#3a200d';
-      ctx.fillRect(0, i * ph, w, 2);
-    }
-    // Diagonal bracing
-    ctx.lineWidth = 14;
-    ctx.strokeStyle = '#6f421c';
-    ctx.strokeRect(7, 7, w - 14, h - 14);
-    ctx.beginPath();
-    ctx.moveTo(7, 7);
-    ctx.lineTo(w - 7, h - 7);
-    ctx.stroke();
-  });
 
   function createMat(
     name: string,
@@ -359,169 +95,485 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     return mat;
   }
 
-  // Central Material Factory helper
   function createTexturedMat(
     name: string,
     diffuseColor: Color3,
-    diffTex?: DynamicTexture,
-    bumpTex?: DynamicTexture,
-    specColor = new Color3(0.08, 0.08, 0.08),
+    uScale: number,
+    vScale: number,
+    drawFn: (ctx: CanvasRenderingContext2D, w: number, h: number) => void,
+    specularColor = new Color3(0.08, 0.08, 0.08),
     emissiveColor?: Color3,
-    uScale = 1.0,
-    vScale = 1.0
+    specularPower = 32
   ): StandardMaterial {
     const mat = new StandardMaterial(name, scene);
     mat.diffuseColor = diffuseColor;
-    mat.specularColor = specColor;
+    mat.specularColor = specularColor;
+    mat.specularPower = specularPower;
     if (emissiveColor) mat.emissiveColor = emissiveColor;
     mat.maxSimultaneousLights = 4;
 
-    if (diffTex) {
-      mat.diffuseTexture = diffTex.clone(`${name}_dt`);
-      (mat.diffuseTexture as Texture).uScale = uScale;
-      (mat.diffuseTexture as Texture).vScale = vScale;
-      (mat.diffuseTexture as Texture).wrapU = Texture.WRAP_ADDRESS;
-      (mat.diffuseTexture as Texture).wrapV = Texture.WRAP_ADDRESS;
-    }
-    if (bumpTex) {
-      mat.bumpTexture = bumpTex.clone(`${name}_bt`);
-      (mat.bumpTexture as Texture).uScale = uScale;
-      (mat.bumpTexture as Texture).vScale = vScale;
-      (mat.bumpTexture as Texture).wrapU = Texture.WRAP_ADDRESS;
-      (mat.bumpTexture as Texture).wrapV = Texture.WRAP_ADDRESS;
-      mat.bumpTexture.level = 0.85;
-    }
+    const diffTex = createProcTexture(name, 512, 512, uScale, vScale, drawFn);
+    mat.diffuseTexture = diffTex;
+
     return mat;
   }
 
-  // --- Textured Materials Palette ---
-  // Street & courtyard stone pavement (tiles across 104m arena)
+  // --- 1. Street & Courtyard Stone Pavement (Granite/Basalt Pavers) ---
   const groundMat = createTexturedMat(
     'matGround',
-    new Color3(0.9, 0.9, 0.9),
-    stoneDiffTex,
-    stoneBumpTex,
+    new Color3(0.92, 0.92, 0.92),
+    28, 28,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#2c3036'; // Dark basalt mortar
+      ctx.fillRect(0, 0, w, h);
+      const rows = 16;
+      const cols = 12;
+      const rh = h / rows;
+      const cw = w / cols;
+      for (let r = 0; r < rows; r++) {
+        const offsetX = (r % 2) * (cw * 0.5);
+        for (let c = -1; c <= cols; c++) {
+          const x = c * cw + offsetX + 2;
+          const y = r * rh + 2;
+          const sw = cw - 4;
+          const sh = rh - 4;
+          // Natural slate/granite tone variation
+          const tone = 90 + Math.floor(Math.sin(r * 5.3 + c * 11.7) * 20);
+          ctx.fillStyle = `rgb(${tone}, ${tone + 4}, ${tone + 8})`;
+          ctx.fillRect(x, y, sw, sh);
+
+          // Top and left edge highlight (subtle 3D bevel)
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.fillRect(x, y, sw, 2);
+          ctx.fillRect(x, y, 2, sh);
+
+          // Bottom and right edge shadow
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+          ctx.fillRect(x, y + sh - 2, sw, 2);
+          ctx.fillRect(x + sw - 2, y, 2, sh);
+
+          // Granite mineral flecks
+          for (let i = 0; i < 20; i++) {
+            const fx = x + Math.random() * sw;
+            const fy = y + Math.random() * sh;
+            ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.10)';
+            ctx.fillRect(fx, fy, 2, 2);
+          }
+        }
+      }
+    },
     new Color3(0.08, 0.08, 0.08),
     undefined,
-    32, 32
+    24
   );
 
-  // Raked zen sand / gravel (A-Site garden)
-  const zenSandMat = createTexturedMat(
-    'matZenSand',
-    new Color3(0.95, 0.95, 0.95),
-    zenSandDiffTex,
-    zenSandBumpTex,
-    new Color3(0.04, 0.04, 0.04),
-    undefined,
-    6, 4
-  );
-
-  // Polished cedar planks (verandas, decks)
-  const woodDeckMat = createTexturedMat(
-    'matWoodDeck',
-    new Color3(0.85, 0.82, 0.80),
-    deckDiffTex,
-    deckBumpTex,
-    new Color3(0.12, 0.10, 0.08),
-    undefined,
-    4, 4
-  );
-
-  // Perimeter boundary walls
+  // --- 2. Perimeter Stone Masonry Walls (Ashlar Castle Blocks) ---
   const wallMat = createTexturedMat(
     'matWall',
-    new Color3(0.65, 0.68, 0.72),
-    stoneDiffTex,
-    stoneBumpTex,
+    new Color3(0.85, 0.88, 0.90),
+    12, 2,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#1c2025'; // Deep mortar recesses
+      ctx.fillRect(0, 0, w, h);
+      const rows = 8;
+      const cols = 6;
+      const rh = h / rows;
+      const cw = w / cols;
+      for (let r = 0; r < rows; r++) {
+        const offsetX = (r % 2) * (cw * 0.5);
+        for (let c = -1; c <= cols; c++) {
+          const x = c * cw + offsetX + 3;
+          const y = r * rh + 3;
+          const sw = cw - 6;
+          const sh = rh - 6;
+          const tone = 112 + Math.floor(Math.sin(r * 3.7 + c * 7.1) * 22);
+          ctx.fillStyle = `rgb(${tone - 4}, ${tone}, ${tone + 6})`;
+          ctx.fillRect(x, y, sw, sh);
+
+          // Chiseled horizontal tool grooves
+          for (let i = 4; i < sh - 4; i += 8) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+            ctx.fillRect(x + 4, y + i, sw - 8, 1);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.fillRect(x + 4, y + i + 1, sw - 8, 1);
+          }
+
+          // Heavy 3D bevel edges
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+          ctx.fillRect(x, y, sw, 3);
+          ctx.fillRect(x, y, 3, sh);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+          ctx.fillRect(x, y + sh - 3, sw, 3);
+          ctx.fillRect(x + sw - 3, y, 3, sh);
+        }
+      }
+    },
     new Color3(0.06, 0.06, 0.06),
     undefined,
-    12, 2
+    20
   );
 
-  // Machiya dark timber beams & pillars
-  const timberMat = createTexturedMat(
-    'matTimber',
-    new Color3(0.85, 0.80, 0.75),
-    timberDiffTex,
-    timberBumpTex,
-    new Color3(0.06, 0.05, 0.04),
-    undefined,
-    1, 3
-  );
-
-  // Earthen plaster / stucco walls
+  // --- 3. Machiya Plaster / Stucco Walls (Kyoto Shikkui Lime Plaster) ---
   const plasterMat = createTexturedMat(
     'matPlaster',
-    new Color3(0.95, 0.95, 0.93),
-    plasterDiffTex,
-    plasterBumpTex,
+    new Color3(0.96, 0.96, 0.94),
+    3, 2,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#d6d1c5'; // Warm natural off-white plaster
+      ctx.fillRect(0, 0, w, h);
+      // Subtle plaster trowel texture sweeps
+      for (let i = 0; i < 1600; i++) {
+        const px = Math.random() * w;
+        const py = Math.random() * h;
+        const pw = 2 + Math.random() * 8;
+        const ph = 1 + Math.random() * 3;
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 255, 255, 0.07)' : 'rgba(50, 42, 32, 0.05)';
+        ctx.fillRect(px, py, pw, ph);
+      }
+      // Fine natural hemp/sand specks
+      for (let i = 0; i < 700; i++) {
+        const px = Math.random() * w;
+        const py = Math.random() * h;
+        ctx.fillStyle = 'rgba(40, 32, 22, 0.08)';
+        ctx.fillRect(px, py, 1.5, 1.5);
+      }
+    },
     new Color3(0.03, 0.03, 0.03),
     undefined,
-    3, 2
+    16
   );
 
-  // Charcoal kawara clay roof tiles
+  // --- 4. Dark Cedar Timber Frames (Yakisugi Charred Wood) ---
+  const timberMat = createTexturedMat(
+    'matTimber',
+    new Color3(0.90, 0.86, 0.82),
+    1, 3,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#322116'; // Deep dark cedar
+      ctx.fillRect(0, 0, w, h);
+      // Vertical wood grain fibers
+      for (let i = 0; i < w; i += 3) {
+        const alpha = 0.08 + Math.sin(i * 0.4) * 0.06;
+        ctx.fillStyle = `rgba(16, 10, 6, ${alpha})`;
+        ctx.fillRect(i, 0, 2 + Math.floor(Math.random() * 2), h);
+      }
+      // Subtle wood knots
+      for (let k = 0; k < 4; k++) {
+        const kx = (k + 0.5) * (w / 4) + (Math.random() - 0.5) * 40;
+        const ky = Math.random() * h;
+        ctx.strokeStyle = 'rgba(12, 7, 4, 0.22)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        if (ctx.ellipse) {
+          ctx.ellipse(kx, ky, 5, 18, 0, 0, Math.PI * 2);
+        } else {
+          ctx.arc(kx, ky, 8, 0, Math.PI * 2);
+        }
+        ctx.stroke();
+      }
+    },
+    new Color3(0.06, 0.05, 0.04),
+    undefined,
+    16
+  );
+
+  // --- 5. Charcoal Kawara Ceramic Roof Tiles ---
   const tileRoofMat = createTexturedMat(
     'matTileRoof',
-    new Color3(0.85, 0.88, 0.92),
-    tileDiffTex,
-    tileBumpTex,
-    new Color3(0.15, 0.15, 0.16),
+    new Color3(0.90, 0.92, 0.95),
+    4, 4,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#1e2229'; // Charcoal ceramic base
+      ctx.fillRect(0, 0, w, h);
+      const rows = 16;
+      const cols = 10;
+      const rh = h / rows;
+      const cw = w / cols;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const x = c * cw;
+          const y = r * rh;
+          // Gradient shading under top tile overlap
+          if (ctx.createLinearGradient) {
+            const grad = ctx.createLinearGradient(x, y, x, y + rh);
+            grad.addColorStop(0, '#363d48');
+            grad.addColorStop(0.7, '#232830');
+            grad.addColorStop(1, '#14171d');
+            ctx.fillStyle = grad;
+          } else {
+            ctx.fillStyle = '#232830';
+          }
+          ctx.fillRect(x + 1, y + 1, cw - 2, rh - 2);
+
+          // Tile upper lip glaze highlight
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.fillRect(x + 2, y + 1, cw - 4, 2);
+
+          // Side tile groove shadow
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+          ctx.fillRect(x + cw - 2, y, 2, rh);
+        }
+      }
+    },
+    new Color3(0.16, 0.16, 0.18),
     undefined,
-    4, 4
+    48
   );
 
-  // Rice paper shoji screens (subtle warm glow)
+  // --- 6. Shoji Screens with Kumiko Wood Lattice ---
   const shojiMat = createTexturedMat(
     'matShoji',
-    new Color3(0.95, 0.92, 0.88),
-    shojiDiffTex,
-    undefined,
-    new Color3(0.02, 0.02, 0.02),
-    new Color3(0.08, 0.07, 0.05),
-    2, 2
+    new Color3(0.96, 0.94, 0.90),
+    2, 2,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#eae5d9'; // Translucent washi rice paper
+      ctx.fillRect(0, 0, w, h);
+      // Delicate paper fibers
+      for (let i = 0; i < 500; i++) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.fillRect(Math.random() * w, Math.random() * h, 3, 3);
+      }
+      // Outer heavy timber frame
+      ctx.fillStyle = '#2d1d11';
+      ctx.fillRect(0, 0, w, 12);
+      ctx.fillRect(0, h - 12, w, 12);
+      ctx.fillRect(0, 0, 12, h);
+      ctx.fillRect(w - 12, 0, 12, h);
+
+      // Inner Kumiko wood lattice grid
+      const grid = 64;
+      ctx.fillStyle = '#3c2718';
+      for (let x = grid; x < w; x += grid) {
+        ctx.fillRect(x - 2, 12, 5, h - 24);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.fillRect(x + 3, 12, 2, h - 24);
+        ctx.fillStyle = '#3c2718';
+      }
+      for (let y = grid; y < h; y += grid) {
+        ctx.fillRect(12, y - 2, w - 24, 5);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        ctx.fillRect(12, y + 3, w - 24, 2);
+        ctx.fillStyle = '#3c2718';
+      }
+    },
+    new Color3(0.04, 0.04, 0.03),
+    new Color3(0.08, 0.07, 0.05), // Warm interior glow
+    12
   );
 
-  // Vermilion shrine red (lacquered wood)
+  // --- 7. Vermilion Shrine Wood (Fushimi Inari Torii Lacquer) ---
   const shrineRedMat = createTexturedMat(
     'matShrineRed',
-    new Color3(0.90, 0.85, 0.85),
-    shrineDiffTex,
-    timberBumpTex,
+    new Color3(0.96, 0.90, 0.90),
+    2, 2,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#c52d24'; // Rich cinnabar vermilion
+      ctx.fillRect(0, 0, w, h);
+      // Subtle lacquered wood grain streaks
+      for (let y = 0; y < h; y += 6) {
+        const alpha = 0.07 + Math.sin(y * 0.15) * 0.05;
+        ctx.fillStyle = Math.random() > 0.5 ? `rgba(255, 110, 90, ${alpha})` : `rgba(100, 15, 10, ${alpha})`;
+        ctx.fillRect(0, y, w, 3);
+      }
+    },
     new Color3(0.18, 0.14, 0.14),
     undefined,
-    2, 2
+    40
   );
 
+  // --- 8. Tactical Wooden Supply Crates ---
+  const crateMat = createTexturedMat(
+    'matCrate',
+    new Color3(0.92, 0.88, 0.84),
+    1, 1,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#946030'; // Japanese pine base
+      ctx.fillRect(0, 0, w, h);
+      const ph = h / 4;
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = (i % 2 === 0) ? '#9e6734' : '#88572b';
+        ctx.fillRect(4, i * ph + 2, w - 8, ph - 4);
+        // Plank seam shadow
+        ctx.fillStyle = '#361e0b';
+        ctx.fillRect(0, i * ph, w, 3);
+        // Wood grain
+        for (let g = 0; g < 5; g++) {
+          ctx.fillStyle = 'rgba(30, 15, 5, 0.06)';
+          ctx.fillRect(4, i * ph + 4 + g * 18, w - 8, 2);
+        }
+      }
+      // Outer border
+      ctx.lineWidth = 16;
+      ctx.strokeStyle = '#6d411b';
+      if (ctx.strokeRect) {
+        ctx.strokeRect(8, 8, w - 16, h - 16);
+      }
+      // Diagonal cross-brace
+      ctx.beginPath();
+      ctx.moveTo(12, 12);
+      ctx.lineTo(w - 12, h - 12);
+      ctx.stroke();
+
+      // Corner iron reinforcements
+      ctx.fillStyle = '#26201a';
+      ctx.fillRect(0, 0, 24, 24);
+      ctx.fillRect(w - 24, 0, 24, 24);
+      ctx.fillRect(0, h - 24, 24, 24);
+      ctx.fillRect(w - 24, h - 24, 24, 24);
+
+      // Corner bolt specular
+      ctx.fillStyle = '#a09890';
+      ctx.fillRect(8, 8, 4, 4);
+      ctx.fillRect(w - 12, 8, 4, 4);
+      ctx.fillRect(8, h - 12, 4, 4);
+      ctx.fillRect(w - 12, h - 12, 4, 4);
+    },
+    new Color3(0.06, 0.05, 0.04),
+    undefined,
+    16
+  );
+
+  // --- 9. Raked Zen Sand / Gravel (Kyoto Karesansui) ---
+  const zenSandMat = createTexturedMat(
+    'matZenSand',
+    new Color3(0.96, 0.96, 0.94),
+    6, 4,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#b5afa3'; // Pale granite sand
+      ctx.fillRect(0, 0, w, h);
+      const waves = 24;
+      const wh = h / waves;
+      for (let i = 0; i < waves; i++) {
+        const y = i * wh;
+        // Raked comb crest highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
+        ctx.fillRect(0, y, w, wh * 0.45);
+        // Raked groove shadow
+        ctx.fillStyle = 'rgba(45, 40, 32, 0.18)';
+        ctx.fillRect(0, y + wh * 0.5, w, wh * 0.5);
+      }
+      // Granite mineral flecks
+      for (let i = 0; i < 800; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 255, 255, 0.10)' : 'rgba(30, 25, 20, 0.10)';
+        ctx.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5);
+      }
+    },
+    new Color3(0.04, 0.04, 0.04),
+    undefined,
+    12
+  );
+
+  // --- 10. Polished Wood Deck (Veranda Engawa Cypress/Cedar) ---
+  const woodDeckMat = createTexturedMat(
+    'matWoodDeck',
+    new Color3(0.92, 0.88, 0.84),
+    4, 4,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#5e3c25'; // Warm oiled cedar
+      ctx.fillRect(0, 0, w, h);
+      const planks = 8;
+      const pw = w / planks;
+      for (let i = 0; i < planks; i++) {
+        const x = i * pw;
+        const tone = 78 + Math.floor(Math.sin(i * 2.8) * 14);
+        ctx.fillStyle = `rgb(${tone}, ${Math.floor(tone * 0.64)}, ${Math.floor(tone * 0.40)})`;
+        ctx.fillRect(x + 2, 0, pw - 4, h);
+        // Satin polished center highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.fillRect(x + pw * 0.3, 0, pw * 0.4, h);
+        // Dark tongue-and-groove seam
+        ctx.fillStyle = '#1c0f07';
+        ctx.fillRect(x, 0, 2, h);
+      }
+    },
+    new Color3(0.14, 0.12, 0.10),
+    undefined,
+    36
+  );
+
+  // --- 11. Sakura Tree Bark ---
+  const barkMat = createTexturedMat(
+    'matBark',
+    new Color3(0.85, 0.78, 0.72),
+    1, 3,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#46342b';
+      ctx.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 8) {
+        const len = 12 + Math.random() * 36;
+        const x = Math.random() * (w - len);
+        ctx.fillStyle = 'rgba(25, 16, 12, 0.35)';
+        ctx.fillRect(x, y, len, 2.5);
+        ctx.fillStyle = 'rgba(95, 75, 62, 0.25)';
+        ctx.fillRect(x, y + 2.5, len, 1.5);
+      }
+    },
+    new Color3(0.04, 0.04, 0.04),
+    undefined,
+    16
+  );
+
+  // --- 12. Stone Barriers & Lantern Base ---
+  const stoneMat = createTexturedMat(
+    'matStone',
+    new Color3(0.88, 0.90, 0.92),
+    2, 2,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#6d727b'; // Cool granite
+      ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 180; i++) {
+        const cx = Math.random() * (w - 20);
+        const cy = Math.random() * h;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
+        ctx.fillRect(cx, cy, 14, 1.5);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.10)';
+        ctx.fillRect(cx, cy + 1.5, 14, 1.5);
+      }
+      for (let i = 0; i < 500; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 255, 255, 0.14)' : 'rgba(20, 24, 30, 0.18)';
+        ctx.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+      }
+      if (ctx.strokeRect) {
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.20)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(2, 2, w - 4, h - 4);
+      }
+    },
+    new Color3(0.08, 0.08, 0.08),
+    undefined,
+    20
+  );
+
+  // --- 13. Dark Wood (Merchant Stall Counters & Carts) ---
+  const darkWoodMat = createTexturedMat(
+    'matDarkWood',
+    new Color3(0.78, 0.72, 0.68),
+    1, 2,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#3c2a1e';
+      ctx.fillRect(0, 0, w, h);
+      const planks = 6;
+      const ph = h / planks;
+      for (let i = 0; i < planks; i++) {
+        const y = i * ph;
+        ctx.fillStyle = (i % 2 === 0) ? '#443022' : '#362419';
+        ctx.fillRect(0, y + 2, w, ph - 4);
+        ctx.fillStyle = '#1a110a';
+        ctx.fillRect(0, y, w, 2);
+      }
+    },
+    new Color3(0.04, 0.04, 0.04),
+    undefined,
+    16
+  );
+
+  // --- Non-Textured Specialty Materials ---
   // Gold accents & sacred altar
   const goldMat = new StandardMaterial('matGold', scene);
   goldMat.diffuseColor = new Color3(0.85, 0.70, 0.22);
   goldMat.specularColor = new Color3(0.35, 0.30, 0.12);
   goldMat.emissiveColor = new Color3(0.08, 0.06, 0.02);
   goldMat.maxSimultaneousLights = 4;
-
-  // Wooden supply crates
-  const crateMat = createTexturedMat(
-    'matCrate',
-    new Color3(0.85, 0.82, 0.78),
-    crateDiffTex,
-    timberBumpTex,
-    new Color3(0.06, 0.05, 0.04),
-    undefined,
-    1, 1
-  );
-
-  // Stone lanterns & tactical barriers
-  const stoneMat = createTexturedMat(
-    'matStone',
-    new Color3(0.80, 0.82, 0.85),
-    stoneDiffTex,
-    stoneBumpTex,
-    new Color3(0.08, 0.08, 0.08),
-    undefined,
-    2, 2
-  );
 
   // Glowing lantern paper
   const lanternGlowMat = new StandardMaterial('matLanternGlow', scene);
@@ -534,17 +586,6 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   sakuraMat.diffuseColor = new Color3(0.92, 0.52, 0.68);
   sakuraMat.emissiveColor = new Color3(0.14, 0.05, 0.09);
   sakuraMat.maxSimultaneousLights = 4;
-
-  // Tree bark
-  const barkMat = createTexturedMat(
-    'matBark',
-    new Color3(0.75, 0.65, 0.55),
-    timberDiffTex,
-    timberBumpTex,
-    new Color3(0.04, 0.04, 0.04),
-    undefined,
-    1, 3
-  );
 
   // Bamboo
   const bambooMat = new StandardMaterial('matBamboo', scene);
@@ -561,17 +602,6 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   neonCyanMat.diffuseColor = new Color3(0.0, 0.80, 0.78);
   neonCyanMat.emissiveColor = new Color3(0.0, 0.60, 0.58);
   neonCyanMat.maxSimultaneousLights = 4;
-
-  // Dark wood for carts/barrels
-  const darkWoodMat = createTexturedMat(
-    'matDarkWood',
-    new Color3(0.65, 0.58, 0.52),
-    timberDiffTex,
-    timberBumpTex,
-    new Color3(0.04, 0.04, 0.04),
-    undefined,
-    1, 2
-  );
 
   // ═══════════════════════════════════════════════════════════════════
   // 2. HELPER FUNCTIONS
@@ -1121,42 +1151,59 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   const skyMat = new StandardMaterial('matSky', scene);
   skyMat.backFaceCulling = false;
   skyMat.disableLighting = true;
-  skyMat.emissiveColor = new Color3(0.42, 0.65, 0.88);
-  const skyDome = MeshBuilder.CreateSphere('skyDome', { diameter: 550, segments: 16 }, scene);
+  skyMat.emissiveColor = new Color3(0.44, 0.68, 0.90);
+  const skyDome = MeshBuilder.CreateSphere('skyDome', { diameter: 500, segments: 16 }, scene);
   skyDome.material = skyMat;
   skyDome.isPickable = false;
   skyDome.checkCollisions = false;
 
-  // Mount Fuji (NW horizon)
+  // Mount Fuji (Majestic landmark on NW horizon)
   const fujiBaseMat = createMat('matFujiBase', new Color3(0.24, 0.30, 0.44), new Color3(0.04, 0.04, 0.04));
-  const fujiBase = MeshBuilder.CreateCylinder('fujiBase', { height: 100, diameterBottom: 210, diameterTop: 28, tessellation: 32 }, scene);
-  fujiBase.position = new Vector3(-120, 42, -175);
+  const fujiBase = MeshBuilder.CreateCylinder('fujiBase', { height: 110, diameterBottom: 210, diameterTop: 36, tessellation: 36 }, scene);
+  fujiBase.position = new Vector3(-105, 48, -170);
   fujiBase.material = fujiBaseMat;
   fujiBase.isPickable = false;
   fujiBase.checkCollisions = false;
 
-  const fujiCapMat = createMat('matFujiCap', new Color3(0.95, 0.96, 0.98), new Color3(0.2, 0.2, 0.2));
-  const fujiCap = MeshBuilder.CreateCylinder('fujiCap', { height: 35, diameterBottom: 72, diameterTop: 26, tessellation: 32 }, scene);
-  fujiCap.position = new Vector3(-120, 78, -175);
+  const fujiCapMat = createMat('matFujiCap', new Color3(0.96, 0.97, 0.99), new Color3(0.25, 0.25, 0.25));
+  const fujiCap = MeshBuilder.CreateCylinder('fujiCap', { height: 40, diameterBottom: 82, diameterTop: 34, tessellation: 36 }, scene);
+  fujiCap.position = new Vector3(-105, 88, -170);
   fujiCap.material = fujiCapMat;
   fujiCap.isPickable = false;
   fujiCap.checkCollisions = false;
 
-  // Mountain ridges (Natural soft green-slate hills)
-  const ridgeMat = createMat('matRidge', new Color3(0.18, 0.30, 0.24), new Color3(0.02, 0.02, 0.02));
-  const ridges = [
-    { x: 0, y: 18, z: -130, w: 240, h: 48, d: 30 },
-    { x: 0, y: 16, z: 130, w: 240, h: 44, d: 30 },
-    { x: -130, y: 18, z: 0, w: 30, h: 48, d: 240 },
-    { x: 130, y: 17, z: 0, w: 30, h: 46, d: 240 }
+  // Natural rolling forested hills (soft evergreen pine mounds framing the valley)
+  const ridgeMat = createMat('matRidge', new Color3(0.16, 0.26, 0.20), new Color3(0.02, 0.02, 0.02));
+  const rollingHills = [
+    // North horizon (framing Mount Fuji in the NW)
+    { x: -25, y: 15, z: -145, w: 90, h: 32, d: 45 },
+    { x: 65, y: 18, z: -145, w: 100, h: 36, d: 50 },
+    // South horizon (behind Team 1 Spawn)
+    { x: -50, y: 14, z: 135, w: 90, h: 30, d: 45 },
+    { x: 5, y: 18, z: 140, w: 95, h: 36, d: 50 },
+    { x: 60, y: 15, z: 135, w: 90, h: 32, d: 45 },
+    // East horizon (behind Secret / B-Site)
+    { x: 135, y: 16, z: -45, w: 45, h: 34, d: 90 },
+    { x: 140, y: 20, z: 0, w: 50, h: 38, d: 95 },
+    { x: 135, y: 15, z: 45, w: 45, h: 32, d: 90 },
+    // West horizon (behind A-Long)
+    { x: -135, y: 16, z: -45, w: 45, h: 34, d: 90 },
+    { x: -140, y: 20, z: 0, w: 50, h: 38, d: 95 },
+    { x: -135, y: 15, z: 45, w: 45, h: 32, d: 90 }
   ];
-  for (let r = 0; r < ridges.length; r++) {
-    const rd = ridges[r];
-    const ridge = MeshBuilder.CreateBox(`ridge${r}`, { width: rd.w, height: rd.h, depth: rd.d }, scene);
-    ridge.position = new Vector3(rd.x, rd.y, rd.z);
-    ridge.material = ridgeMat;
-    ridge.isPickable = false;
-    ridge.checkCollisions = false;
+  for (let r = 0; r < rollingHills.length; r++) {
+    const rh = rollingHills[r];
+    // Tapered hill shape: cylinder with smaller top
+    const hill = MeshBuilder.CreateCylinder(`hill${r}`, {
+      height: rh.h,
+      diameterBottom: Math.max(rh.w, rh.d),
+      diameterTop: Math.max(rh.w, rh.d) * 0.35,
+      tessellation: 16
+    }, scene);
+    hill.position = new Vector3(rh.x, rh.y, rh.z);
+    hill.material = ridgeMat;
+    hill.isPickable = false;
+    hill.checkCollisions = false;
   }
 
   // Stylized clouds
