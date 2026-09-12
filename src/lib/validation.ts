@@ -1,5 +1,7 @@
 // Form & input validation utilities shared by the store, modals, and settings.
 
+import { normalizeCountryCode } from './countries';
+
 export const EVENT_TITLE_MAX_LENGTH = 200;
 export const SETTINGS_BLUR_MIN = 0;
 export const SETTINGS_BLUR_MAX = 20;
@@ -134,6 +136,7 @@ export interface CleanSettings {
   llmProvider?: string;
   llmApiKey?: string;
   llmModel?: string;
+  countryHolidays?: string[];
 }
 
 function toBool(raw: unknown, fallback: boolean): boolean {
@@ -171,6 +174,22 @@ export function sanitizeSettings(input: Record<string, unknown>, fallback: Clean
   if (has('llmProvider')) out.llmProvider = toStr(input.llmProvider, fallback.llmProvider ?? 'none');
   if (has('llmApiKey')) out.llmApiKey = toStr(input.llmApiKey, fallback.llmApiKey ?? '');
   if (has('llmModel')) out.llmModel = toStr(input.llmModel, fallback.llmModel ?? '');
+  if (has('countryHolidays')) {
+    const seen = new Set<string>();
+    const codes: string[] = [];
+    if (Array.isArray(input.countryHolidays)) {
+      for (const raw of input.countryHolidays) {
+        const code = normalizeCountryCode(raw);
+        if (code && !seen.has(code)) {
+          seen.add(code);
+          codes.push(code);
+        }
+        // Safety cap so a hostile/corrupt save can never balloon the list.
+        if (codes.length >= 20) break;
+      }
+    }
+    out.countryHolidays = codes;
+  }
 
   return out;
 }
