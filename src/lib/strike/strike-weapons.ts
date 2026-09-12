@@ -5,14 +5,14 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     id: 'rifle',
     name: 'Type-89 Sakura Rifle',
     category: 'primary',
-    damage: 36,
-    headshotMultiplier: 3.5, // 126 damage = 1-tap headshot
+    damage: 34, // 3-4 body hits to eliminate 100 HP + armor
+    headshotMultiplier: 3.2, // ~109 headshot (one-tap unarmored, ~74 armored)
     fireRateRpm: 600, // 10 rounds/sec = 100ms between shots
     magazineSize: 30,
     reserveAmmo: 90,
     reloadTimeMs: 2100,
-    spreadMoving: 0.045,
-    spreadStill: 0.003,
+    spreadMoving: 0.048,
+    spreadStill: 0.004,
     recoilVertical: 0.024,
     recoilHorizontal: 0.012,
     isAutomatic: true,
@@ -27,14 +27,14 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     id: 'sniper',
     name: 'Aether Railgun (AWP)',
     category: 'primary',
-    damage: 52, // 3 body shots to eliminate 150 HP (52 * 3 = 156)
-    headshotMultiplier: 1.5, // 2 headshots to eliminate 150 HP (52 * 1.5 = 78; 78 * 2 = 156)
-    fireRateRpm: 55, // Responsive bolting
+    damage: 115, // lethal 1-shot kill to chest/stomach on 100 HP, pinpoint accuracy when scoped
+    headshotMultiplier: 4.0, // 460 headshot damage
+    fireRateRpm: 48, // Responsive bolting
     magazineSize: 5,
-    reserveAmmo: 40,
+    reserveAmmo: 30,
     reloadTimeMs: 2200, // Responsive reload
-    spreadMoving: 0.085,
-    spreadStill: 0.0005,
+    spreadMoving: 0.12,
+    spreadStill: 0.0002, // Scoped stationary laser accuracy
     recoilVertical: 0.08,
     recoilHorizontal: 0.02,
     isAutomatic: false,
@@ -49,14 +49,14 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     id: 'pistol',
     name: 'Neo Deagle',
     category: 'secondary',
-    damage: 40, // 4 body shots to eliminate 150 HP (40 * 4 = 160)
-    headshotMultiplier: 2.0, // 2 headshots to eliminate 150 HP (40 * 2.0 = 80; 80 * 2 = 160)
+    damage: 48, // 3 body hits to eliminate 100 HP + armor
+    headshotMultiplier: 3.0, // 144 headshot damage
     fireRateRpm: 320, // 187ms between shots
     magazineSize: 7,
     reserveAmmo: 70,
     reloadTimeMs: 1500,
-    spreadMoving: 0.025,
-    spreadStill: 0.004,
+    spreadMoving: 0.055,
+    spreadStill: 0.012, // Lower accuracy than rifles and snipers; noticeable spread at range
     recoilVertical: 0.035,
     recoilHorizontal: 0.015,
     isAutomatic: false,

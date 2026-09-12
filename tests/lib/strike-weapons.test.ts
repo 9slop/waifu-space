@@ -17,25 +17,25 @@ describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
     expect(WEAPON_CATALOG.knife.category).toBe('melee');
     expect(WEAPON_CATALOG.katana.category).toBe('melee');
 
-    // Rifle headshot should be instant kill (>= 100 dmg)
+    // Rifle headshot should be instant kill on unarmored (>= 100 dmg)
     const rifleHeadshot = WEAPON_CATALOG.rifle.damage * WEAPON_CATALOG.rifle.headshotMultiplier;
     expect(rifleHeadshot).toBeGreaterThanOrEqual(100);
 
-    // Sniper: 52 body dmg (3 shots to kill 150 HP), 78 headshot dmg (2 shots to kill 150 HP)
-    expect(WEAPON_CATALOG.sniper.damage).toBe(52);
-    expect(WEAPON_CATALOG.sniper.damage * WEAPON_CATALOG.sniper.headshotMultiplier).toBe(78);
+    // Sniper (Railgun / AWM): 115 body dmg (1-shot lethal to 100 HP), 460 headshot dmg
+    expect(WEAPON_CATALOG.sniper.damage).toBe(115);
+    expect(WEAPON_CATALOG.sniper.damage * WEAPON_CATALOG.sniper.headshotMultiplier).toBe(460);
     expect(WEAPON_CATALOG.sniper.hasScope).toBe(true);
 
-    // Deagle: 40 body dmg (4 shots to kill 150 HP), 80 headshot dmg (2 shots to kill 150 HP)
-    expect(WEAPON_CATALOG.pistol.damage).toBe(40);
-    expect(WEAPON_CATALOG.pistol.damage * WEAPON_CATALOG.pistol.headshotMultiplier).toBe(80);
+    // Deagle: 48 body dmg (3 shots to kill 100 HP + armor), 144 headshot dmg
+    expect(WEAPON_CATALOG.pistol.damage).toBe(48);
+    expect(WEAPON_CATALOG.pistol.damage * WEAPON_CATALOG.pistol.headshotMultiplier).toBe(144);
 
     // Knife quick and heavy attacks + backstab instant kill (200 damage)
     expect(WEAPON_CATALOG.knife.damage).toBe(35);
     expect(WEAPON_CATALOG.knife.heavyDamage).toBe(65);
     expect(WEAPON_CATALOG.knife.backstabDamage).toBe(200);
     expect(WEAPON_CATALOG.knife.quickBackstabDamage).toBe(70);
-    expect(WEAPON_CATALOG.knife.backstabDamage!).toBeGreaterThanOrEqual(150); // Instant kill for 150 HP waifu
+    expect(WEAPON_CATALOG.knife.backstabDamage!).toBeGreaterThanOrEqual(100); // Instant kill for 100 HP waifu
 
     // Katana: heavier hand weapon with higher damage than knife
     expect(WEAPON_CATALOG.katana.damage).toBeGreaterThan(WEAPON_CATALOG.knife.damage);

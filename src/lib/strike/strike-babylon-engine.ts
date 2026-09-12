@@ -920,7 +920,53 @@ export class StrikeBabylonEngine {
     // Raycast shooting via Babylon.js scene picking (BEFORE applying recoil so aim hits true crosshair center)
     // Melee weapons are capped at close combat range (knife 2.2m, katana 2.8m), firearms at 300m
     const maxRayDist = isMelee ? (def.range || 2.4) : 300;
-    const forwardRay = this.camera.getForwardRay(maxRayDist);
+    let forwardRay = this.camera.getForwardRay(maxRayDist);
+
+    // Authentic CS-style Ballistics Spread Cone (distance & movement & air penalties)
+    // - Snipers: Pinpoint laser accuracy when stationary & scoped (0.0002 rad), very inaccurate unscoped (0.085 rad)
+    // - Rifles: Tight stationary cone (0.004 rad), bloom when moving
+    // - Pistols: Loose stationary cone (0.012 rad) so cross-map shots require close range
+    // - Moving: 2.2x to 3.2x spread multiplier
+    // - In air (jumping/falling): 5.0x extreme spread multiplier
+    if (!isMelee) {
+      const horizSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      let baseSpread = def.spreadStill;
+      if (def.id === 'sniper') {
+        baseSpread = this.isScoped ? def.spreadStill : 0.085;
+      }
+
+      let currentSpread = baseSpread;
+      if (horizSpeed > 0.4) {
+        currentSpread *= (1.0 + horizSpeed * 0.45);
+      }
+      if (!this.onGround) {
+        currentSpread *= 5.0; // In air jumping penalty
+      }
+
+      if (currentSpread > 0.0001) {
+        // Generate uniform random offset on disc of radius currentSpread
+        const r = Math.sqrt(Math.random()) * currentSpread;
+        const theta = Math.random() * Math.PI * 2;
+        const spreadX = r * Math.cos(theta);
+        const spreadY = r * Math.sin(theta);
+
+        // Build orthogonal basis for camera view (forward, right, up)
+        const forward = forwardRay.direction.clone().normalize();
+        let right = Vector3.Cross(forward, Vector3.Up());
+        if (right.lengthSquared() < 0.001) {
+          right = Vector3.Cross(forward, new Vector3(0, 0, 1));
+        }
+        right.normalize();
+        const up = Vector3.Cross(right, forward).normalize();
+
+        const perturbedDir = forward
+          .add(right.scale(spreadX))
+          .add(up.scale(spreadY))
+          .normalize();
+
+        forwardRay = new Ray(forwardRay.origin, perturbedDir, maxRayDist);
+      }
+    }
 
     // Audio & Viewmodel attack animation (melee slash/thrust or gun recoil)
     strikeAudio.playGunfire(this.activeWeaponId, undefined, isHeavy);
