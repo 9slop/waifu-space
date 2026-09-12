@@ -615,6 +615,7 @@ export class StrikeP2PManager {
           av.root.position = Vector3.Lerp(av.root.position, targetPos, 0.55);
         }
         av.root.rotation.y = Number(rawState.yaw) || 0;
+        av.setPitch(Number(rawState.pitch) || 0);
         av.updateAnimation(Number(rawState.animState) || 0, 0.04);
         av.setWeapon(weaponId);
         av.updateNameplate(playerName, hp, 150);

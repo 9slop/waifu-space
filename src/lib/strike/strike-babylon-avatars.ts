@@ -1127,12 +1127,18 @@ export class BabylonAvatarModel {
     mesh.parent = this.weaponMount;
   }
 
-  public triggerAttack(weaponId: WeaponId) {
-    this.attackProgress = 1.0;
-    this.attackWeaponId = weaponId;
+  public setPitch(pitch: number) {
+    const clamped = Math.max(-0.85, Math.min(0.85, pitch));
+    this.headMesh.rotation.x = clamped;
+    if (this.weaponMount) {
+      this.weaponMount.rotation.x = clamped * 0.75;
+    }
   }
 
-  public updateAnimation(animState: number, dt: number) {
+  public updateAnimation(animState: number, dt: number, pitch?: number) {
+    if (pitch !== undefined) {
+      this.setPitch(pitch);
+    }
     if (animState === 1 || animState === 2) {
       // Walking / running: swing legs and arms smoothly
       const freq = animState === 2 ? 10 : 6;
