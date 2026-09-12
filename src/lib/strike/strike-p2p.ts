@@ -523,7 +523,7 @@ export class StrikeP2PManager {
     }
     const av = this.engine.remoteAvatars.get(payload.victimId);
     if (av) {
-      av.root.setEnabled(false);
+      av.setVisible(false);
     }
     this.callbacks.onKillfeedEntry({
       id: `death_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
@@ -600,10 +600,10 @@ export class StrikeP2PManager {
     if (av) {
       if (hp <= 0) {
         wrapper.isDead = true;
-        av.root.setEnabled(false);
+        av.setVisible(false);
       } else {
         wrapper.isDead = false;
-        av.root.setEnabled(true);
+        av.setVisible(true);
         const targetPos = new Vector3(x, y - 1.62, z);
         const dist = Vector3.Distance(av.root.position, targetPos);
         if (dist > 12) {
@@ -675,14 +675,8 @@ export class StrikeP2PManager {
     // If local player was targeted and hit
     if (shoot.targetId === this.myPeerId) {
       const damage = Math.max(1, Math.min(350, Math.round(Number(shoot.damage) || def.damage)));
-      const isHeadshot = !!shoot.isHeadshot;
-
       const attackerName = shoot.shooterName || wrapper.name || 'Enemy';
       this.engine.applyDamage(damage, attackerName);
-
-      if (this.engine.health <= 0) {
-        this.registerPlayerDeath(attackerName);
-      }
     }
   }
 
@@ -818,7 +812,7 @@ export class StrikeP2PManager {
         if (wasAlive && peer.state.health <= 0) {
           peer.isDead = true;
           if (av) {
-            av.root.setEnabled(false);
+            av.setVisible(false);
           }
           this.localKills++;
           this.localCurrentStreak++;

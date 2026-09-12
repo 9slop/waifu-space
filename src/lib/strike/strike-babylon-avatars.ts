@@ -652,6 +652,15 @@ export class BabylonAvatarModel {
     this.nameplateTexture.update();
   }
 
+  public setVisible(visible: boolean) {
+    this.root.setEnabled(visible);
+    const meshes = this.root.getChildMeshes(false);
+    for (const m of meshes) {
+      m.isVisible = visible;
+      m.isPickable = visible;
+    }
+  }
+
   public dispose() {
     this.nameplateTexture?.dispose();
     this.root.dispose();

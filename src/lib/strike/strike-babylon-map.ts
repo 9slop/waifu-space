@@ -143,25 +143,26 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     // Main plaster body
     addBox(`${prefix}_Body`, w, h, d, new Vector3(pos.x, pos.y + h / 2, pos.z), plasterMat);
 
-    // Corner timber columns
-    const pw = 0.5;
-    const hw = w / 2 - pw / 2;
-    const hd = d / 2 - pw / 2;
-    addBox(`${prefix}_PFL`, pw, h, pw, new Vector3(pos.x - hw, pos.y + h / 2, pos.z + hd), timberMat);
-    addBox(`${prefix}_PFR`, pw, h, pw, new Vector3(pos.x + hw, pos.y + h / 2, pos.z + hd), timberMat);
-    addBox(`${prefix}_PBL`, pw, h, pw, new Vector3(pos.x - hw, pos.y + h / 2, pos.z - hd), timberMat);
-    addBox(`${prefix}_PBR`, pw, h, pw, new Vector3(pos.x + hw, pos.y + h / 2, pos.z - hd), timberMat);
+    // Corner timber columns (proud of plaster wall by 0.08m on all sides to eliminate z-fighting / texture flickering)
+    const pw = 0.62;
+    const colHalf = pw / 2;
+    const offX = w / 2 - colHalf + 0.06;
+    const offZ = d / 2 - colHalf + 0.06;
+    addBox(`${prefix}_PFL`, pw, h, pw, new Vector3(pos.x - offX, pos.y + h / 2, pos.z + offZ), timberMat, false);
+    addBox(`${prefix}_PFR`, pw, h, pw, new Vector3(pos.x + offX, pos.y + h / 2, pos.z + offZ), timberMat, false);
+    addBox(`${prefix}_PBL`, pw, h, pw, new Vector3(pos.x - offX, pos.y + h / 2, pos.z - offZ), timberMat, false);
+    addBox(`${prefix}_PBR`, pw, h, pw, new Vector3(pos.x + offX, pos.y + h / 2, pos.z - offZ), timberMat, false);
 
-    // Mid-level timber band
-    addBox(`${prefix}_BmF`, w + 0.1, 0.3, 0.35, new Vector3(pos.x, pos.y + h * 0.52, pos.z + hd), timberMat);
-    addBox(`${prefix}_BmB`, w + 0.1, 0.3, 0.35, new Vector3(pos.x, pos.y + h * 0.52, pos.z - hd), timberMat);
+    // Mid-level timber band (proud of plaster wall by 0.08m)
+    addBox(`${prefix}_BmF`, w + 0.2, 0.35, 0.45, new Vector3(pos.x, pos.y + h * 0.52, pos.z + d / 2 + 0.05), timberMat, false);
+    addBox(`${prefix}_BmB`, w + 0.2, 0.35, 0.45, new Vector3(pos.x, pos.y + h * 0.52, pos.z - d / 2 - 0.05), timberMat, false);
 
-    // Shoji screens
+    // Shoji screens (proud of front wall)
     if (hasShoji) {
       addBox(`${prefix}_ShF`, Math.min(w * 0.6, 5), h * 0.3, 0.12,
-        new Vector3(pos.x, pos.y + h * 0.25, pos.z + hd + 0.12), shojiMat, false);
+        new Vector3(pos.x, pos.y + h * 0.25, pos.z + d / 2 + 0.08), shojiMat, false);
       addBox(`${prefix}_ShU`, Math.min(w * 0.5, 4), h * 0.22, 0.12,
-        new Vector3(pos.x, pos.y + h * 0.75, pos.z + hd + 0.12), shojiMat, false);
+        new Vector3(pos.x, pos.y + h * 0.75, pos.z + d / 2 + 0.08), shojiMat, false);
     }
 
     // Kawara tile gabled roof (overhanging eaves)
@@ -460,11 +461,11 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
 
   // --- Tea House main building (anchor structure, no entry) ---
   addBox('teaBody', 10, 5, 8, new Vector3(-33, 2.5, -29), plasterMat);
-  // Tea house timber frame
-  addBox('teaPFL', 0.5, 5, 0.5, new Vector3(-37.5, 2.5, -25.5), timberMat);
-  addBox('teaPFR', 0.5, 5, 0.5, new Vector3(-28.5, 2.5, -25.5), timberMat);
-  addBox('teaPBL', 0.5, 5, 0.5, new Vector3(-37.5, 2.5, -32.5), timberMat);
-  addBox('teaPBR', 0.5, 5, 0.5, new Vector3(-28.5, 2.5, -32.5), timberMat);
+  // Tea house timber frame (proud of walls to eliminate flickering)
+  addBox('teaPFL', 0.62, 5, 0.62, new Vector3(-38.04, 2.5, -24.96), timberMat, false);
+  addBox('teaPFR', 0.62, 5, 0.62, new Vector3(-27.96, 2.5, -24.96), timberMat, false);
+  addBox('teaPBL', 0.62, 5, 0.62, new Vector3(-38.04, 2.5, -33.04), timberMat, false);
+  addBox('teaPBR', 0.62, 5, 0.62, new Vector3(-27.96, 2.5, -33.04), timberMat, false);
   // Tea house roof
   addBox('teaRoof', 12.5, 0.55, 10.5, new Vector3(-33, 5.3, -29), tileRoofMat);
   addBox('teaRoofPk', 8, 0.5, 7, new Vector3(-33, 5.85, -29), tileRoofMat);
@@ -702,41 +703,42 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // 13. ZONE 10: LIGHTING
+  // 13. ZONE 10: LIGHTING & SUN POSITION
   // ═══════════════════════════════════════════════════════════════════
 
-  // Hemispheric sky fill (soft ambient without blowing out diffuse colors)
-  const hemiLight = new HemisphericLight('hemi', new Vector3(0, 1, 0), scene);
-  hemiLight.diffuse = new Color3(0.85, 0.90, 0.95);
-  hemiLight.groundColor = new Color3(0.50, 0.52, 0.50);
-  hemiLight.intensity = 0.85;
+  // Primary warm Japanese afternoon Sun: distinct angled light source
+  // Placed high in the south-west sky angled downwards northeast
+  const sunLight = new DirectionalLight('sun', new Vector3(0.55, -0.82, 0.45), scene);
+  sunLight.position = new Vector3(-60, 85, -60);
+  sunLight.diffuse = new Color3(1.15, 1.08, 0.95);
+  sunLight.specular = new Color3(0.3, 0.28, 0.24);
+  sunLight.intensity = 1.05;
 
-  // Primary warm sunlight (high southwest directional light)
-  const sunLight = new DirectionalLight('sun', new Vector3(0.45, -1, 0.45), scene);
-  sunLight.position = new Vector3(-35, 55, -35);
-  sunLight.diffuse = new Color3(0.95, 0.92, 0.85);
-  sunLight.specular = new Color3(0.25, 0.25, 0.25);
-  sunLight.intensity = 0.85;
+  // Soft atmospheric skylight fill (gentle cool blue from above, realistic ambient)
+  const hemiLight = new HemisphericLight('hemi', new Vector3(0.1, 1, 0.1), scene);
+  hemiLight.diffuse = new Color3(0.48, 0.58, 0.72);      // cool sky ambient
+  hemiLight.groundColor = new Color3(0.24, 0.25, 0.24);  // dark warm ground bounce
+  hemiLight.intensity = 0.55;
 
-  // Cool sky fill (gentle bounce from opposite side)
-  const fillLight = new DirectionalLight('fill', new Vector3(-0.45, -0.85, -0.45), scene);
-  fillLight.position = new Vector3(35, 45, 35);
-  fillLight.diffuse = new Color3(0.70, 0.75, 0.85);
-  fillLight.intensity = 0.45;
+  // Secondary soft bounce fill from north-east
+  const fillLight = new DirectionalLight('fill', new Vector3(-0.55, -0.65, -0.45), scene);
+  fillLight.position = new Vector3(60, 65, 60);
+  fillLight.diffuse = new Color3(0.35, 0.42, 0.52);
+  fillLight.intensity = 0.30;
 
-  // Tactical focal point lights (warm, subtle atmospheric glow)
+  // Tactical focal point lights (warm lantern illumination for key sites)
   const focalLights = [
-    new Vector3(-27, 3.0, -29),   // A-Site Tea House Courtyard
-    new Vector3(27, 3.0, -29),    // B-Site Temple Gate
-    new Vector3(0, 3.0, 0),       // Mid Torii center
-    new Vector3(40, 3.0, 0)       // Secret Passage midpoint
+    new Vector3(-27, 2.5, -29),   // A-Site Tea House Courtyard
+    new Vector3(27, 2.5, -29),    // B-Site Temple Gate
+    new Vector3(0, 2.8, 0),       // Mid Torii center
+    new Vector3(40, 2.5, 0)       // Secret Passage midpoint
   ];
   for (let fl = 0; fl < focalLights.length; fl++) {
     const pl = new PointLight(`focal${fl}`, focalLights[fl], scene);
-    pl.diffuse = new Color3(1.0, 0.88, 0.68);
-    pl.specular = new Color3(0.15, 0.12, 0.08);
-    pl.intensity = 0.7;
-    pl.range = 22;
+    pl.diffuse = new Color3(1.0, 0.85, 0.58);
+    pl.specular = new Color3(0.12, 0.10, 0.06);
+    pl.intensity = 0.75;
+    pl.range = 24;
   }
 
   // ═══════════════════════════════════════════════════════════════════

@@ -369,9 +369,9 @@ export class StrikeBabylonEngine {
     this.viewmodel.root.setEnabled(true);
     this.callbacks.onScopeChange?.(false);
 
-    // 1-second god mode upon spawn
+    // 2-second god mode upon spawn (CS2 deathmatch style spawn protection)
     this.isInvulnerable = true;
-    this.invulnerableUntil = performance.now() + 1000;
+    this.invulnerableUntil = performance.now() + 2000;
 
     // Replenish ammo
     this.ammoMag = { rifle: 30, sniper: 5, pistol: 7, knife: 1 };
