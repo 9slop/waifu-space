@@ -548,6 +548,28 @@ describe('Global Store & RPG State (store.ts)', () => {
       expect(state.rpg.showcaseItems).toEqual(['kimono']);
     });
 
+    it('restores the selected holiday countries from cloud settings_data', async () => {
+      setState('user', { id: 'u1', username: 'CloudSettings', token: 'ws_cloud' });
+      setState('settings', 'countryHolidays', []);
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          progress: { coins: 200, settings_data: { theme: 'neon', countryHolidays: ['JP', 'GB', 'ZZ', 'de'] } },
+          inventory: [],
+          showcaseItems: []
+        })
+      }));
+
+      await loadCloudProgress('ws_cloud');
+
+      // The same sanitizer is used everywhere, so codes are uppercased and
+      // invalid entries are dropped before they reach the local state.
+      expect(state.settings.theme).toBe('neon');
+      expect(state.settings.countryHolidays).toEqual(['JP', 'GB', 'ZZ', 'DE']);
+    });
+
     it('adopts the server calendar list when the cloud has calendar items', async () => {
       setState('user', { id: 'u1', username: 'CloudCal', token: 'ws_cloud' });
       setState('calendar', 'events', []);
