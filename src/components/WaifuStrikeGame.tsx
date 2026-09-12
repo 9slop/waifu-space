@@ -282,7 +282,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       {/* Top Info Banner */}
       <div class="strike-top-banner" onPointerDown={(e) => e.stopPropagation()}>
         <span class="strike-room-tag">⚡ {t('strike.modeTitle') || 'Waifu Strike DM'}</span>
-        <span>⛩️ {t('strike.mapName') || 'Cyber Shrine'}</span>
+        <span>⛩️ {t('strike.mapName') || 'Kyoto'}</span>
         <span class="strike-weather-tag" style={{
           color: weather() === 'rain' ? '#70a1ff' : weather() === 'snow' ? '#ffffff' : '#ff9ff3',
           background: 'rgba(255, 255, 255, 0.08)',

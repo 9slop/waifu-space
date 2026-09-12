@@ -115,14 +115,14 @@ describe('i18n Localization Engine', () => {
     setLanguage('en');
     expect(t('strike.title')).toBe('Waifu Strike');
     expect(t('strike.modeTitle')).toBe('Waifu Strike DM');
-    expect(t('strike.mapName')).toBe('Cyber Shrine');
+    expect(t('strike.mapName')).toBe('Kyoto');
     expect(t('strike.weapons.rifle')).toBe('Type-89 Sakura Rifle');
     expect(t('strike.medals.headshot')).toBe('HEADSHOT!');
 
     setLanguage('ja');
     expect(t('strike.title')).toBe('ワイフストライク (Waifu Strike)');
     expect(t('strike.modeTitle')).toBe('ワイフストライク DM');
-    expect(t('strike.mapName')).toBe('電脳神社 (Cyber Shrine)');
+    expect(t('strike.mapName')).toBe('京都 (Kyoto)');
     expect(t('strike.weapons.rifle')).toBe('八九式サクラライフル');
     expect(t('strike.medals.headshot')).toBe('ヘッドショット！');
   });

@@ -550,10 +550,10 @@ export class StrikeP2PManager {
       }
     }
 
-    // Boundary validation (Map is 84x84m from -42 to 42)
-    const x = Math.max(-41.5, Math.min(41.5, Number(rawState.x) || 0));
-    const y = Math.max(-1.0, Math.min(25.0, Number(rawState.y) || 1.62));
-    const z = Math.max(-41.5, Math.min(41.5, Number(rawState.z) || 0));
+    // Boundary validation (Kyoto tactical map is 104x104m from -52 to 52)
+    const x = Math.max(-51.5, Math.min(51.5, Number(rawState.x) || 0));
+    const y = Math.max(-1.0, Math.min(30.0, Number(rawState.y) || 1.62));
+    const z = Math.max(-51.5, Math.min(51.5, Number(rawState.z) || 0));
 
     wrapper.lastPacketTime = now;
     const playerName = String(rawState.name || wrapper.name || 'Player').slice(0, 24);

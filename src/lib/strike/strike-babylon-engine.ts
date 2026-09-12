@@ -18,7 +18,7 @@ import {
   StrikeMatchStats
 } from './strike-types';
 import { WEAPON_CATALOG, strikeAudio } from './strike-weapons';
-import { createCyberShrineMap, BabylonMapData } from './strike-babylon-map';
+import { createKyotoMap, BabylonMapData } from './strike-babylon-map';
 import { BabylonViewmodel, BabylonAvatarModel } from './strike-babylon-avatars';
 
 export interface StrikeBabylonCallbacks {
@@ -145,8 +145,8 @@ export class StrikeBabylonEngine {
     this.playerCollider.ellipsoid = new Vector3(0.42, 0.85, 0.42);
     this.playerCollider.ellipsoidOffset = new Vector3(0, 0, 0);
 
-    // 3. Build Cyber Shrine Map
-    this.mapData = createCyberShrineMap(this.scene);
+    // 3. Build Kyoto Tactical Map (104x104m)
+    this.mapData = createKyotoMap(this.scene);
 
     // 4. Viewmodel
     this.viewmodel = new BabylonViewmodel(this.scene, this.camera);
