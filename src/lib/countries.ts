@@ -36,9 +36,10 @@ export function sanitizeCountryCode(raw: unknown): string | null {
 export function countryFlagEmoji(code: string): string {
   const normalized = (code || '').trim().toUpperCase();
   if (!COUNTRY_CODE_RE.test(normalized)) return '🌍';
+  const display = normalized === 'UK' ? 'GB' : normalized; // unicode alias
   const base = 0x1f1e6; // REGIONAL INDICATOR SYMBOL LETTER A
   const a = 'A'.charCodeAt(0);
-  const upper = (c: string) => base + normalized.charCodeAt(c) - a;
+  const upper = (i: number) => base + display.charCodeAt(i) - a;
   return String.fromCodePoint(upper(0), upper(1));
 }
 
@@ -46,8 +47,9 @@ export function countryFlagEmoji(code: string): string {
 export function isValidHolidayDate(raw: unknown): raw is string {
   if (typeof raw !== 'string' || !ISO_DATE_RE.test(raw)) return false;
   const [y, m, d] = raw.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+  // Parse as strict UTC so years < 100 (proleptic Gregorian) behave correctly.
+  const date = new Date(`${raw}T00:00:00.000Z`);
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
 /** Converts one holiday entry into an all-day calendar event (or null if invalid). */
@@ -88,12 +90,15 @@ export function buildHolidayEvents(entries: HolidayEntry[]): CalendarEventItem[]
   return out;
 }
 
-/** Normalizes a raw catalog item ({ key, value }) from the Nager "AvailableCountries" feed. */
+/** Normalizes a raw catalog item ({ key, value }) or the proxy shape ({ code, name }). */
 export function sanitizeCountry(raw: unknown): CountryInfo | null {
   if (!raw || typeof raw !== 'object') return null;
   const obj = raw as Record<string, unknown>;
-  const code = normalizeCountryCode(obj.key ?? obj.countryCode);
-  const name = typeof obj.value === 'string' && obj.value.trim() ? obj.value.trim() : null;
+  const code = normalizeCountryCode(obj.key ?? obj.countryCode ?? obj.code);
+  const name =
+    typeof (obj.value ?? obj.name) === 'string' && String(obj.value ?? obj.name).trim()
+      ? String(obj.value ?? obj.name).trim()
+      : null;
   if (!code || !name) return null;
   return { code, name };
 }

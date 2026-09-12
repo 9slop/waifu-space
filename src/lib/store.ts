@@ -1141,7 +1141,7 @@ export const [holidayError, setHolidayError] = createSignal(false);
  */
 export async function fetchHolidaysForCountry(countryCode: string, year: number): Promise<HolidayEntry[]> {
   const code = sanitizeCountryCode(countryCode);
-  if (!code || !Number.isInteger(year)) return [];
+  if (!code || !Number.isInteger(year) || year < 1900 || year > 2100) return [];
   const key = `${code}:${year}`;
   const cached = holidayCache.get(key);
   if (cached) return cached;
@@ -1167,10 +1167,14 @@ export async function fetchCountryCatalog(): Promise<CountryInfo[]> {
     const res = await fetch('/api/holidays?action=countries');
     if (!res.ok) return [];
     const data = await res.json();
-    countryCatalogCache = (Array.isArray(data?.countries) ? data.countries : [])
-      .map(sanitizeCountry)
-      .filter((c: CountryInfo | null): c is CountryInfo => c !== null);
-    return countryCatalogCache;
+    const raw: unknown = data?.countries;
+    const countries = Array.isArray(raw)
+      ? (raw as unknown[])
+          .map(sanitizeCountry)
+          .filter((c: CountryInfo | null): c is CountryInfo => c !== null)
+      : [];
+    countryCatalogCache = countries;
+    return countries;
   } catch {
     return [];
   }

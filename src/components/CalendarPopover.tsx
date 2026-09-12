@@ -21,6 +21,7 @@ export function CalendarPopover(props: {
       {ev => {
         const s = () => new Date(ev().start);
         const e = () => new Date(ev().end || ev().start);
+        const holiday = () => ev()._holiday;
 
         const dateStr = () =>
           s().toLocaleDateString(getLocale(), { weekday: 'short', month: 'short', day: 'numeric' });
@@ -106,8 +107,8 @@ export function CalendarPopover(props: {
                 class={`popover-badge ${ev()._holiday ? 'popover-badge-holiday' : ''}`}
                 style={{ background: ev().color || '#ff6584' }}
               >
-                {ev()._holiday
-                  ? `${countryFlagEmoji(ev()._holiday.countryCode)} ${ev()._holiday.countryCode} · ${t('calendar.holidays.badge')}`
+                {holiday()
+                  ? `${countryFlagEmoji(holiday()!.countryCode)} ${holiday()!.countryCode} · ${t('calendar.holidays.badge')}`
                   : ev().type.toUpperCase()}
                 {ev().completed ? ` (${t('calendar.popover.completed')})` : ''}
               </div>

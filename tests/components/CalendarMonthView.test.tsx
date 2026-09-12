@@ -138,4 +138,64 @@ describe('CalendarMonthView Component (CalendarMonthView.tsx)', () => {
     setEvents([]);
     expect(screen.queryByText('Anime Fest 2026')).not.toBeInTheDocument();
   });
+
+  it('renders read-only country holidays as flagged, non-draggable all-day pills', () => {
+    const holiday: CalendarEventItem = {
+      id: 'holiday-US-2026-10-15',
+      title: 'Holiday Test',
+      start: new Date(2026, 9, 15, 0, 0, 0).toISOString(),
+      end: new Date(2026, 9, 16, 0, 0, 0).toISOString(),
+      allDay: true,
+      type: 'event',
+      completed: false,
+      color: '#a29bfe',
+      _holiday: { countryCode: 'US' }
+    };
+
+    const { container } = render(() => (
+      <CalendarMonthView
+        currentDate={mockDate}
+        events={[holiday]}
+        onSelectDay={() => {}}
+        onOpenEvent={() => {}}
+      />
+    ));
+
+    expect(screen.getByText('Holiday Test')).toBeInTheDocument();
+    expect(container.querySelector('.pill-holiday-flag')).not.toBeNull();
+
+    const pill = container.querySelector('.event-pill') as HTMLElement;
+    expect(pill.classList.contains('holiday')).toBe(true);
+    // Holidays come from an external feed: they must never be draggable.
+    expect(pill.getAttribute('draggable')).toBe('false');
+  });
+
+  it('opens the popover handler (read-only preview) when a holiday pill is clicked', () => {
+    const onOpenEvent = vi.fn();
+    const holiday: CalendarEventItem = {
+      id: 'holiday-US-2026-10-15',
+      title: 'Clickable Holiday',
+      start: new Date(2026, 9, 15, 0, 0, 0).toISOString(),
+      end: new Date(2026, 9, 16, 0, 0, 0).toISOString(),
+      allDay: true,
+      type: 'event',
+      completed: false,
+      color: '#a29bfe',
+      _holiday: { countryCode: 'US' }
+    };
+
+    render(() => (
+      <CalendarMonthView
+        currentDate={mockDate}
+        events={[holiday]}
+        onSelectDay={() => {}}
+        onOpenEvent={onOpenEvent}
+      />
+    ));
+
+    fireEvent.click(screen.getByText('Clickable Holiday'));
+    expect(onOpenEvent).toHaveBeenCalledTimes(1);
+    expect(onOpenEvent.mock.calls[0][0].id).toBe('holiday-US-2026-10-15');
+    expect(onOpenEvent.mock.calls[0][0]._holiday).toEqual({ countryCode: 'US' });
+  });
 });
