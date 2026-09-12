@@ -32,29 +32,39 @@ export class StrikeWeatherManager {
   private sakuraMat: StandardMaterial;
   private rainMat: StandardMaterial;
   private snowMat: StandardMaterial;
+  private puddleMat: StandardMaterial;
+  private puddles: AbstractMesh[] = [];
 
   constructor(scene: Scene, camera: Camera, onWeatherChange?: (weather: WeatherType) => void) {
     this.scene = scene;
     this.camera = camera;
     this.onWeatherChange = onWeatherChange;
 
-    // Sakura Petal Material (Translucent soft pink)
+    // Sakura Petal Material (Translucent soft pink, low emissive so petals don't bloom-block the screen)
     this.sakuraMat = new StandardMaterial('weatherSakuraMat', scene);
     this.sakuraMat.diffuseColor = new Color3(1.0, 0.65, 0.8);
-    this.sakuraMat.emissiveColor = new Color3(0.6, 0.25, 0.4);
+    this.sakuraMat.emissiveColor = new Color3(0.18, 0.08, 0.12);
     this.sakuraMat.alpha = 0.85;
 
-    // Raindrop Streak Material (Translucent sky cyan)
+    // Raindrop Streak Material (Translucent sky cyan, low emissive)
     this.rainMat = new StandardMaterial('weatherRainMat', scene);
     this.rainMat.diffuseColor = new Color3(0.7, 0.85, 1.0);
-    this.rainMat.emissiveColor = new Color3(0.3, 0.5, 0.8);
+    this.rainMat.emissiveColor = new Color3(0.08, 0.14, 0.22);
     this.rainMat.alpha = 0.65;
 
-    // Snowflake Material (Fluffy white)
+    // Snowflake Material (Fluffy white, low emissive to avoid snow blowout)
     this.snowMat = new StandardMaterial('weatherSnowMat', scene);
     this.snowMat.diffuseColor = new Color3(1.0, 1.0, 1.0);
-    this.snowMat.emissiveColor = new Color3(0.8, 0.85, 0.95);
+    this.snowMat.emissiveColor = new Color3(0.12, 0.13, 0.15);
     this.snowMat.alpha = 0.9;
+
+    // Rain puddle Material (dark wet tile with a sheen)
+    this.puddleMat = new StandardMaterial('weatherPuddleMat', scene);
+    this.puddleMat.diffuseColor = new Color3(0.11, 0.15, 0.21);
+    this.puddleMat.specularColor = new Color3(0.55, 0.65, 0.75);
+    this.puddleMat.specularPower = 90;
+    this.puddleMat.emissiveColor = new Color3(0.03, 0.045, 0.07);
+    this.puddleMat.alpha = 0.42;
 
     // Synchronize initial weather based on 15-minute epoch cycle
     this.updateWeatherFromEpoch();
@@ -93,10 +103,33 @@ export class StrikeWeatherManager {
       p.mesh.dispose();
     }
     this.particles = [];
+    for (const pd of this.puddles) {
+      pd.dispose();
+    }
+    this.puddles = [];
+  }
+
+  /** Flat wet patches that appear across the courtyard while it rains */
+  private buildPuddles() {
+    for (let i = 0; i < 16; i++) {
+      const radius = 1.3 + Math.random() * 2.2;
+      const disc = MeshBuilder.CreateDisc(`puddle_${i}`, { radius, tessellation: 18 }, this.scene);
+      disc.position = new Vector3((Math.random() - 0.5) * 42, 0.02, (Math.random() - 0.5) * 42);
+      disc.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI * 2);
+      disc.material = this.puddleMat;
+      disc.isPickable = false;
+      disc.checkCollisions = false;
+      this.puddles.push(disc);
+    }
   }
 
   private buildParticles(weather: WeatherType) {
     this.clearParticles();
+
+    if (weather === 'rain') {
+      // Wet ground puddles (only while it is raining)
+      this.buildPuddles();
+    }
 
     const camPos = this.camera.position;
     const count = weather === 'rain' ? 220 : weather === 'snow' ? 160 : 70;
@@ -206,5 +239,6 @@ export class StrikeWeatherManager {
     this.sakuraMat.dispose();
     this.rainMat.dispose();
     this.snowMat.dispose();
+    this.puddleMat.dispose();
   }
 }

@@ -622,6 +622,14 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   lanternGlowMat.disableLighting = true;
   lanternGlowMat.maxSimultaneousLights = 4;
 
+  // Warm lit building window pane (kura storehouses & tea house)
+  const windowGlowMat = new StandardMaterial('matWindowGlow', scene);
+  windowGlowMat.diffuseColor = new Color3(1.0, 0.95, 0.72);
+  windowGlowMat.emissiveColor = new Color3(1.35, 1.1, 0.5);
+  windowGlowMat.specularColor = new Color3(0, 0, 0);
+  windowGlowMat.disableLighting = true;
+  windowGlowMat.maxSimultaneousLights = 4;
+
   // Sakura tree foliage (flowering cherry blossom clusters)
   const sakuraMat = createTexturedMat(
     'matSakura',
@@ -1072,8 +1080,15 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     // Horizontal timber beam trim
     addBox(`${prefix}_Bm`, w + 0.2, 0.4, d + 0.2, new Vector3(pos.x, pos.y + h * 0.65, pos.z), timberMat, false);
 
-    // Iron-barred storehouse window (proud of wall)
-    addBox(`${prefix}_Win`, 2.0, 1.2, 0.15, new Vector3(pos.x, pos.y + h * 0.65, pos.z + d / 2 + 0.08), darkWoodMat, false);
+    // Iron-barred storehouse window glowing warm from within
+    addBox(`${prefix}_Win`, 2.0, 1.2, 0.15, new Vector3(pos.x, pos.y + h * 0.65, pos.z + d / 2 + 0.08), windowGlowMat, false);
+
+    // Warm window light (cycled with lanterns by updateDayNightCycle)
+    const winPL = new PointLight(`${prefix}_WinPL`, new Vector3(pos.x, pos.y + h * 0.65, pos.z + d / 2 + 0.6), scene);
+    winPL.diffuse = new Color3(1.0, 0.85, 0.5);
+    winPL.specular = new Color3(0.4, 0.3, 0.15);
+    winPL.range = 9;
+    lanternLights.push(winPL);
 
     // Heavy kawara tile roof
     const oh = 1.2;
@@ -1352,6 +1367,20 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   addBox('teaRoofPk', 8, 0.5, 7, new Vector3(-33, 5.85, -29), tileRoofMat);
   // Tea house south veranda (elevated peek position, height 0.4m)
   addBox('teaVeranda', 10, 0.4, 2, new Vector3(-33, 0.6, -24.5), woodDeckMat);
+
+  // Tea house lit windows spilling warm light into the arena
+  addBox('teaWinL', 1.9, 1.6, 0.12, new Vector3(-36, 3.3, -24.88), windowGlowMat, false);
+  addBox('teaWinR', 1.9, 1.6, 0.12, new Vector3(-30, 3.3, -24.88), windowGlowMat, false);
+  const teaWinPL1 = new PointLight('teaWinPL1', new Vector3(-36, 2.8, -24.2), scene);
+  teaWinPL1.diffuse = new Color3(1.0, 0.85, 0.5);
+  teaWinPL1.specular = new Color3(0.4, 0.3, 0.15);
+  teaWinPL1.range = 8;
+  lanternLights.push(teaWinPL1);
+  const teaWinPL2 = new PointLight('teaWinPL2', new Vector3(-30, 2.8, -24.2), scene);
+  teaWinPL2.diffuse = new Color3(1.0, 0.85, 0.5);
+  teaWinPL2.specular = new Color3(0.4, 0.3, 0.15);
+  teaWinPL2.range = 8;
+  lanternLights.push(teaWinPL2);
 
   // --- Waist-high stone planter (default position cover) ---
   addBox('aPlanter', 3.5, 1.25, 1.2, new Vector3(-23, 0.825, -29), stoneMat);
@@ -1863,8 +1892,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
         skyMat.emissiveColor = new Color3(1.0, 1.0, 1.0);
       }
 
-      // Lanterns remain luminous during daytime with warm ambient glow
-      const lanternIntensity = Math.max(0.65, 1.15 - sunElevation * 0.4);
+      // Lanterns & lit windows remain luminous during daytime with warm ambient glow
+      const lanternIntensity = Math.max(1.0, 1.55 - sunElevation * 0.4);
       lanternLights.forEach((l) => (l.intensity = lanternIntensity));
     } else {
       // Nighttime (Directional light becomes cool moonlight)
@@ -1884,8 +1913,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
       scene.clearColor = new Color4(0.05, 0.07, 0.14, 1.0);
       skyMat.emissiveColor = new Color3(0.12, 0.15, 0.28);
 
-      // Lanterns shine brightly at night!
-      lanternLights.forEach((l) => (l.intensity = 1.25));
+      // Lanterns & lit windows shine brightly at night!
+      lanternLights.forEach((l) => (l.intensity = 1.7));
     }
   };
 

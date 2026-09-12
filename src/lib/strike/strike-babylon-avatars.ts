@@ -1320,7 +1320,8 @@ export class BabylonAvatarModel {
     this.nameplateTexture = new DynamicTexture(`nameplateTex_${id}`, { width: 256, height: 64 }, scene, false);
     nameplateMat.diffuseTexture = this.nameplateTexture;
     nameplateMat.specularColor = new Color3(0, 0, 0);
-    nameplateMat.emissiveColor = new Color3(1, 1, 1);
+    nameplateMat.emissiveColor = new Color3(0, 0, 0);
+    nameplateMat.disableLighting = true;
     nameplateMat.backFaceCulling = false;
 
     this.nameplateMesh = MeshBuilder.CreatePlane(`nameplate_${id}`, { width: 1.4, height: 0.35 }, scene);
