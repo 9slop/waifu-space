@@ -117,6 +117,7 @@ describe('Global Store & RPG State (store.ts)', () => {
         if (c.category === 'outfit') unlockCosmetic('outfits', c.id);
         else if (c.category === 'accessory') unlockCosmetic('accessories', c.id);
         else if (c.category === 'hairstyle') unlockCosmetic('hairstyles', c.id);
+        else unlockCosmetic('avatar_frames', c.id);
       });
 
       const result = openLootbox('royal');
