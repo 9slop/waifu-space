@@ -463,7 +463,7 @@ describe('Supabase-backed API routes (regression guard)', () => {
               claimedAffectionMilestones: [2, 3],
               showcaseItems: ['kimono', 'flower_pin']
             },
-            settings: { theme: 'tokyo' }
+            settings: { theme: 'tokyo', showCulturalHolidays: true, countryHolidays: ['JP', 'GB'] }
           })
         })
       );
@@ -479,7 +479,7 @@ describe('Supabase-backed API routes (regression guard)', () => {
       expect(progress.waifu_name).toBe('Neo');
       expect(progress.waifu_personality).toBe('kuudere');
       expect(progress.claimed_milestones).toEqual([2, 3]);
-      expect(progress.settings_data).toEqual({ theme: 'tokyo' });
+      expect(progress.settings_data).toEqual({ theme: 'tokyo', showCulturalHolidays: true, countryHolidays: ['JP', 'GB'] });
 
       const showcase = mocks.state.db.user_showcase.filter(s => s.user_id === userId);
       expect(showcase.map(s => s.item_id)).toEqual(['kimono', 'flower_pin']);

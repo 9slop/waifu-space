@@ -154,6 +154,7 @@
       "prev": "前へ",
       "next": "次へ",
       "searchPlaceholder": "予定やタスクを検索...",
+      "countryHolidaysTooltip": "祝日",
       "waifuBriefing": "今日のブリーフィング",
       "waifuBriefingTooltip": "今日の予定について確認する",
       "exportIcs": ".icsカレンダーをエクスポート",
@@ -226,6 +227,20 @@
       "cancel": "キャンセル",
       "confirm": "削除",
       "deleteSeries": "シリーズを削除"
+    },
+    "holidays": {
+      "title": "各国の祝日",
+      "subtitle": "選択した国の祝日を終日イベントとしてカレンダーに表示します。",
+      "culturalLabel": "文化イベント（ハロウィン、大晦日など）",
+      "culturalDesc": "祝日ではない世界の文化イベントも、すべての端末で表示します。",
+      "culturalBadge": "文化",
+      "searchPlaceholder": "国を検索...",
+      "loading": "読み込み中...",
+      "loadError": "国のリストを読み込めませんでした。後でもう一度お試しください。",
+      "noResults": "検索に一致する国がありません。",
+      "clear": "すべて解除",
+      "sourceNote": "データ提供: Nager.Date · 読み取り専用",
+      "badge": "祝日"
     },
     "weekdays": {
       "sun": "日",

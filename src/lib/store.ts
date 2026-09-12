@@ -16,6 +16,14 @@ import { callLLM } from './llm';
 import { parseIntent, hasIntent, DialogIntent, matchesKeywordOrPhrase } from './intents';
 import { validateCalendarEventInput, sanitizeSettings, clampNumber } from './validation';
 import { sanitizeRawState, sanitizeEvent, sanitizeOccurrenceOverride } from './validate';
+import {
+  sanitizeCountry,
+  sanitizeHolidayEntry,
+  sanitizeCountryCode,
+  buildHolidayEvents,
+  CountryInfo,
+  HolidayEntry
+} from './countries';
 import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
 import { t, getMilestoneRewardLabel } from './i18n';
 
@@ -182,6 +190,8 @@ export interface AppState {
     llmProvider: string;
     llmApiKey: string;
     llmModel: string;
+    countryHolidays: string[];
+    showCulturalHolidays: boolean;
   };
   chat: {
     messages: ChatMessage[];
@@ -315,7 +325,9 @@ export const DEFAULT_STATE: AppState = {
     ttsRate: 1.0,
     llmProvider: 'none',
     llmApiKey: '',
-    llmModel: 'gemini-1.5-flash'
+    llmModel: 'gemini-1.5-flash',
+    countryHolidays: [],
+    showCulturalHolidays: false
   },
   chat: {
     messages: [
@@ -1109,6 +1121,117 @@ export function updateSettings(partial: Record<string, unknown>) {
   const cleaned = sanitizeSettings(partial);
   setState('settings', prev => ({ ...prev, ...cleaned }));
   saveState();
+}
+
+// ---------------------------------------------------------------------------
+// Country holidays (read-only, rendered as all-day events inside the views)
+// ---------------------------------------------------------------------------
+
+const holidayCache = new Map<string, HolidayEntry[]>();
+const HOLIDAY_CACHE_MAX = 300;
+let countryCatalogCache: CountryInfo[] | null = null;
+
+/** Read-only all-day events derived from the selected countries' holidays. */
+export const [holidayEvents, setHolidayEvents] = createSignal<CalendarEventItem[]>([]);
+export const [holidayLoading, setHolidayLoading] = createSignal(false);
+export const [holidayError, setHolidayError] = createSignal(false);
+
+/**
+ * Fetches (with an in-memory cache) the public holidays of one country for one
+ * year through the local /api/holidays proxy. It never throws: any failure
+ * yields [] so the calendar stays usable, even offline.
+ */
+export async function fetchHolidaysForCountry(countryCode: string, year: number): Promise<HolidayEntry[]> {
+  const code = sanitizeCountryCode(countryCode);
+  if (!code || !Number.isInteger(year) || year < 1900 || year > 2100) return [];
+  const key = `${code}:${year}`;
+  const cached = holidayCache.get(key);
+  if (cached) return cached;
+  try {
+    const res = await fetch(`/api/holidays?action=events&country=${encodeURIComponent(code)}&year=${year}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const entries = (Array.isArray(data?.holidays) ? data.holidays : [])
+      .map(sanitizeHolidayEntry)
+      .filter((e: HolidayEntry | null): e is HolidayEntry => e !== null);
+    if (holidayCache.size >= HOLIDAY_CACHE_MAX) holidayCache.clear();
+    holidayCache.set(key, entries);
+    return entries;
+  } catch {
+    return [];
+  }
+}
+
+/** Cached list of all countries the holiday service knows about. */
+export async function fetchCountryCatalog(): Promise<CountryInfo[]> {
+  if (countryCatalogCache) return countryCatalogCache;
+  try {
+    const res = await fetch('/api/holidays?action=countries');
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw: unknown = data?.countries;
+    const countries = Array.isArray(raw)
+      ? (raw as unknown[])
+          .map(sanitizeCountry)
+          .filter((c: CountryInfo | null): c is CountryInfo => c !== null)
+      : [];
+    countryCatalogCache = countries;
+    return countries;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Rebuilds the reactive `holidayEvents` list for the selected countries across
+ * the given years. The planner runs this from an effect on selection and
+ * navigation; the in-memory cache absorbs repeat fetches.
+ */
+export async function refreshHolidayEvents(years: number[]): Promise<void> {
+  const codes = (state.settings.countryHolidays || []).slice();
+  if (codes.length === 0) {
+    setHolidayEvents([]);
+    setHolidayError(false);
+    return;
+  }
+  setHolidayLoading(true);
+  setHolidayError(false);
+  try {
+    const lists = await Promise.all(codes.flatMap(code => years.map(year => fetchHolidaysForCountry(code, year))));
+    setHolidayEvents(buildHolidayEvents((lists as HolidayEntry[][]).flat()));
+  } catch {
+    setHolidayError(true);
+  } finally {
+    setHolidayLoading(false);
+  }
+}
+
+/** Replaces the selected country-holiday list (sanitized + de-duplicated + capped). */
+export function setCountryHolidays(codes: string[]): void {
+  const cleaned: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of Array.isArray(codes) ? codes : []) {
+    const code = sanitizeCountryCode(raw);
+    if (code && !seen.has(code)) {
+      seen.add(code);
+      cleaned.push(code);
+    }
+    if (cleaned.length >= 20) break;
+  }
+  setState('settings', 'countryHolidays', cleaned);
+  saveState();
+}
+
+/** Enables/disables the optional worldwide cultural holidays (Halloween, ...). */
+export function setCulturalHolidaysEnabled(enabled: boolean): void {
+  setState('settings', 'showCulturalHolidays', !!enabled);
+  saveState();
+}
+
+/** Test helper: drops all cached holiday/catalog data. */
+export function clearHolidayCache(): void {
+  holidayCache.clear();
+  countryCatalogCache = null;
 }
 
 export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null {

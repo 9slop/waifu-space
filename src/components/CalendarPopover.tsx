@@ -1,7 +1,8 @@
 import { Show } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { toggleTask } from '../lib/store';
-import { t, getLocale } from '../lib/i18n';
+import { t, getLocale, holidayTooltip } from '../lib/i18n';
+import { countryFlagEmoji } from '../lib/countries';
 import { useFocusTrap } from '../lib/accessibility';
 
 const POPOVER_TITLE_ID = 'calendar-popover-title';
@@ -20,6 +21,7 @@ export function CalendarPopover(props: {
       {ev => {
         const s = () => new Date(ev().start);
         const e = () => new Date(ev().end || ev().start);
+        const holiday = () => ev()._holiday;
 
         const dateStr = () =>
           s().toLocaleDateString(getLocale(), { weekday: 'short', month: 'short', day: 'numeric' });
@@ -68,20 +70,23 @@ export function CalendarPopover(props: {
                     {ev().completed ? '↩️' : '✅'}
                   </button>
                 )}
-                <button
-                  class="popover-btn"
-                  title={t('calendar.popover.editEvent')}
-                  onClick={() => props.onEdit(ev())}
-                >
-                  ✏️
-                </button>
-                <button
-                  class="popover-btn popover-btn-del"
-                  title={t('calendar.popover.deleteEvent')}
-                  onClick={handleDelete}
-                >
-                  🗑️
-                </button>
+                {/* Country holidays are read-only: no edit or delete affordances. */}
+                <Show when={!ev()._holiday}>
+                  <button
+                    class="popover-btn"
+                    title={t('calendar.popover.editEvent')}
+                    onClick={() => props.onEdit(ev())}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    class="popover-btn popover-btn-del"
+                    title={t('calendar.popover.deleteEvent')}
+                    onClick={handleDelete}
+                  >
+                    🗑️
+                  </button>
+                </Show>
                 <button
                   class="popover-btn"
                   title={t('calendar.popover.close')}
@@ -99,10 +104,14 @@ export function CalendarPopover(props: {
                 {dateStr()} · {timeStr()}
               </div>
               <div
-                class="popover-badge"
+                class={`popover-badge ${ev()._holiday ? 'popover-badge-holiday' : ''}`}
                 style={{ background: ev().color || '#ff6584' }}
               >
-                {ev().type.toUpperCase()}
+                {holiday()
+                  ? holiday()!.culture
+                    ? `🎉 ${t('calendar.holidays.culturalBadge')} · ${t('calendar.holidays.badge')}`
+                    : `${countryFlagEmoji(holiday()!.countryCode)} ${holiday()!.countryCode} · ${t('calendar.holidays.badge')}`
+                  : ev().type.toUpperCase()}
                 {ev().completed ? ` (${t('calendar.popover.completed')})` : ''}
               </div>
               {ev().location && (

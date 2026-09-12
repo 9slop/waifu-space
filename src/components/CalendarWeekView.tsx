@@ -2,7 +2,8 @@ import { For, Show, onMount, createSignal } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
 import { layoutTimedEvents } from '../lib/calendar-layout';
-import { t, getLocale } from '../lib/i18n';
+import { t, getLocale, holidayTooltip } from '../lib/i18n';
+import { countryFlagEmoji } from '../lib/countries';
 import { onActivateKey } from '../lib/accessibility';
 
 export function CalendarWeekView(props: {
@@ -33,7 +34,9 @@ export function CalendarWeekView(props: {
     const start = getStartOfWeek(props.currentDate);
     const days: Date[] = [];
     for (let i = 0; i < 7; i++) {
-      days.push(new Date(start.getTime() + i * 86400000));
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      days.push(d);
     }
     return days;
   };
@@ -48,6 +51,10 @@ export function CalendarWeekView(props: {
 
   const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
     if (!e.dataTransfer) return;
+    if (ev._holiday) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'calendar-event', id: ev.id, dateKey: ev.dateKey }));
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -62,6 +69,8 @@ export function CalendarWeekView(props: {
       const data = JSON.parse(raw);
       const ev = props.events.find(x => x.id === data.id);
       if (!ev) return;
+      // Country holidays are read-only and must never be moved by a drop.
+      if (ev._holiday) return;
 
       const oldStart = new Date(ev.start);
       const oldEnd = new Date(ev.end || ev.start);
@@ -226,12 +235,13 @@ export function CalendarWeekView(props: {
                 <For each={alldayEvents()}>
                   {ev => (
                     <div
-                      class="allday-pill"
+                      class={`allday-pill ${ev._holiday ? 'holiday' : ''}`}
                       style={{ background: ev.color || '#ff6584' }}
                       role="button"
                       tabindex="0"
                       aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
-                      draggable={true}
+                      title={ev._holiday ? holidayTooltip(ev._holiday) : undefined}
+                      draggable={!ev._holiday}
                       onDragStart={e => handleDragStart(e, ev)}
                       onClick={e => {
                         e.stopPropagation();
@@ -250,6 +260,7 @@ export function CalendarWeekView(props: {
                           }}
                         />
                       )}
+                      {ev._holiday && <span class="pill-holiday-flag">{ev._holiday.culture ? '🎉' : countryFlagEmoji(ev._holiday.countryCode)}</span>}
                       <span class="allday-pill-title">{ev.title}</span>
                     </div>
                   )}
