@@ -22,8 +22,35 @@ describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
     expect(WEAPON_CATALOG.pistol.damage).toBe(40);
     expect(WEAPON_CATALOG.pistol.damage * WEAPON_CATALOG.pistol.headshotMultiplier).toBe(80);
 
-    // Knife backstab
-    expect(WEAPON_CATALOG.knife.damage * 2).toBeGreaterThanOrEqual(100);
+    // Knife quick and heavy attacks + backstab instant kill (200 damage)
+    expect(WEAPON_CATALOG.knife.damage).toBe(35);
+    expect(WEAPON_CATALOG.knife.heavyDamage).toBe(65);
+    expect(WEAPON_CATALOG.knife.backstabDamage).toBe(200);
+    expect(WEAPON_CATALOG.knife.quickBackstabDamage).toBe(70);
+    expect(WEAPON_CATALOG.knife.backstabDamage!).toBeGreaterThanOrEqual(150); // Instant kill for 150 HP waifu
+  });
+
+  it('validates knife backstab angle detection math', () => {
+    // Backstab condition: dot(attackerForward, victimForward) = cos(attackerYaw - victimYaw) > 0.45
+    // 1. Directly behind victim facing same direction (yaw diff = 0)
+    const directlyBehind = Math.cos(0);
+    expect(directlyBehind).toBe(1.0);
+    expect(directlyBehind).toBeGreaterThan(0.45);
+
+    // 2. Behind victim at 45 degree angle
+    const angle45 = Math.cos((45 * Math.PI) / 180);
+    expect(angle45).toBeCloseTo(0.707, 2);
+    expect(angle45).toBeGreaterThan(0.45);
+
+    // 3. Face to face (frontal engagement, yaw diff = PI)
+    const faceToFace = Math.cos(Math.PI);
+    expect(faceToFace).toBe(-1.0);
+    expect(faceToFace).toBeLessThan(0.45);
+
+    // 4. Perpendicular flank (yaw diff = PI / 2)
+    const flank = Math.cos(Math.PI / 2);
+    expect(flank).toBeCloseTo(0, 4);
+    expect(flank).toBeLessThan(0.45);
   });
 
   it('validates P2P player state serialization and recovery', () => {

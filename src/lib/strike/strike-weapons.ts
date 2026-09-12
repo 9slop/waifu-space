@@ -68,9 +68,13 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     id: 'knife',
     name: 'Kitsune Blade',
     category: 'melee',
-    damage: 65, // 130 on backstab
+    damage: 35, // Quick slash base damage
+    heavyDamage: 65, // Heavy right-click stab frontal damage
+    backstabDamage: 200, // Heavy right-click backstab (instant kill!)
+    quickBackstabDamage: 70, // Quick left-click backstab
     headshotMultiplier: 1.5,
-    fireRateRpm: 140, // 428ms between swings
+    fireRateRpm: 150, // 400ms cooldown for quick slashes
+    heavyFireRateRpm: 60, // 1000ms cooldown for heavy thrusts
     magazineSize: 1,
     reserveAmmo: 1,
     reloadTimeMs: 0,
@@ -223,7 +227,7 @@ class ProceduralAudioEngine {
     osc.stop(t + 0.05);
   }
 
-  public playGunfire(weaponId: WeaponId, spatial?: SpatialAudioParams) {
+  public playGunfire(weaponId: WeaponId, spatial?: SpatialAudioParams, isHeavy = false) {
     const ctx = this.getContext();
     if (!ctx || !this.masterGain) return;
 
@@ -231,18 +235,18 @@ class ProceduralAudioEngine {
     const t = ctx.currentTime;
 
     if (weaponId === 'knife') {
-      // Whoosh sound
+      // Whoosh sound (sharp slash vs heavy thrust)
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(450, t);
-      osc.frequency.exponentialRampToValueAtTime(80, t + 0.12);
-      gain.gain.setValueAtTime(0.3, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      osc.type = isHeavy ? 'triangle' : 'sine';
+      osc.frequency.setValueAtTime(isHeavy ? 320 : 450, t);
+      osc.frequency.exponentialRampToValueAtTime(isHeavy ? 45 : 80, t + (isHeavy ? 0.22 : 0.12));
+      gain.gain.setValueAtTime(isHeavy ? 0.45 : 0.3, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + (isHeavy ? 0.22 : 0.12));
       osc.connect(gain);
       gain.connect(dest.input);
       osc.start(t);
-      osc.stop(t + 0.12);
+      osc.stop(t + (isHeavy ? 0.22 : 0.12));
       return;
     }
 

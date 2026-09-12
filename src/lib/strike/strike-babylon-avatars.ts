@@ -486,8 +486,13 @@ export class BabylonViewmodel {
 
   // Melee knife slash animation
   private isMeleeAttacking = false;
+  private isHeavyMelee = false;
   private meleeProgress = 0;
   private meleeSlashSide = 1;
+
+  // Tactical wall proximity tuck
+  private wallTuck = 0;
+  private smoothedWallTuck = 0;
 
   // Weapon equip / draw animation
   private drawProgress = 0;
@@ -502,6 +507,14 @@ export class BabylonViewmodel {
   constructor(scene: Scene, camera: Camera) {
     this.scene = scene;
     this.camera = camera;
+
+    // Viewmodel rendering group: group 1 with depth clearing renders viewmodel over world geometry without clipping
+    try {
+      this.scene.setRenderingAutoClearDepthStencil(1, true, true, false);
+    } catch {
+      // Ignored in NullEngine test environments
+    }
+
     this.root = new TransformNode('FirstPersonViewmodelRoot', scene);
     this.root.parent = camera;
 
@@ -526,24 +539,43 @@ export class BabylonViewmodel {
     mesh.scaling = new Vector3(def.viewmodelScale, def.viewmodelScale, def.viewmodelScale);
     mesh.parent = this.weaponMeshGroup;
 
+    // Set rendering group 1 recursively across all viewmodel meshes to prevent wall clipping
+    mesh.renderingGroupId = 1;
+    for (const child of mesh.getChildMeshes(false)) {
+      child.renderingGroupId = 1;
+    }
+
     // Trigger weapon equip / draw animation
     this.drawProgress = 1.0;
     this.isMeleeAttacking = false;
+    this.isHeavyMelee = false;
     this.meleeProgress = 0;
     this.boltActionProgress = 0;
     this.isReloading = false;
     this.reloadProgress = 0;
   }
 
+  /** Sets wall proximity from forward raycast to smoothly tuck weapon when standing close to walls */
+  public setWallProximity(dist: number) {
+    if (dist < 0.65) {
+      this.wallTuck = Math.min(1.0, (0.65 - dist) / 0.45);
+    } else {
+      this.wallTuck = 0;
+    }
+  }
+
   /**
-   * Triggers visual weapon attack animation (knife slash or gun recoil).
+   * Triggers visual weapon attack animation (knife slash/thrust or gun recoil).
    */
-  public triggerAttack(weaponId: WeaponId, vertical = 0.03, horizontal = 0.015) {
+  public triggerAttack(weaponId: WeaponId, vertical = 0.03, horizontal = 0.015, isHeavy = false) {
     if (weaponId === 'knife') {
       // Dynamic anime knife slash/thrust animation
       this.isMeleeAttacking = true;
+      this.isHeavyMelee = isHeavy;
       this.meleeProgress = 1.0;
-      this.meleeSlashSide = -this.meleeSlashSide; // alternate left/right slashes
+      if (!isHeavy) {
+        this.meleeSlashSide = -this.meleeSlashSide; // alternate left/right slashes for quick slashes
+      }
       return;
     }
 
@@ -601,7 +633,7 @@ export class BabylonViewmodel {
       this.bobOffset = Vector3.Lerp(this.bobOffset, Vector3.Zero(), Math.min(1, dt * 8));
     }
 
-    // 3. Melee Knife Slash Animation
+    // 3. Melee Knife Animation (Quick slash or heavy thrust)
     let slashOffsetX = 0;
     let slashOffsetY = 0;
     let slashOffsetZ = 0;
@@ -610,18 +642,31 @@ export class BabylonViewmodel {
     let slashRotZ = 0;
 
     if (this.isMeleeAttacking) {
-      this.meleeProgress -= dt * 3.8; // ~0.26s total swing duration
+      const animSpeed = this.isHeavyMelee ? 2.5 : 3.8; // Heavy stab takes ~0.4s, quick slash ~0.26s
+      this.meleeProgress -= dt * animSpeed;
       if (this.meleeProgress <= 0) {
         this.isMeleeAttacking = false;
+        this.isHeavyMelee = false;
         this.meleeProgress = 0;
       }
       const p = Math.sin(this.meleeProgress * Math.PI); // Smooth 0 -> 1 -> 0 arc
-      slashOffsetX = this.meleeSlashSide * p * -0.16;
-      slashOffsetY = -p * 0.05;
-      slashOffsetZ = p * 0.24; // Big forward stab/thrust
-      slashRotX = p * 0.35;
-      slashRotY = this.meleeSlashSide * p * -0.65;
-      slashRotZ = this.meleeSlashSide * p * 0.85;
+      if (this.isHeavyMelee) {
+        // Heavy thrust stab straight forward
+        slashOffsetX = 0;
+        slashOffsetY = -p * 0.08;
+        slashOffsetZ = p * 0.42; // Deep forward heavy reach
+        slashRotX = p * 0.65;
+        slashRotY = 0;
+        slashRotZ = p * 0.25;
+      } else {
+        // Quick slash
+        slashOffsetX = this.meleeSlashSide * p * -0.16;
+        slashOffsetY = -p * 0.05;
+        slashOffsetZ = p * 0.24; // Forward stab/thrust
+        slashRotX = p * 0.35;
+        slashRotY = this.meleeSlashSide * p * -0.65;
+        slashRotZ = this.meleeSlashSide * p * 0.85;
+      }
     }
 
     // 4. Weapon Equip / Draw Swoop Animation
@@ -656,15 +701,21 @@ export class BabylonViewmodel {
     }
     const reloadDip = Math.sin(this.reloadProgress * Math.PI) * 0.22;
 
+    // 7. Tactical Wall Proximity Tuck (smoothly pull back & tilt up when facing a wall)
+    this.smoothedWallTuck = this.lerp(this.smoothedWallTuck, this.wallTuck, Math.min(1, dt * 12));
+    const tuckZ = -this.smoothedWallTuck * 0.22;
+    const tuckY = -this.smoothedWallTuck * 0.08;
+    const tuckRotX = -this.smoothedWallTuck * 0.38;
+
     // Apply combined transforms to viewmodel root
     this.root.position = new Vector3(
       0.24 + this.recoilOffset.x + this.bobOffset.x + slashOffsetX,
-      -0.22 + this.recoilOffset.y + this.bobOffset.y - reloadDip + drawOffsetY + slashOffsetY + boltDipY,
-      0.48 + this.recoilOffset.z + slashOffsetZ
+      -0.22 + this.recoilOffset.y + this.bobOffset.y - reloadDip + drawOffsetY + slashOffsetY + boltDipY + tuckY,
+      0.48 + this.recoilOffset.z + slashOffsetZ + tuckZ
     );
 
     this.root.rotation = new Vector3(
-      this.recoilRot.x + drawRotX + slashRotX,
+      this.recoilRot.x + drawRotX + slashRotX + tuckRotX,
       this.recoilRot.y + slashRotY,
       this.recoilRot.z + this.bobOffset.x * 1.8 + slashRotZ + boltTiltZ
     );

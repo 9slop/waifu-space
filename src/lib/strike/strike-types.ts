@@ -5,8 +5,12 @@ export interface WeaponDef {
   name: string;
   category: 'primary' | 'secondary' | 'melee';
   damage: number;
+  heavyDamage?: number;
+  backstabDamage?: number;
+  quickBackstabDamage?: number;
   headshotMultiplier: number;
   fireRateRpm: number;
+  heavyFireRateRpm?: number;
   magazineSize: number;
   reserveAmmo: number;
   reloadTimeMs: number;

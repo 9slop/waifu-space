@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { NullEngine, Scene, StandardMaterial, DynamicTexture, PointLight } from '@babylonjs/core';
+import { NullEngine, Scene, StandardMaterial, DynamicTexture, PointLight, UniversalCamera, Vector3 } from '@babylonjs/core';
 import { createKyotoMap } from '../../src/lib/strike/strike-babylon-map';
-import { createBabylonWeaponMesh, BabylonAvatarModel } from '../../src/lib/strike/strike-babylon-avatars';
+import { createBabylonWeaponMesh, BabylonAvatarModel, BabylonViewmodel } from '../../src/lib/strike/strike-babylon-avatars';
 
 describe('strike-babylon-map (Kyoto v2)', () => {
   let engine: NullEngine;
@@ -181,5 +181,29 @@ describe('strike-babylon-map (Kyoto v2)', () => {
     expect(sakeB1).toBeDefined();
     expect(sakeB1?.material).toBe(strawMat);
   });
+
+  it('configures BabylonViewmodel with renderingGroupId 1, wall tuck, and heavy knife thrust', () => {
+    const camera = new UniversalCamera('testCam', new Vector3(0, 1.6, 0), scene);
+    const viewmodel = new BabylonViewmodel(scene, camera);
+
+    expect(viewmodel).toBeDefined();
+    expect(viewmodel.root).toBeDefined();
+
+    // Check renderingGroupId = 1 on weapon meshes
+    const childMeshes = viewmodel.root.getChildMeshes();
+    expect(childMeshes.length).toBeGreaterThan(0);
+    for (const m of childMeshes) {
+      expect(m.renderingGroupId).toBe(1);
+    }
+
+    // Check wall proximity tuck
+    expect(() => viewmodel.setWallProximity(0.2)).not.toThrow();
+    viewmodel.update(0.016, false, 0);
+
+    // Check heavy knife thrust animation
+    expect(() => viewmodel.triggerAttack('knife', 0, 0, true)).not.toThrow();
+    viewmodel.update(0.016, false, 0);
+  });
 });
+
 

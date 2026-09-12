@@ -321,10 +321,14 @@ export class StrikeBabylonEngine {
       this.mouseButtons[e.button] = true;
       if (e.button === 0) {
         // Immediate shot execution on left click
-        this.shoot();
+        this.shoot(false);
       } else if (e.button === 2) {
-        // Right click: Scope toggle
-        this.toggleScope();
+        // Right click: Knife heavy attack OR Scope toggle
+        if (this.activeWeaponId === 'knife') {
+          this.shoot(true);
+        } else {
+          this.toggleScope();
+        }
       }
     };
     window.addEventListener('pointerdown', this.boundPointerDown);
@@ -451,7 +455,7 @@ export class StrikeBabylonEngine {
     strikeAudio.playReload();
   }
 
-  public shoot() {
+  public shoot(isHeavy = false) {
     if (!this.isPlaying || this.isDead || this.isReloading) return;
     const now = performance.now();
     const def = WEAPON_CATALOG[this.activeWeaponId];
@@ -462,7 +466,8 @@ export class StrikeBabylonEngine {
       return;
     }
 
-    const shotCooldown = (60 / def.fireRateRpm) * 1000;
+    const rpm = (this.activeWeaponId === 'knife' && isHeavy) ? (def.heavyFireRateRpm || 60) : def.fireRateRpm;
+    const shotCooldown = (60 / rpm) * 1000;
     if (now - this.lastShotTime < shotCooldown) return;
 
     this.lastShotTime = now;
@@ -472,13 +477,13 @@ export class StrikeBabylonEngine {
     }
 
     // Raycast shooting via Babylon.js scene picking (BEFORE applying recoil so aim hits true crosshair center)
-    // Knife is strictly capped at close melee combat range (2.2m), firearms at 300m
-    const maxRayDist = this.activeWeaponId === 'knife' ? (def.range || 2.2) : 300;
+    // Knife is strictly capped at close melee combat range (2.3m), firearms at 300m
+    const maxRayDist = this.activeWeaponId === 'knife' ? (def.range || 2.3) : 300;
     const forwardRay = this.camera.getForwardRay(maxRayDist);
 
     // Audio & Viewmodel attack animation (knife slash or gun recoil)
-    strikeAudio.playGunfire(this.activeWeaponId);
-    this.viewmodel.triggerAttack(this.activeWeaponId, def.recoilVertical, def.recoilHorizontal);
+    strikeAudio.playGunfire(this.activeWeaponId, undefined, isHeavy);
+    this.viewmodel.triggerAttack(this.activeWeaponId, def.recoilVertical, def.recoilHorizontal, isHeavy);
 
     // Apply slight pitch recoil to camera AFTER forward ray is computed (guns only)
     if (this.activeWeaponId !== 'knife') {
@@ -550,18 +555,45 @@ export class StrikeBabylonEngine {
       this.createTracer(forwardRay.origin.add(new Vector3(0, -0.15, 0)), hitPoint, def.color);
     }
 
-    if (targetId !== null) {
-      strikeAudio.playHitmarker(isHeadshot);
-      let mult = 1.0;
-      if (hitPart === 'head') mult = def.headshotMultiplier;
-      else if (hitPart === 'limb') mult = 0.75;
-      const dmg = Math.round(def.damage * mult);
-      this.callbacks.onHitmarker(isHeadshot, dmg);
+    // Check Counter-Strike style backstab angle for knife attacks:
+    // Attacker looking forward dot victim facing direction > 0.45 (within ~63 degrees behind victim)
+    let isBackstab = false;
+    if (this.activeWeaponId === 'knife' && targetId !== null) {
+      const victim = this.remoteAvatars.get(targetId) || this.remoteAvatars.get(Number(targetId));
+      if (victim) {
+        const victimYaw = victim.root.rotation.y;
+        const attackerYaw = this.camera.rotation.y;
+        const dot = Math.cos(attackerYaw - victimYaw);
+        if (dot > 0.45) {
+          isBackstab = true;
+        }
+      } else {
+        // Fallback hit confirmation if remote avatar object not directly indexed
+        isBackstab = true;
+      }
     }
 
     let calculatedDmg = def.damage;
-    if (hitPart === 'head') calculatedDmg = Math.round(def.damage * def.headshotMultiplier);
-    else if (hitPart === 'limb') calculatedDmg = Math.round(def.damage * 0.75);
+    if (this.activeWeaponId === 'knife') {
+      if (isHeavy) {
+        // Right click heavy attack: 65 frontal, 200 backstab (instant kill!)
+        calculatedDmg = isBackstab ? (def.backstabDamage || 200) : (def.heavyDamage || 65);
+      } else {
+        // Left click quick attack: 35 frontal, 70 backstab
+        calculatedDmg = isBackstab ? (def.quickBackstabDamage || 70) : def.damage;
+      }
+    } else {
+      if (hitPart === 'head') calculatedDmg = Math.round(def.damage * def.headshotMultiplier);
+      else if (hitPart === 'limb') calculatedDmg = Math.round(def.damage * 0.75);
+    }
+
+    if (targetId !== null) {
+      strikeAudio.playHitmarker(isHeadshot || isBackstab);
+      this.callbacks.onHitmarker(isHeadshot || isBackstab, calculatedDmg);
+      if (isBackstab) {
+        this.callbacks.onKillAnnouncement('Backstab!');
+      }
+    }
 
     this.callbacks.onLocalShoot(
       {
@@ -571,7 +603,7 @@ export class StrikeBabylonEngine {
         shooterId: 0,
         weaponId: this.activeWeaponId
       },
-      isHeadshot,
+      isHeadshot || isBackstab,
       targetId,
       hitPart,
       calculatedDmg
@@ -816,6 +848,24 @@ export class StrikeBabylonEngine {
       this.localShadowCaster.setEnabled(!this.isDead);
     }
 
+    // Check tactical wall proximity to tuck weapon back when close to walls
+    const tuckRay = this.camera.getForwardRay(0.85);
+    const tuckHit = this.scene.pickWithRay(tuckRay, (mesh) => {
+      return (
+        mesh.checkCollisions &&
+        mesh !== this.playerCollider &&
+        !mesh.name.startsWith('playerCollider') &&
+        !mesh.name.startsWith('Viewmodel') &&
+        !mesh.name.startsWith('FirstPerson') &&
+        !mesh.name.startsWith('bulletTracer') &&
+        !mesh.name.startsWith('avatarHead_') &&
+        !mesh.name.startsWith('avatarBody_') &&
+        (!this.viewmodel || !mesh.isDescendantOf(this.viewmodel.root))
+      );
+    });
+    const wallDist = (tuckHit && tuckHit.hit) ? tuckHit.distance : 1.0;
+    this.viewmodel.setWallProximity(wallDist);
+
     // Viewmodel update
     const curSpeed = Math.hypot(this.velocity.x, this.velocity.z);
     this.viewmodel.update(dt, curSpeed > 0.5, curSpeed / maxSpeed);
@@ -832,11 +882,14 @@ export class StrikeBabylonEngine {
       this.footstepAccumulator = 0;
     }
 
-    // Full-auto continuous shooting
+    // Full-auto continuous shooting / knife holding
     if (this.mouseButtons[0]) {
       if (def.isAutomatic || this.activeWeaponId === 'knife') {
-        this.shoot();
+        this.shoot(false);
       }
+    }
+    if (this.mouseButtons[2] && this.activeWeaponId === 'knife') {
+      this.shoot(true);
     }
   }
 
