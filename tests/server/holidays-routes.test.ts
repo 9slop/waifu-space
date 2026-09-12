@@ -20,10 +20,10 @@ describe('Holidays proxy route (/api/holidays)', () => {
     it('proxies the upstream country catalog, normalized and sorted by name', async () => {
       mockFetch().mockResolvedValueOnce(
         new Response(JSON.stringify([
-          { key: 'us', value: 'United States' },
-          { key: 'JP', value: 'Japan' },
+          { countryCode: 'us', name: 'United States' },
+          { countryCode: 'JP', name: 'Japan' },
           { key: 'DE', value: 'Germany' },
-          { key: 'BAD', value: 'Invalid code' }
+          { countryCode: 'BAD', name: 'Invalid code' }
         ]))
       );
 

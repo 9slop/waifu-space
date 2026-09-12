@@ -1,6 +1,6 @@
 import { json } from '@solidjs/router';
 import { checkRateLimit } from '../../lib/server/rate-limit';
-import { normalizeCountryCode, isValidHolidayDate } from '../../lib/countries';
+import { normalizeCountryCode, isValidHolidayDate, sanitizeCountry, CountryInfo } from '../../lib/countries';
 
 const NAGER_BASE = 'https://date.nager.at/api/v3';
 const UPSTREAM_TIMEOUT_MS = 10_000;
@@ -73,16 +73,11 @@ export async function GET(event: { request: Request }) {
         );
       }
       const raw: unknown = await res.json();
+      // Nager.Date v3 returns [{ countryCode, name }]; older feeds used
+      // { key, value }. sanitizeCountry accepts every known variant.
       const countries = (Array.isArray(raw) ? raw : [])
-        .map((c: unknown) => {
-          const obj = c as Record<string, unknown> | null;
-          if (!obj || typeof obj !== 'object') return null;
-          const code = normalizeCountryCode(obj.key);
-          const name = typeof obj.value === 'string' && obj.value.trim() ? obj.value.trim() : null;
-          if (!code || !name) return null;
-          return { code, name };
-        })
-        .filter((c): c is { code: string; name: string } => c !== null)
+        .map(sanitizeCountry)
+        .filter((c): c is CountryInfo => c !== null)
         .sort((a, b) => a.name.localeCompare(b.name));
 
       return json(
