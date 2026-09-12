@@ -148,6 +148,8 @@ export class StrikeBabylonEngine {
   public isDead = false;
   public isPaused = false;
   private screenShakeTrauma = 0;
+  private shakeRoll = 0;
+  private shakePitch = 0;
   private currentShakePitch = 0;
   private elapsedGameTime = 0;
 
@@ -363,6 +365,14 @@ export class StrikeBabylonEngine {
       this.hideGrenadeTrajectory();
       this.velocity.x = 0;
       this.velocity.z = 0;
+      // Restore the camera to neutral so pausing never leaves a tilted screen
+      this.camera.rotation.z = 0;
+      this.camera.rotation.x -= this.currentShakePitch + this.currentScopePitch;
+      this.currentShakePitch = 0;
+      this.currentScopePitch = 0;
+      this.shakeRoll = 0;
+      this.shakePitch = 0;
+      this.screenShakeTrauma = 0;
     }
   }
 
@@ -1392,31 +1402,23 @@ export class StrikeBabylonEngine {
 
     if (!this.isPlaying || this.isDead) return;
 
-    // Apply trauma screen shake
-    if (this.screenShakeTrauma > 0) {
+    // Trauma screen shake that ALWAYS decays smoothly back to neutral so the
+    // screen never stays tilted after a hit.
+    if (this.screenShakeTrauma > 0.001) {
       const traumaSq = this.screenShakeTrauma * this.screenShakeTrauma;
-      const shakeRoll = (Math.random() - 0.5) * 0.05 * traumaSq;
-      const shakePitch = (Math.random() - 0.5) * 0.03 * traumaSq;
-      this.camera.rotation.z = shakeRoll;
-      this.camera.rotation.x += (shakePitch - this.currentShakePitch);
-      this.currentShakePitch = shakePitch;
-      this.screenShakeTrauma = Math.max(0, this.screenShakeTrauma - dt * 2.8);
-      if (this.screenShakeTrauma <= 0) {
-        this.camera.rotation.z = 0;
-        if (this.currentShakePitch !== 0) {
-          this.camera.rotation.x -= this.currentShakePitch;
-          this.currentShakePitch = 0;
-        }
-      }
+      this.shakeRoll += ((Math.random() - 0.5) * 0.045 * traumaSq - this.shakeRoll) * Math.min(1, dt * 14);
+      this.shakePitch += ((Math.random() - 0.5) * 0.026 * traumaSq - this.shakePitch) * Math.min(1, dt * 14);
+      this.screenShakeTrauma = Math.max(0, this.screenShakeTrauma - dt * 3.4);
     } else {
-      if (this.camera.rotation.z !== 0) {
-        this.camera.rotation.z = 0;
-      }
-      if (this.currentShakePitch !== 0) {
-        this.camera.rotation.x -= this.currentShakePitch;
-        this.currentShakePitch = 0;
-      }
+      this.screenShakeTrauma = 0;
+      this.shakeRoll *= Math.max(0, 1 - dt * 12);
+      this.shakePitch *= Math.max(0, 1 - dt * 12);
     }
+
+    // Apply as a delta so pitch/roll always return to the mouse-control baseline
+    this.camera.rotation.x += (this.shakePitch - this.currentShakePitch);
+    this.currentShakePitch = this.shakePitch;
+    this.camera.rotation.z = this.shakeRoll;
 
     // Reload timer check
     if (this.isReloading && performance.now() >= this.reloadEndTime) {
