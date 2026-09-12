@@ -572,17 +572,22 @@ export class StrikeBabylonEngine {
       if (this.isPlaying) e.preventDefault();
     });
 
-    // Mouse wheel weapon cycling
-    const weaponCycle: WeaponId[] = ['rifle', 'sniper', 'pistol', 'knife', 'katana'];
+    // Mouse wheel weapon cycling — only cycles weapons present in the player's loadout
     this.boundWheel = (e) => {
       if (!this.isPointerLocked || !this.isPlaying) return;
       e.preventDefault();
-      const curIdx = weaponCycle.indexOf(this.activeWeaponId);
+      // Build the cycle dynamically from the current loadout (deduped, preserving slot order)
+      const cycle: WeaponId[] = [];
+      const seen = new Set<WeaponId>();
+      for (const id of [this.loadout.primary, this.loadout.secondary, this.loadout.melee] as WeaponId[]) {
+        if (!seen.has(id)) { cycle.push(id); seen.add(id); }
+      }
+      const curIdx = cycle.indexOf(this.activeWeaponId);
       if (curIdx === -1) return;
       const nextIdx = e.deltaY > 0
-        ? (curIdx + 1) % weaponCycle.length
-        : (curIdx - 1 + weaponCycle.length) % weaponCycle.length;
-      this.switchWeapon(weaponCycle[nextIdx]);
+        ? (curIdx + 1) % cycle.length
+        : (curIdx - 1 + cycle.length) % cycle.length;
+      this.switchWeapon(cycle[nextIdx]);
     };
     window.addEventListener('wheel', this.boundWheel, { passive: false });
   }
