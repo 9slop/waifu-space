@@ -54,6 +54,12 @@ export function CalendarPlanner() {
   // Pending single-event delete confirmation (protects against accidental data loss)
   const [pendingDelete, setPendingDelete] = createSignal<CalendarEventItem | null>(null);
 
+  // True whenever any dialog is up. Actions that open another modal/popover are
+  // gated on this so a user can never stack dialogs (e.g. the create-event modal
+  // popping up on top of the country-holidays picker).
+  const hasOpenOverlay = () =>
+    holidaysModalOpen() || isModalOpen() || repeatScopeRequest() !== null || pendingDelete() !== null;
+
   // Filtered events
   const filteredEvents = createMemo(() => {
     return state.calendar.events.filter(e => {
@@ -158,6 +164,8 @@ const sidebarTasks = createMemo(() => {
     initialType: 'event' | 'task' = 'event',
     prefilledRange?: { start: Date; end: Date }
   ) => {
+    // Never stack a second dialog on top of whatever is already open.
+    if (hasOpenOverlay()) return;
     closePopover();
     setModalEvent(null);
     setModalDefaultDate(defaultD);
@@ -167,9 +175,10 @@ const sidebarTasks = createMemo(() => {
   };
 
   const openEditModal = (ev: CalendarEventItem) => {
-    closePopover();
     // Country holidays are read-only: never open the edit flow for them.
     if (ev._holiday) return;
+    if (hasOpenOverlay()) return;
+    closePopover();
     if (ev.parentId && ev.dateKey && ev.recurrence && ev.recurrence !== 'none') {
       setRepeatScopeRequest({ action: 'edit', event: ev, dateKey: ev.dateKey });
       return;
@@ -181,6 +190,7 @@ const sidebarTasks = createMemo(() => {
   const handleDeleteEvent = (ev: CalendarEventItem) => {
     // Country holidays are read-only: there is nothing to delete.
     if (ev._holiday) return;
+    if (hasOpenOverlay()) return;
     if (ev.parentId && ev.dateKey && ev.recurrence && ev.recurrence !== 'none') {
       setRepeatScopeRequest({ action: 'delete', event: ev, dateKey: ev.dateKey });
       return;
@@ -247,6 +257,7 @@ const sidebarTasks = createMemo(() => {
   };
 
   const openPopover = (ev: CalendarEventItem, anchorRect?: DOMRect) => {
+    if (hasOpenOverlay()) return;
     setPopoverEvent(ev);
     if (anchorRect) {
       const scrollY = typeof window !== 'undefined' ? window.scrollY : 0;
@@ -291,6 +302,20 @@ const sidebarTasks = createMemo(() => {
   // Keyboard shortcuts
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+    // While any modal is open, only Escape (close) shortcuts apply so the user
+    // can never accidentally stack a second action on top of the current dialog.
+    if (hasOpenOverlay()) {
+      if (e.key === 'Escape') {
+        closePopover();
+        setCreateMenuOpen(false);
+        setIsModalOpen(false);
+        setHolidaysModalOpen(false);
+        setRepeatScopeRequest(null);
+        setPendingDelete(null);
+      }
+      return;
+    }
 
     if (e.key === 't' || e.key === 'T') {
       jumpToToday();
@@ -416,7 +441,10 @@ const sidebarTasks = createMemo(() => {
           <button
             type="button"
             class="gcal-icon-btn holiday-toggle-btn"
-            onClick={() => setHolidaysModalOpen(true)}
+            onClick={() => {
+              if (hasOpenOverlay()) return;
+              setHolidaysModalOpen(true);
+            }}
             title={t('calendar.toolbar.countryHolidaysTooltip')}
             aria-label={t('calendar.toolbar.countryHolidaysTooltip')}
           >

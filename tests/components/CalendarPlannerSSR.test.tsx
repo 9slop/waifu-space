@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRoot } from 'solid-js';
 import { render, screen, fireEvent } from '@solidjs/testing-library';
 import { CalendarPlanner } from '../../src/components/CalendarPlanner';
@@ -8,6 +8,27 @@ describe('CalendarPlanner Component & SSR Safety (Issue #11)', () => {
   beforeEach(() => {
     localStorage.clear();
     setState(JSON.parse(JSON.stringify(DEFAULT_STATE)));
+    // Stub the /api/holidays proxy so the country picker gets a real catalog
+    // (and no real network attempt) when it is opened in tests.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            countries: [
+              { code: 'JP', name: 'Japan' },
+              { code: 'DE', name: 'Germany' }
+            ]
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('renders and disposes cleanly in SSR context without window ReferenceError', () => {
@@ -59,6 +80,47 @@ describe('CalendarPlanner Component & SSR Safety (Issue #11)', () => {
     expect(popoverTitles.length).toBeGreaterThan(1);
     expect(screen.getByTitle('Edit Event')).toBeInTheDocument();
     expect(screen.getByTitle('Delete Event')).toBeInTheDocument();
+  });
+
+  it('loads the country catalog and filters it by search input', async () => {
+    const { container } = render(() => <CalendarPlanner />);
+
+    fireEvent.click(screen.getByRole('button', { name: /country holidays/i }));
+    const holidaysOverlay = container.querySelector('[aria-labelledby="holidays-modal-title"]') as HTMLElement | null;
+    expect(holidaysOverlay).toHaveClass('active');
+
+    // The catalog arrives from the (stubbed) proxy and renders country rows.
+    await screen.findByText('Japan');
+    expect(screen.getByText('Germany')).toBeInTheDocument();
+
+    // Typing in the search box actually filters the visible rows.
+    const search = screen.getByPlaceholderText('Search countries...');
+    fireEvent.input(search, { target: { value: 'zzz' } });
+    expect(screen.queryByText('Japan')).not.toBeInTheDocument();
+    expect(screen.queryByText('Germany')).not.toBeInTheDocument();
+  });
+
+  it('blocks the create-event shortcut while the country-holidays modal is open', async () => {
+    const { container } = render(() => <CalendarPlanner />);
+
+    const holidaysOverlay = container.querySelector('[aria-labelledby="holidays-modal-title"]') as HTMLElement | null;
+    const eventModalOverlay = container.querySelector('[aria-labelledby="event-modal-title"]') as HTMLElement | null;
+    expect(holidaysOverlay).not.toHaveClass('active');
+    expect(eventModalOverlay).not.toHaveClass('active');
+
+    // Open the holidays modal via its toolbar button.
+    fireEvent.click(screen.getByRole('button', { name: /country holidays/i }));
+    expect(holidaysOverlay).toHaveClass('active');
+    expect(eventModalOverlay).not.toHaveClass('active');
+    await screen.findByText('Japan'); // let the catalog (async) settle
+
+    // Pressing 'c' while this overlay is open must NOT activate the create-event modal.
+    fireEvent.keyDown(window, { key: 'c' });
+    expect(eventModalOverlay).not.toHaveClass('active');
+
+    // Escape should close the holidays overlay.
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(holidaysOverlay).not.toHaveClass('active');
   });
 
   it('handles keyboard shortcuts (Escape closes popover/modal)', () => {
