@@ -7,7 +7,9 @@ import {
   HemisphericLight,
   DirectionalLight,
   PointLight,
-  AbstractMesh
+  AbstractMesh,
+  DynamicTexture,
+  Texture
 } from '@babylonjs/core';
 
 export interface BabylonSpawnPoint {
@@ -46,57 +48,516 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // ═══════════════════════════════════════════════════════════════════
   // 1. MATERIALS PALETTE
   // ═══════════════════════════════════════════════════════════════════
-  function createMat(
+  // ═══════════════════════════════════════════════════════════════════
+  // 1. TEXTURE CACHE & PROCEDURAL MATERIAL FACTORY
+  // ═══════════════════════════════════════════════════════════════════
+  // Centralized texture cache so identical surfaces share exact same GPU texture instances
+  const textureCache = new Map<string, DynamicTexture>();
+
+  function getOrCreateTexture(
+    key: string,
+    width: number,
+    height: number,
+    drawFn: (ctx: CanvasRenderingContext2D, w: number, h: number) => void
+  ): DynamicTexture {
+    if (textureCache.has(key)) {
+      return textureCache.get(key)!;
+    }
+    const dt = new DynamicTexture(`tex_${key}`, { width, height }, scene, false);
+    dt.wrapU = Texture.WRAP_ADDRESS;
+    dt.wrapV = Texture.WRAP_ADDRESS;
+    const ctx = dt.getContext() as CanvasRenderingContext2D;
+    if (ctx) {
+      drawFn(ctx, width, height);
+      dt.update(false); // don't invert Y
+    }
+    textureCache.set(key, dt);
+    return dt;
+  }
+
+  // --- 1A. COBBLESTONE / STONE PAVING ---
+  const stoneDiffTex = getOrCreateTexture('stone_diff', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#61656b';
+    ctx.fillRect(0, 0, w, h);
+    // Draw paving stones in alternating courses
+    const rows = 16;
+    const cols = 12;
+    const rh = h / rows;
+    const cw = w / cols;
+    for (let r = 0; r < rows; r++) {
+      const offsetX = (r % 2) * (cw / 2);
+      for (let c = -1; c <= cols; c++) {
+        const x = c * cw + offsetX + 2;
+        const y = r * rh + 2;
+        const sw = cw - 4;
+        const sh = rh - 4;
+        // Stone variation
+        const tone = 88 + Math.floor(Math.sin(r * 7 + c * 13) * 22);
+        ctx.fillStyle = `rgb(${tone}, ${tone + 4}, ${tone + 8})`;
+        ctx.fillRect(x, y, sw, sh);
+
+        // Subtle stone surface grain
+        for (let i = 0; i < 30; i++) {
+          const gx = x + Math.random() * sw;
+          const gy = y + Math.random() * sh;
+          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+          ctx.fillRect(gx, gy, 3, 3);
+        }
+      }
+    }
+  });
+
+  const stoneBumpTex = getOrCreateTexture('stone_bump', 512, 512, (ctx, w, h) => {
+    // Normal map base: neutral (128, 128, 255)
+    ctx.fillStyle = 'rgb(128, 128, 255)';
+    ctx.fillRect(0, 0, w, h);
+    const rows = 16;
+    const cols = 12;
+    const rh = h / rows;
+    const cw = w / cols;
+    for (let r = 0; r < rows; r++) {
+      const offsetX = (r % 2) * (cw / 2);
+      for (let c = -1; c <= cols; c++) {
+        const x = c * cw + offsetX + 2;
+        const y = r * rh + 2;
+        const sw = cw - 4;
+        const sh = rh - 4;
+        // Beveled mortar edges
+        ctx.fillStyle = 'rgb(190, 128, 220)'; // right/down highlight
+        ctx.fillRect(x, y, sw, sh);
+        ctx.fillStyle = 'rgb(128, 128, 255)';
+        ctx.fillRect(x + 2, y + 2, sw - 4, sh - 4);
+      }
+    }
+  });
+
+  // --- 1B. EARTHEN PLASTER (Shikkui) ---
+  const plasterDiffTex = getOrCreateTexture('plaster_diff', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#b8b3a7';
+    ctx.fillRect(0, 0, w, h);
+    // Subtle plaster trowel and sand grain marks
+    for (let i = 0; i < 2400; i++) {
+      const px = Math.random() * w;
+      const py = Math.random() * h;
+      const sz = 1 + Math.random() * 3;
+      const val = Math.random();
+      ctx.fillStyle = val > 0.6 ? 'rgba(255,255,255,0.07)' : 'rgba(30,25,18,0.06)';
+      ctx.fillRect(px, py, sz, sz);
+    }
+  });
+
+  const plasterBumpTex = getOrCreateTexture('plaster_bump', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = 'rgb(128, 128, 255)';
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 3000; i++) {
+      const px = Math.random() * w;
+      const py = Math.random() * h;
+      const noise = (Math.random() - 0.5) * 40;
+      ctx.fillStyle = `rgb(${Math.floor(128 + noise)}, ${Math.floor(128 + noise)}, 255)`;
+      ctx.fillRect(px, py, 2, 2);
+    }
+  });
+
+  // --- 1C. DARK CEDAR TIMBER ---
+  const timberDiffTex = getOrCreateTexture('timber_diff', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#332317';
+    ctx.fillRect(0, 0, w, h);
+    // Wood grain linear fiber streaks
+    for (let i = 0; i < w; i += 4) {
+      const alpha = 0.08 + Math.sin(i * 0.35) * 0.06;
+      ctx.fillStyle = `rgba(18, 10, 6, ${alpha})`;
+      ctx.fillRect(i, 0, 2 + Math.floor(Math.random() * 3), h);
+    }
+    // Wood knots & rings
+    for (let k = 0; k < 6; k++) {
+      const kx = Math.random() * w;
+      const ky = Math.random() * h;
+      ctx.strokeStyle = 'rgba(15, 8, 4, 0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(kx, ky, 6, 22, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  });
+
+  const timberBumpTex = getOrCreateTexture('timber_bump', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = 'rgb(128, 128, 255)';
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < w; i += 4) {
+      const grain = (Math.sin(i * 0.35) > 0 ? 150 : 106);
+      ctx.fillStyle = `rgb(${grain}, 128, 255)`;
+      ctx.fillRect(i, 0, 2, h);
+    }
+  });
+
+  // --- 1D. KAWARA ROOF TILES ---
+  const tileDiffTex = getOrCreateTexture('tile_diff', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#262b33';
+    ctx.fillRect(0, 0, w, h);
+    // Curved overlapping Japanese roof tiles
+    const rows = 20;
+    const cols = 10;
+    const rh = h / rows;
+    const cw = w / cols;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * cw;
+        const y = r * rh;
+        // Tile gradient (shading under overlap)
+        const grad = ctx.createLinearGradient(x, y, x, y + rh);
+        grad.addColorStop(0, '#353c47');
+        grad.addColorStop(0.7, '#242931');
+        grad.addColorStop(1, '#15191f');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x + 1, y + 1, cw - 2, rh - 2);
+
+        // Tile lip
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.fillRect(x + 2, y + 1, cw - 4, 2);
+      }
+    }
+  });
+
+  const tileBumpTex = getOrCreateTexture('tile_bump', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = 'rgb(128, 128, 255)';
+    ctx.fillRect(0, 0, w, h);
+    const rows = 20;
+    const cols = 10;
+    const rh = h / rows;
+    const cw = w / cols;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const x = c * cw;
+        const y = r * rh;
+        ctx.fillStyle = 'rgb(128, 80, 255)'; // slope pointing down
+        ctx.fillRect(x + 1, y + 1, cw - 2, rh - 2);
+        ctx.fillStyle = 'rgb(128, 180, 255)'; // top edge ridge
+        ctx.fillRect(x + 1, y + 1, cw - 2, 3);
+      }
+    }
+  });
+
+  // --- 1E. RAKED ZEN SAND ---
+  const zenSandDiffTex = getOrCreateTexture('zen_diff', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#aba599';
+    ctx.fillRect(0, 0, w, h);
+    // Linear raked gravel comb ridges
+    const waveCount = 32;
+    const waveH = h / waveCount;
+    for (let i = 0; i < waveCount; i++) {
+      const y = i * waveH;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.fillRect(0, y, w, waveH * 0.4);
+      ctx.fillStyle = 'rgba(40, 36, 30, 0.14)';
+      ctx.fillRect(0, y + waveH * 0.5, w, waveH * 0.5);
+    }
+  });
+
+  const zenSandBumpTex = getOrCreateTexture('zen_bump', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = 'rgb(128, 128, 255)';
+    ctx.fillRect(0, 0, w, h);
+    const waveCount = 32;
+    const waveH = h / waveCount;
+    for (let i = 0; i < waveCount; i++) {
+      const y = i * waveH;
+      ctx.fillStyle = 'rgb(128, 180, 255)';
+      ctx.fillRect(0, y, w, waveH * 0.5);
+      ctx.fillStyle = 'rgb(128, 75, 255)';
+      ctx.fillRect(0, y + waveH * 0.5, w, waveH * 0.5);
+    }
+  });
+
+  // --- 1F. POLISHED WOOD DECK (Engawa) ---
+  const deckDiffTex = getOrCreateTexture('deck_diff', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#573824';
+    ctx.fillRect(0, 0, w, h);
+    const plankW = w / 8;
+    for (let i = 0; i < 8; i++) {
+      const x = i * plankW;
+      const tone = 75 + Math.sin(i * 3) * 15;
+      ctx.fillStyle = `rgb(${tone}, ${Math.floor(tone * 0.65)}, ${Math.floor(tone * 0.42)})`;
+      ctx.fillRect(x + 2, 0, plankW - 4, h);
+      // Wood seams
+      ctx.fillStyle = '#1c1008';
+      ctx.fillRect(x, 0, 2, h);
+    }
+  });
+
+  const deckBumpTex = getOrCreateTexture('deck_bump', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = 'rgb(128, 128, 255)';
+    ctx.fillRect(0, 0, w, h);
+    const plankW = w / 8;
+    for (let i = 0; i < 8; i++) {
+      const x = i * plankW;
+      ctx.fillStyle = 'rgb(180, 128, 220)';
+      ctx.fillRect(x + plankW - 3, 0, 3, h);
+      ctx.fillStyle = 'rgb(75, 128, 255)';
+      ctx.fillRect(x, 0, 3, h);
+    }
+  });
+
+  // --- 1G. SHOJI SCREEN ---
+  const shojiDiffTex = getOrCreateTexture('shoji_diff', 512, 512, (ctx, w, h) => {
+    // Rice paper warm base
+    ctx.fillStyle = '#d1cbc0';
+    ctx.fillRect(0, 0, w, h);
+    // Wooden lattice grid
+    const gridSize = 64;
+    ctx.fillStyle = '#402a1a';
+    for (let x = 0; x < w; x += gridSize) {
+      ctx.fillRect(x, 0, 6, h);
+    }
+    for (let y = 0; y < h; y += gridSize) {
+      ctx.fillRect(0, y, w, 6);
+    }
+  });
+
+  // --- 1H. VERMILION SHRINE RED (Lacquered Torii Wood) ---
+  const shrineDiffTex = getOrCreateTexture('shrine_diff', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#c72e29';
+    ctx.fillRect(0, 0, w, h);
+    // Subtle lacquered grain
+    for (let y = 0; y < h; y += 8) {
+      ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255, 90, 80, 0.08)' : 'rgba(80, 10, 10, 0.08)';
+      ctx.fillRect(0, y, w, 4);
+    }
+  });
+
+  // --- 1I. WOODEN CRATE / PLANKS ---
+  const crateDiffTex = getOrCreateTexture('crate_diff', 512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#945c29';
+    ctx.fillRect(0, 0, w, h);
+    // Planks
+    const ph = h / 4;
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = (i % 2 === 0) ? '#a0652e' : '#885425';
+      ctx.fillRect(4, i * ph + 2, w - 8, ph - 4);
+      ctx.fillStyle = '#3a200d';
+      ctx.fillRect(0, i * ph, w, 2);
+    }
+    // Diagonal bracing
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = '#6f421c';
+    ctx.strokeRect(7, 7, w - 14, h - 14);
+    ctx.beginPath();
+    ctx.moveTo(7, 7);
+    ctx.lineTo(w - 7, h - 7);
+    ctx.stroke();
+  });
+
+  // Central Material Factory helper
+  function createTexturedMat(
     name: string,
-    diff: Color3,
-    spec = new Color3(0.08, 0.08, 0.08),
-    emissive?: Color3
+    diffuseColor: Color3,
+    diffTex?: DynamicTexture,
+    bumpTex?: DynamicTexture,
+    specColor = new Color3(0.08, 0.08, 0.08),
+    emissiveColor?: Color3,
+    uScale = 1.0,
+    vScale = 1.0
   ): StandardMaterial {
     const mat = new StandardMaterial(name, scene);
-    mat.diffuseColor = diff;
-    mat.specularColor = spec;
-    if (emissive) mat.emissiveColor = emissive;
+    mat.diffuseColor = diffuseColor;
+    mat.specularColor = specColor;
+    if (emissiveColor) mat.emissiveColor = emissiveColor;
     mat.maxSimultaneousLights = 4;
+
+    if (diffTex) {
+      mat.diffuseTexture = diffTex.clone(`${name}_dt`);
+      (mat.diffuseTexture as Texture).uScale = uScale;
+      (mat.diffuseTexture as Texture).vScale = vScale;
+      (mat.diffuseTexture as Texture).wrapU = Texture.WRAP_ADDRESS;
+      (mat.diffuseTexture as Texture).wrapV = Texture.WRAP_ADDRESS;
+    }
+    if (bumpTex) {
+      mat.bumpTexture = bumpTex.clone(`${name}_bt`);
+      (mat.bumpTexture as Texture).uScale = uScale;
+      (mat.bumpTexture as Texture).vScale = vScale;
+      (mat.bumpTexture as Texture).wrapU = Texture.WRAP_ADDRESS;
+      (mat.bumpTexture as Texture).wrapV = Texture.WRAP_ADDRESS;
+      mat.bumpTexture.level = 0.85;
+    }
     return mat;
   }
 
-  // Street & courtyard stone pavement
-  const groundMat = createMat('matGround', new Color3(0.38, 0.40, 0.43));
+  // --- Textured Materials Palette ---
+  // Street & courtyard stone pavement (tiles across 104m arena)
+  const groundMat = createTexturedMat(
+    'matGround',
+    new Color3(0.9, 0.9, 0.9),
+    stoneDiffTex,
+    stoneBumpTex,
+    new Color3(0.08, 0.08, 0.08),
+    undefined,
+    32, 32
+  );
+
   // Raked zen sand / gravel (A-Site garden)
-  const zenSandMat = createMat('matZenSand', new Color3(0.68, 0.67, 0.62), new Color3(0.04, 0.04, 0.04));
+  const zenSandMat = createTexturedMat(
+    'matZenSand',
+    new Color3(0.95, 0.95, 0.95),
+    zenSandDiffTex,
+    zenSandBumpTex,
+    new Color3(0.04, 0.04, 0.04),
+    undefined,
+    6, 4
+  );
+
   // Polished cedar planks (verandas, decks)
-  const woodDeckMat = createMat('matWoodDeck', new Color3(0.34, 0.22, 0.14), new Color3(0.06, 0.06, 0.06));
+  const woodDeckMat = createTexturedMat(
+    'matWoodDeck',
+    new Color3(0.85, 0.82, 0.80),
+    deckDiffTex,
+    deckBumpTex,
+    new Color3(0.12, 0.10, 0.08),
+    undefined,
+    4, 4
+  );
+
   // Perimeter boundary walls
-  const wallMat = createMat('matWall', new Color3(0.24, 0.26, 0.30));
+  const wallMat = createTexturedMat(
+    'matWall',
+    new Color3(0.65, 0.68, 0.72),
+    stoneDiffTex,
+    stoneBumpTex,
+    new Color3(0.06, 0.06, 0.06),
+    undefined,
+    12, 2
+  );
+
   // Machiya dark timber beams & pillars
-  const timberMat = createMat('matTimber', new Color3(0.20, 0.14, 0.09), new Color3(0.04, 0.04, 0.04));
+  const timberMat = createTexturedMat(
+    'matTimber',
+    new Color3(0.85, 0.80, 0.75),
+    timberDiffTex,
+    timberBumpTex,
+    new Color3(0.06, 0.05, 0.04),
+    undefined,
+    1, 3
+  );
+
   // Earthen plaster / stucco walls
-  const plasterMat = createMat('matPlaster', new Color3(0.72, 0.70, 0.65), new Color3(0.03, 0.03, 0.03));
+  const plasterMat = createTexturedMat(
+    'matPlaster',
+    new Color3(0.95, 0.95, 0.93),
+    plasterDiffTex,
+    plasterBumpTex,
+    new Color3(0.03, 0.03, 0.03),
+    undefined,
+    3, 2
+  );
+
   // Charcoal kawara clay roof tiles
-  const tileRoofMat = createMat('matTileRoof', new Color3(0.15, 0.17, 0.20), new Color3(0.10, 0.10, 0.10));
+  const tileRoofMat = createTexturedMat(
+    'matTileRoof',
+    new Color3(0.85, 0.88, 0.92),
+    tileDiffTex,
+    tileBumpTex,
+    new Color3(0.15, 0.15, 0.16),
+    undefined,
+    4, 4
+  );
+
   // Rice paper shoji screens (subtle warm glow)
-  const shojiMat = createMat('matShoji', new Color3(0.82, 0.79, 0.72), new Color3(0.02, 0.02, 0.02), new Color3(0.08, 0.07, 0.05));
-  // Vermilion shrine red
-  const shrineRedMat = createMat('matShrineRed', new Color3(0.78, 0.18, 0.16), new Color3(0.12, 0.12, 0.12));
+  const shojiMat = createTexturedMat(
+    'matShoji',
+    new Color3(0.95, 0.92, 0.88),
+    shojiDiffTex,
+    undefined,
+    new Color3(0.02, 0.02, 0.02),
+    new Color3(0.08, 0.07, 0.05),
+    2, 2
+  );
+
+  // Vermilion shrine red (lacquered wood)
+  const shrineRedMat = createTexturedMat(
+    'matShrineRed',
+    new Color3(0.90, 0.85, 0.85),
+    shrineDiffTex,
+    timberBumpTex,
+    new Color3(0.18, 0.14, 0.14),
+    undefined,
+    2, 2
+  );
+
   // Gold accents & sacred altar
-  const goldMat = createMat('matGold', new Color3(0.85, 0.70, 0.22), new Color3(0.18, 0.18, 0.18), new Color3(0.08, 0.06, 0.02));
+  const goldMat = new StandardMaterial('matGold', scene);
+  goldMat.diffuseColor = new Color3(0.85, 0.70, 0.22);
+  goldMat.specularColor = new Color3(0.35, 0.30, 0.12);
+  goldMat.emissiveColor = new Color3(0.08, 0.06, 0.02);
+  goldMat.maxSimultaneousLights = 4;
+
   // Wooden supply crates
-  const crateMat = createMat('matCrate', new Color3(0.58, 0.36, 0.16));
+  const crateMat = createTexturedMat(
+    'matCrate',
+    new Color3(0.85, 0.82, 0.78),
+    crateDiffTex,
+    timberBumpTex,
+    new Color3(0.06, 0.05, 0.04),
+    undefined,
+    1, 1
+  );
+
   // Stone lanterns & tactical barriers
-  const stoneMat = createMat('matStone', new Color3(0.42, 0.45, 0.48));
+  const stoneMat = createTexturedMat(
+    'matStone',
+    new Color3(0.80, 0.82, 0.85),
+    stoneDiffTex,
+    stoneBumpTex,
+    new Color3(0.08, 0.08, 0.08),
+    undefined,
+    2, 2
+  );
+
   // Glowing lantern paper
-  const lanternGlowMat = createMat('matLanternGlow', new Color3(0.95, 0.82, 0.50), new Color3(0, 0, 0), new Color3(0.70, 0.55, 0.25));
+  const lanternGlowMat = new StandardMaterial('matLanternGlow', scene);
+  lanternGlowMat.diffuseColor = new Color3(0.95, 0.82, 0.50);
+  lanternGlowMat.emissiveColor = new Color3(0.70, 0.55, 0.25);
+  lanternGlowMat.maxSimultaneousLights = 4;
+
   // Sakura foliage
-  const sakuraMat = createMat('matSakura', new Color3(0.92, 0.52, 0.68), new Color3(0.08, 0.08, 0.08), new Color3(0.14, 0.05, 0.09));
+  const sakuraMat = new StandardMaterial('matSakura', scene);
+  sakuraMat.diffuseColor = new Color3(0.92, 0.52, 0.68);
+  sakuraMat.emissiveColor = new Color3(0.14, 0.05, 0.09);
+  sakuraMat.maxSimultaneousLights = 4;
+
   // Tree bark
-  const barkMat = createMat('matBark', new Color3(0.28, 0.18, 0.12), new Color3(0.04, 0.04, 0.04));
+  const barkMat = createTexturedMat(
+    'matBark',
+    new Color3(0.75, 0.65, 0.55),
+    timberDiffTex,
+    timberBumpTex,
+    new Color3(0.04, 0.04, 0.04),
+    undefined,
+    1, 3
+  );
+
   // Bamboo
-  const bambooMat = createMat('matBamboo', new Color3(0.45, 0.54, 0.24));
+  const bambooMat = new StandardMaterial('matBamboo', scene);
+  bambooMat.diffuseColor = new Color3(0.45, 0.54, 0.24);
+  bambooMat.maxSimultaneousLights = 4;
+
   // Neon trims (cyber accent)
-  const neonPinkMat = createMat('matNeonPink', new Color3(0.90, 0.35, 0.62), new Color3(0.2, 0.2, 0.2), new Color3(0.60, 0.25, 0.42));
-  const neonCyanMat = createMat('matNeonCyan', new Color3(0.0, 0.80, 0.78), new Color3(0.2, 0.2, 0.2), new Color3(0.0, 0.60, 0.58));
+  const neonPinkMat = new StandardMaterial('matNeonPink', scene);
+  neonPinkMat.diffuseColor = new Color3(0.90, 0.35, 0.62);
+  neonPinkMat.emissiveColor = new Color3(0.60, 0.25, 0.42);
+  neonPinkMat.maxSimultaneousLights = 4;
+
+  const neonCyanMat = new StandardMaterial('matNeonCyan', scene);
+  neonCyanMat.diffuseColor = new Color3(0.0, 0.80, 0.78);
+  neonCyanMat.emissiveColor = new Color3(0.0, 0.60, 0.58);
+  neonCyanMat.maxSimultaneousLights = 4;
+
   // Dark wood for carts/barrels
-  const darkWoodMat = createMat('matDarkWood', new Color3(0.18, 0.12, 0.07), new Color3(0.04, 0.04, 0.04));
+  const darkWoodMat = createTexturedMat(
+    'matDarkWood',
+    new Color3(0.65, 0.58, 0.52),
+    timberDiffTex,
+    timberBumpTex,
+    new Color3(0.04, 0.04, 0.04),
+    undefined,
+    1, 2
+  );
 
   // ═══════════════════════════════════════════════════════════════════
   // 2. HELPER FUNCTIONS
