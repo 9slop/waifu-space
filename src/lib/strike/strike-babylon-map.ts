@@ -2,6 +2,7 @@ import {
   Scene,
   Vector3,
   Color3,
+  Color4,
   MeshBuilder,
   StandardMaterial,
   HemisphericLight,
@@ -25,6 +26,7 @@ export interface BabylonMapData {
   sunLight?: DirectionalLight;
   hemiLight?: HemisphericLight;
   setRtxShadows?: (enabled: boolean) => void;
+  updateDayNightCycle?: (elapsedSeconds: number) => void;
 }
 
 /**
@@ -709,6 +711,9 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     console.warn('[KyotoMap] ShadowGenerator skipped:', err);
   }
 
+  // Collection of point lights for dynamic lantern day/night emission
+  const lanternLights: PointLight[] = [];
+
   // ═══════════════════════════════════════════════════════════════════
   // 2. HELPER FUNCTIONS
   // ═══════════════════════════════════════════════════════════════════
@@ -904,6 +909,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     pl.specular = new Color3(0.18, 0.14, 0.08);
     pl.intensity = 0.65;
     pl.range = 9.0;
+    lanternLights.push(pl);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1450,6 +1456,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     pl.specular = new Color3(0.12, 0.10, 0.06);
     pl.intensity = 0.75;
     pl.range = 24;
+    lanternLights.push(pl);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1495,13 +1502,79 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     }
   };
 
+  const CYCLE_DURATION = 1440; // 24 minutes in seconds
+
+  const updateDayNightCycle = (elapsedSeconds: number) => {
+    const cycleTime = elapsedSeconds % CYCLE_DURATION;
+    const phase = cycleTime / CYCLE_DURATION; // 0.0 to 1.0
+
+    // Sun / Moon orbital angle:
+    // phase 0.0 = dawn (east), 0.25 = noon, 0.5 = dusk (west), 0.75 = midnight (moon)
+    const angle = phase * Math.PI * 2;
+    const sunElevation = Math.sin(angle); // -1 to +1: >0 is day, <0 is night
+    const sunAzimuth = Math.cos(angle);
+
+    const isDaytime = sunElevation > -0.08;
+
+    if (isDaytime) {
+      // Day / Dawn / Dusk sun direction (pointing down from sun towards center)
+      const sunHeight = Math.max(0.12, sunElevation);
+      sunLight.direction = new Vector3(sunAzimuth * 0.75, -sunHeight, 0.45).normalize();
+      sunLight.position = new Vector3(-sunAzimuth * 120, sunHeight * 140, -60);
+
+      if (sunElevation < 0.25) {
+        // Dawn or Dusk (sunset glow)
+        const t = Math.max(0, sunElevation / 0.25);
+        sunLight.diffuse = Color3.Lerp(new Color3(1.0, 0.45, 0.25), new Color3(1.05, 0.98, 0.88), t);
+        sunLight.intensity = 0.55 + t * 0.4;
+        hemiLight.diffuse = Color3.Lerp(new Color3(0.42, 0.32, 0.45), new Color3(0.48, 0.58, 0.72), t);
+        hemiLight.intensity = 0.35 + t * 0.2;
+        scene.clearColor = Color4.Lerp(new Color4(0.35, 0.22, 0.38, 1.0), new Color4(0.42, 0.65, 0.88, 1.0), t);
+        skyMat.emissiveColor = Color3.Lerp(new Color3(0.9, 0.55, 0.5), new Color3(1.0, 1.0, 1.0), t);
+      } else {
+        // Full daytime
+        sunLight.diffuse = new Color3(1.05, 0.98, 0.88);
+        sunLight.intensity = 0.95;
+        hemiLight.diffuse = new Color3(0.48, 0.58, 0.72);
+        hemiLight.intensity = 0.55;
+        scene.clearColor = new Color4(0.42, 0.65, 0.88, 1.0);
+        skyMat.emissiveColor = new Color3(1.0, 1.0, 1.0);
+      }
+
+      // Lanterns are dimmed during the daytime
+      const lanternIntensity = Math.max(0.15, 0.75 - sunElevation * 0.65);
+      lanternLights.forEach((l) => (l.intensity = lanternIntensity));
+    } else {
+      // Nighttime (Directional light becomes cool moonlight)
+      const moonHeight = Math.max(0.2, -sunElevation);
+      sunLight.direction = new Vector3(-sunAzimuth * 0.65, -moonHeight, -0.4).normalize();
+      sunLight.position = new Vector3(sunAzimuth * 100, moonHeight * 120, 60);
+
+      // Cool silvery moonlight
+      sunLight.diffuse = new Color3(0.35, 0.48, 0.75);
+      sunLight.intensity = 0.42;
+
+      // Night skylight fill
+      hemiLight.diffuse = new Color3(0.14, 0.18, 0.32);
+      hemiLight.groundColor = new Color3(0.08, 0.09, 0.14);
+      hemiLight.intensity = 0.28;
+
+      scene.clearColor = new Color4(0.05, 0.07, 0.14, 1.0);
+      skyMat.emissiveColor = new Color3(0.12, 0.15, 0.28);
+
+      // Lanterns shine brightly at night!
+      lanternLights.forEach((l) => (l.intensity = 0.95));
+    }
+  };
+
   return {
     spawnPoints,
     colliders,
     shadowGenerator: shadowGen,
     sunLight,
     hemiLight,
-    setRtxShadows
+    setRtxShadows,
+    updateDayNightCycle
   };
 }
 

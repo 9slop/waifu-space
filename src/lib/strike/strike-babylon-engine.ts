@@ -91,6 +91,7 @@ export class StrikeBabylonEngine {
   public maxHealth = 150;
   public isDead = false;
   private screenShakeTrauma = 0;
+  private elapsedGameTime = 0;
 
   // Input & Sensitivity
   public keybindings: StrikeKeybindings = { ...DEFAULT_KEYBINDINGS };
@@ -625,6 +626,9 @@ export class StrikeBabylonEngine {
   }
 
   private update(dt: number) {
+    this.elapsedGameTime += dt;
+    this.mapData?.updateDayNightCycle?.(this.elapsedGameTime);
+
     if (!this.isPlaying || this.isDead) return;
 
     // Apply trauma screen shake
