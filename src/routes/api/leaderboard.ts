@@ -23,6 +23,7 @@ export async function GET(event: { request: Request }) {
         rank: i + 1,
         username: d.username,
         avatarUrl: d.avatar_url || '',
+        avatarFrame: d.worn_avatar_frame || 'none',
         defenseHighWave: d.defense_high_wave || 0,
         bondLevel: d.bond_level || 1,
         coins: Number(d.coins || 0),

@@ -58,7 +58,7 @@ export function LootboxModal() {
           gainBondExp(data.result.duplicateExp);
         }
         if (!data.result.isDuplicate) {
-          const cat = item.category === 'outfit' ? 'outfits' : item.category === 'accessory' ? 'accessories' : 'hairstyles';
+          const cat = item.category === 'outfit' ? 'outfits' : item.category === 'accessory' ? 'accessories' : item.category === 'hairstyle' ? 'hairstyles' : 'avatar_frames';
           unlockCosmetic(cat, item.id);
         }
 
@@ -84,6 +84,12 @@ export function LootboxModal() {
     } else if (item.category === 'accessory') {
       setState('waifu', 'appearance', 'accessory', item.id);
       showToast(t('rpg.toasts.equippedAccessory', { name: getCosmeticName(item.id, item.name) }));
+    } else if (item.category === 'hairstyle') {
+      setState('waifu', 'appearance', 'hairstyle', item.id);
+      showToast(t('rpg.toasts.equippedHairstyle', { name: getCosmeticName(item.id, item.name) }));
+    } else if (item.category === 'avatar_frame') {
+      setState('waifu', 'appearance', 'avatarFrame', item.id);
+      showToast(t('rpg.toasts.equippedFrame', { name: getCosmeticName(item.id, item.name) }));
     }
   };
 
@@ -193,7 +199,7 @@ export function LootboxModal() {
 
             <div class="revealed-icon">{item().icon}</div>
             <h3 class="revealed-name">{getCosmeticName(item().id, item().name)}</h3>
-            <p class="revealed-desc">{getCosmeticDesc(item().id, item.description)}</p>
+            <p class="revealed-desc">{getCosmeticDesc(item().id, item().description)}</p>
 
             <Show when={duplicateCompensation() !== null}>
               <div class="duplicate-banner">

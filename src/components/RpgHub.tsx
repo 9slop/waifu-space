@@ -1,4 +1,4 @@
-import { createSignal, Show, For } from 'solid-js';
+import { createSignal, Show, For, lazy, Suspense } from 'solid-js';
 import {
   state,
   COSMETIC_CATALOG,
@@ -12,9 +12,13 @@ import { LootboxModal } from './LootboxModal';
 import { t, getMilestoneTitle, getMilestoneDesc, getMilestoneRewardLabel } from '../lib/i18n';
 import { defenseGameActive, pendingDefenseTab, setPendingDefenseTab } from '../lib/defense-bridge';
 
+const WaifuStrikeGame = lazy(() =>
+  import('./WaifuStrikeGame').then((m) => ({ default: m.WaifuStrikeGame }))
+);
+
 export function RpgHub() {
   const [activeTab, setActiveTab] = createSignal<'games' | 'gacha' | 'affection'>('games');
-  const [selectedGame, setSelectedGame] = createSignal<'defense' | 'future'>('defense');
+  const [selectedGame, setSelectedGame] = createSignal<'defense' | 'strike' | 'future'>('defense');
 
   // Intercept tab switches while a defense run is in progress so the game
   // (and the player's progress) is never silently discarded.
@@ -81,6 +85,15 @@ export function RpgHub() {
               </button>
 
               <button
+                class={`gamemode-chip-btn ${selectedGame() === 'strike' ? 'active' : ''}`}
+                onClick={() => setSelectedGame('strike')}
+              >
+                <span>⚡</span>
+                <span>{t('strike.title') || 'Waifu Strike 3D'}</span>
+                <span class="gamemode-badge" style={{ background: '#ff7597' }}>New</span>
+              </button>
+
+              <button
                 class={`gamemode-chip-btn coming-soon ${selectedGame() === 'future' ? 'active' : ''}`}
                 onClick={() => setSelectedGame('future')}
               >
@@ -93,6 +106,31 @@ export function RpgHub() {
             {/* Selected Gamemode View */}
             <Show when={selectedGame() === 'defense'}>
               <WaifuDefenseGame />
+            </Show>
+
+            <Show when={selectedGame() === 'strike'}>
+              <Suspense
+                fallback={
+                  <div
+                    style={{
+                      height: '600px',
+                      display: 'flex',
+                      'flex-direction': 'column',
+                      'align-items': 'center',
+                      'justify-content': 'center',
+                      background: '#0c1017',
+                      'border-radius': '16px',
+                      color: '#ff7597',
+                      gap: '12px'
+                    }}
+                  >
+                    <div style={{ 'font-size': '2.5rem' }}>⛩️</div>
+                    <div style={{ 'font-weight': 'bold', 'font-size': '1.1rem' }}>Loading Cyber Shrine Arena...</div>
+                  </div>
+                }
+              >
+                <WaifuStrikeGame onExit={() => setSelectedGame('defense')} />
+              </Suspense>
             </Show>
 
             <Show when={selectedGame() === 'future'}>

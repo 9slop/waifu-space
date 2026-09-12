@@ -5,5 +5,15 @@ export default defineConfig({
     prerender: {
       crawlLinks: false
     }
+  },
+  solid: {
+    babel: {
+      compact: true
+    }
+  },
+  vite: {
+    build: {
+      chunkSizeWarningLimit: 1200
+    }
   }
 });

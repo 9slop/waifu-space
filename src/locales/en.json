@@ -44,6 +44,7 @@
     "currentOutfit": "Current Outfit",
     "currentAccessory": "Current Accessory",
     "currentHairstyle": "Current Hairstyle",
+    "currentFrame": "Avatar Frame",
     "emptyShowcaseSlot": "Empty Showcase Slot",
     "shareToast": "Profile link copied to clipboard!",
     "openSettings": "Open Settings",
@@ -340,6 +341,7 @@
       "outfits": "Outfits",
       "accessories": "Accessories",
       "hairstyles": "Hairstyles",
+      "avatarFrames": "Avatar Frames",
       "equipped": "Equipped ✨",
       "equip": "Equip",
       "locked": "Locked",
@@ -347,11 +349,12 @@
       "outfitLabel": "Outfit:",
       "accessoryLabel": "Accessory:",
       "hairstyleLabel": "Hairstyle:",
+      "avatarFrameLabel": "Avatar Frame:",
       "unlockHint": "Unlock: {desc}"
     },
     "inventory": {
       "title": "Cosmetics Inventory ({count})",
-      "subtitle": "Browse your collection of acquired outfits, hairstyles, and celestial accessories.",
+      "subtitle": "Browse your collection of acquired outfits, hairstyles, celestial accessories, and avatar frames.",
       "showcaseSlots": "Featured Showcase",
       "featuredShowcase": "Profile Showcase Case (Public)",
       "showcaseHint": "Select up to 6 of your proudest items to display on your public profile!",
@@ -367,6 +370,7 @@
       "equippedOutfit": "Equipped outfit: {name}! ✨",
       "equippedAccessory": "Equipped accessory: {name}! ✨",
       "equippedHairstyle": "Equipped hairstyle: {name}! ✨",
+      "equippedFrame": "Equipped avatar frame: {name}! ✨",
       "claimedReward": "Claimed {label} for reaching Affection Lv. {level}!",
       "unlockedReward": "Unlocked {label} for reaching Affection Lv. {level}!"
     }
@@ -503,7 +507,10 @@
       "customSpriteUpdated": "Custom sprite updated!",
       "lockedOutfitToast": "🔒 This outfit is locked! Unlock it from a Lootbox or Affection Road.",
       "lockedAccessoryToast": "🔒 This accessory is locked! Unlock it from a Lootbox or Affection Road.",
-      "lockedHairstyleToast": "🔒 This hairstyle is locked! Unlock it from a Lootbox or Affection Road."
+      "lockedHairstyleToast": "🔒 This hairstyle is locked! Unlock it from a Lootbox or Affection Road.",
+      "lockedFrameToast": "🔒 This avatar frame is locked! Unlock it from a Lootbox or Affection Road.",
+      "avatarFrame": "Avatar Frame",
+      "avatarFrameDesc": "Rare decorative frames shown around your avatar on profiles and the leaderboard"
     },
     "wallpapers": {
       "title": "Japanese Aesthetic Wallpapers",
@@ -589,7 +596,8 @@
     "all": "All Items",
     "outfit": "Outfit",
     "accessory": "Accessory",
-    "hairstyle": "Hairstyle"
+    "hairstyle": "Hairstyle",
+    "avatar_frame": "Avatar Frame"
   },
   "rarities": {
     "all": "All Rarities",
@@ -719,6 +727,22 @@
     "celestial_wave": {
       "name": "Celestial Waves",
       "desc": "Infinity-length cosmic hair woven from nebula and starlight."
+    },
+    "frame_sakura": {
+      "name": "Sakura Eternal Frame",
+      "desc": "A regal blossom frame woven from living sakura petals and gilded filigree that drifts petals across the border."
+    },
+    "frame_royal": {
+      "name": "Royal Azure Frame",
+      "desc": "Anointed azure crest of gold studs, sapphires and a tri-lobe royal fleur for commanders of high standing."
+    },
+    "frame_demon": {
+      "name": "Infernal Flame Frame",
+      "desc": "Obsidian rune-work wreathed in crimson flame tongues, crowned with horned shadow and drifting embers."
+    },
+    "frame_galaxy": {
+      "name": "Nebula Ethereal Frame",
+      "desc": "A living cosmos: swirling spiral galaxies, twinkling stars and a soft neon nebula halo for those who touch eternity."
     }
   },
   "milestones": {
@@ -762,10 +786,55 @@
       "desc": "Unlocks the legendary Magical Girl cosmic dress!",
       "reward": "Magical Girl Outfit"
     },
+    "18": {
+      "title": "Beloved Sovereign",
+      "desc": "Unlocks the legendary Royal Azure avatar frame!",
+      "reward": "Royal Azure Frame"
+    },
     "20": {
       "title": "Celestial Bond",
       "desc": "Unlocks the divine glowing Angel Halo.",
       "reward": "Angel Halo"
+    },
+    "25": {
+      "title": "Infernal Devotion",
+      "desc": "Unlocks the crimson blaze of the Infernal avatar frame!",
+      "reward": "Infernal Flame Frame"
+    },
+    "30": {
+      "title": "Eternal Bond of Stars",
+      "desc": "Unlocks the transcendent Nebula Ethereal avatar frame!",
+      "reward": "Nebula Ethereal Frame"
+    }
+  },
+  "strike": {
+    "title": "Waifu Strike",
+    "modeTitle": "Waifu Strike DM",
+    "mapName": "Kyoto",
+    "desc": "Endless casual tactical deathmatch. Drop in, click to lock mouse, and frag!",
+    "dropInBtn": "Drop In & Play",
+    "leaveMatch": "Leave Match",
+    "scoreboardTitle": "Deathmatch Leaderboard",
+    "summaryTitle": "Match Report",
+    "summarySubtitle": "Endless casual deathmatch session results",
+    "kills": "Kills",
+    "totalKills": "Strike Kills",
+    "deaths": "Deaths",
+    "headshots": "Headshots",
+    "bestStreak": "Best Frag Streak",
+    "damage": "Damage Dealt",
+    "accuracy": "Accuracy",
+    "weapons": {
+      "rifle": "Type-89 Sakura Rifle",
+      "sniper": "Aether Railgun (AWP)",
+      "pistol": "Neo Deagle",
+      "knife": "Kitsune Blade"
+    },
+    "medals": {
+      "headshot": "HEADSHOT!",
+      "tripleKill": "TRIPLE KILL!",
+      "rampage": "RAMPAGE!",
+      "unstoppable": "UNSTOPPABLE!"
     }
   }
 }

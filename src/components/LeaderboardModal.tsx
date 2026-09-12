@@ -2,11 +2,13 @@ import { createSignal, createEffect, onMount, For, Show } from 'solid-js';
 import { state } from '../lib/store';
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
+import { AvatarFrameOverlay } from './AvatarFrame';
 
 interface LeaderboardEntry {
   rank: number;
   username: string;
   avatarUrl: string;
+  avatarFrame?: string;
   defenseHighWave: number;
   bondLevel: number;
   coins: number;
@@ -51,6 +53,7 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
         rank: 6,
         username: currentUserName,
         avatarUrl: state.user?.avatarUrl || '',
+        avatarFrame: state.waifu?.appearance?.avatarFrame || 'none',
         defenseHighWave: userHighWave,
         bondLevel: userBondLevel,
         coins: userCoins,
@@ -155,7 +158,20 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
                             {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`}
                           </td>
                           <td class="user-col">
-                            <span class="user-avatar-tiny">🌸</span>
+                            <span class="user-avatar-tiny-wrap">
+                              <Show when={entry.avatarUrl} fallback={<span class="user-avatar-tiny">🌸</span>}>
+                                <img
+                                  src={entry.avatarUrl}
+                                  alt=""
+                                  class="user-avatar-tiny-img"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                  }}
+                                />
+                              </Show>
+                              <AvatarFrameOverlay frameId={entry.avatarFrame} class="user-avatar-tiny-frame" />
+                            </span>
                             <span class="username-txt">{entry.username}</span>
                             <Show when={isMe}>
                               <span class="badge-self">{t('leaderboard.you')}</span>

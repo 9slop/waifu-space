@@ -1,5 +1,7 @@
-import { createSignal, onMount, onCleanup, createMemo } from 'solid-js';
-import { state, isTalking } from '../lib/store';
+import { createSignal, onMount, onCleanup, createMemo, Show } from 'solid-js';
+import { state, isTalking, type AppState } from '../lib/store';
+import { getAvatarFrame } from '../lib/avatar-frames';
+import { AvatarFrameOverlay } from './AvatarFrame';
 
 function shadeColor(color: string, percent: number): string {
   if (!color || !color.startsWith('#')) return color || '#ff7597';
@@ -39,7 +41,14 @@ function getMoodEmoji(mood: string): string {
   }
 }
 
-export function WaifuAvatar() {
+export interface WaifuAvatarProps {
+  appearance?: Partial<AppState['waifu']['appearance']>;
+  mood?: string;
+  scale?: number;
+  class?: string;
+}
+
+export function WaifuAvatar(props: WaifuAvatarProps = {}) {
   const [isBlinking, setIsBlinking] = createSignal(false);
   let blinkTimeout: any = null;
 
@@ -63,29 +72,37 @@ export function WaifuAvatar() {
 
   const pfx = 'wa_start';
 
-  const hairColor = () => state.waifu.appearance.hairColor || '#ff7597';
-  const eyeColor = () => state.waifu.appearance.eyeColor || '#4f86f7';
-  const skinTone = () => state.waifu.appearance.skinTone || '#fff0ea';
+  const app = () => props.appearance || state.waifu.appearance;
+  const classNames = () => [props.class || '', typeof props.scale === 'number' && props.scale !== 1 ? `avatar-scaled-${Math.round(props.scale * 100)}` : ''].filter(Boolean).join(' ');
+
+  const hairColor = () => app().hairColor || '#ff7597';
+  const eyeColor = () => app().eyeColor || '#4f86f7';
+  const skinTone = () => app().skinTone || '#fff0ea';
   const skinShadow = () => shadeColor(skinTone(), -12);
   const blushColor = 'rgba(255, 95, 130, 0.55)';
-  const mood = () => state.waifu.mood || 'neutral';
-  const hairstyle = () => state.waifu.appearance.hairstyle || 'twintails';
-  const outfit = () => state.waifu.appearance.outfit || 'seifuku';
-  const accessory = () => state.waifu.appearance.accessory || 'ribbon';
+  const mood = () => props.mood || state.waifu.mood || 'neutral';
+  const hairstyle = () => app().hairstyle || 'twintails';
+  const outfit = () => app().outfit || 'seifuku';
+  const accessory = () => app().accessory || 'ribbon';
+  const frameId = () => app().avatarFrame || 'none';
+  const portraitFrame = createMemo(() => getAvatarFrame(frameId()));
+  const customAvatarUrl = () => (props.appearance ? app().customAvatarUrl || '' : state.waifu.appearance.customAvatarUrl || '');
+  const avatarMode = () => (props.appearance ? app().avatarMode || 'svg' : state.waifu.appearance.avatarMode || 'svg');
 
   return (
     <>
-      {state.waifu.appearance.avatarMode === 'custom' && state.waifu.appearance.customAvatarUrl ? (
-        <div class={`custom-avatar-wrapper mood-${mood()}`} aria-hidden="true">
+      {avatarMode() === 'custom' && customAvatarUrl() ? (
+        <div class={`custom-avatar-wrapper mood-${mood()} ${classNames()}`} aria-hidden="true">
           <img
-            src={state.waifu.appearance.customAvatarUrl}
+            src={customAvatarUrl()}
             alt="Custom Companion Avatar"
             class="custom-avatar-img animate-breathe"
           />
+          <AvatarFrameOverlay frameId={frameId()} class="custom-avatar-overlay" />
           <div class="custom-avatar-mood-badge">{getMoodEmoji(mood())}</div>
         </div>
       ) : (
-        <div class={`svg-avatar-wrapper animate-breathe mood-${mood()}`} aria-hidden="true">
+        <div class={`svg-avatar-wrapper animate-breathe mood-${mood()} ${classNames()}`} aria-hidden="true">
           <svg viewBox="0 0 400 520" class="waifu-avatar-svg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <defs>
               <linearGradient id={`${pfx}_hairGrad`} x1="0%" y1="0%" x2="0%" y2="100%">
@@ -660,6 +677,14 @@ export function WaifuAvatar() {
             {mood() === 'yandere' && (
               <rect x="0" y="0" width="400" height="240" fill={`url(#${pfx}_yandereShadow)`} opacity="0.45" pointer-events="none" />
             )}
+
+            {/* 10. AVATAR FRAME (portrait) */}
+            <Show when={portraitFrame()}>
+              {f => {
+                const Portrait = f().Portrait;
+                return <Portrait />;
+              }}
+            </Show>
           </svg>
         </div>
       )}

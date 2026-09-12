@@ -320,9 +320,10 @@ export function CalendarWeekView(props: {
                   )}
 
                   {/* Drag-to-create Ghost Preview Box */}
-                  <Show when={dragCreate() && isSameDay(dragCreate()!.day, day)}>
-                    {() => {
-                      const dc = dragCreate()!;
+                  <Show when={dragCreate()}>
+                    {(dcAccessor) => {
+                      const dc = dcAccessor();
+                      if (!isSameDay(dc.day, day)) return null;
                       const start = Math.min(dc.startMin, dc.currentMin);
                       const end = Math.max(dc.startMin, dc.currentMin, start + 15);
                       const topPct = (start / 1440) * 100;

@@ -26,6 +26,7 @@ import {
 } from './countries';
 import { getLootboxCost, rollLootRarity, DUPLICATE_COMPENSATION, getDefenseCoinsReward, getDefenseExpReward } from './economy';
 import { t, getMilestoneRewardLabel } from './i18n';
+import { AVATAR_FRAME_CATALOG } from './avatar-frames';
 
 export const STORAGE_KEY = 'waifu_space_data_v1';
 
@@ -52,7 +53,7 @@ export interface ChatMessage {
 export interface RpgCosmeticItem {
   id: string;
   name: string;
-  category: 'outfit' | 'accessory' | 'hairstyle';
+  category: 'outfit' | 'accessory' | 'hairstyle' | 'avatar_frame';
   rarity: 'common' | 'rare' | 'epic' | 'legendary' | 'mystical';
   description: string;
   icon: string;
@@ -94,6 +95,16 @@ export const COSMETIC_CATALOG: RpgCosmeticItem[] = [
   { id: 'wavy', name: 'Wavy Curls', category: 'hairstyle', rarity: 'epic', description: 'Romantic flowing waves with gentle volume.', icon: '👩‍🦱' },
   { id: 'space_bun', name: 'Space Buns', category: 'hairstyle', rarity: 'legendary', description: 'Adorable twin buns with holographic shimmer ribbons.', icon: '🪐' },
   { id: 'celestial_wave', name: 'Celestial Waves', category: 'hairstyle', rarity: 'mystical', description: 'Infinity-length cosmic hair woven from nebula and starlight.', icon: '🌌' },
+
+  // Avatar Frames (displayed around the avatar everywhere, incl. public profiles)
+  ...AVATAR_FRAME_CATALOG.map(f => ({
+    id: f.id,
+    name: f.name,
+    category: 'avatar_frame' as const,
+    rarity: f.rarity,
+    description: f.description,
+    icon: f.icon
+  }))
 ];
 
 export interface AffectionMilestone {
@@ -115,7 +126,10 @@ export const AFFECTION_MILESTONES: AffectionMilestone[] = [
   { level: 10, title: 'Soulmate', rewardType: 'cosmetic', rewardValue: 'bunny_ears', rewardLabel: 'Bunny Ears', description: 'Unlocks the playful Bunny Ears accessory.', icon: '🐰' },
   { level: 12, title: 'Inseparable', rewardType: 'coins', rewardValue: 500, rewardLabel: '500 Coins', description: 'A massive treasury gift for staying by her side.', icon: '💰' },
   { level: 15, title: 'Eternal Devotion', rewardType: 'cosmetic', rewardValue: 'magical', rewardLabel: 'Magical Girl Outfit', description: 'Unlocks the legendary Magical Girl cosmic dress!', icon: '✨' },
-  { level: 20, title: 'Celestial Bond', rewardType: 'cosmetic', rewardValue: 'halo', rewardLabel: 'Angel Halo', description: 'Unlocks the divine glowing Angel Halo.', icon: '😇' }
+  { level: 18, title: 'Beloved Sovereign', rewardType: 'cosmetic', rewardValue: 'frame_royal', rewardLabel: 'Royal Azure Frame', description: 'Unlocks the legendary Royal Azure avatar frame!', icon: '👑' },
+  { level: 20, title: 'Celestial Bond', rewardType: 'cosmetic', rewardValue: 'halo', rewardLabel: 'Angel Halo', description: 'Unlocks the divine glowing Angel Halo.', icon: '😇' },
+  { level: 25, title: 'Infernal Devotion', rewardType: 'cosmetic', rewardValue: 'frame_demon', rewardLabel: 'Infernal Flame Frame', description: 'Unlocks the crimson blaze of the Infernal avatar frame!', icon: '🔥' },
+  { level: 30, title: 'Eternal Bond of Stars', rewardType: 'cosmetic', rewardValue: 'frame_galaxy', rewardLabel: 'Nebula Ethereal Frame', description: 'Unlocks the transcendent Nebula Ethereal avatar frame!', icon: '🌌' }
 ];
 
 export interface RpgState {
@@ -123,6 +137,7 @@ export interface RpgState {
   unlockedOutfits: string[];
   unlockedAccessories: string[];
   unlockedHairstyles: string[];
+  unlockedAvatarFrames: string[];
   showcaseItems: string[]; // up to 6 featured item IDs
   claimedAffectionMilestones: number[];
   defenseHighWave: number;
@@ -156,6 +171,7 @@ export interface AppState {
       accessory: string;
       customAvatarUrl: string;
       avatarMode: 'svg' | 'custom';
+      avatarFrame: string;
     };
     mood: string;
     bondLevel: number;
@@ -268,6 +284,7 @@ export const DEFAULT_RPG: RpgState = {
   unlockedOutfits: ['seifuku', 'casual'],
   unlockedAccessories: ['none', 'ribbon', 'glasses'],
   unlockedHairstyles: ['twintails', 'long', 'short_bob'],
+  unlockedAvatarFrames: [],
   showcaseItems: ['ribbon', 'glasses'],
   claimedAffectionMilestones: [],
   defenseHighWave: 0,
@@ -291,7 +308,8 @@ export const DEFAULT_STATE: AppState = {
       outfit: 'seifuku',
       accessory: 'ribbon',
       customAvatarUrl: '',
-      avatarMode: 'svg'
+      avatarMode: 'svg',
+      avatarFrame: 'none'
     },
     mood: 'neutral',
     bondLevel: 1,
@@ -644,6 +662,7 @@ export async function loadCloudProgress(token?: string, scope?: 'all' | 'profile
         if (p.worn_outfit) s.waifu.appearance.outfit = p.worn_outfit;
         if (p.worn_accessory) s.waifu.appearance.accessory = p.worn_accessory;
         if (p.worn_hairstyle) s.waifu.appearance.hairstyle = p.worn_hairstyle;
+        if (p.worn_avatar_frame) s.waifu.appearance.avatarFrame = p.worn_avatar_frame;
         if (p.appearance_data && typeof p.appearance_data === 'object') {
           Object.assign(s.waifu.appearance, p.appearance_data);
         }
@@ -664,14 +683,17 @@ export async function loadCloudProgress(token?: string, scope?: 'all' | 'profile
         const unlockedOutfits = new Set(s.rpg.unlockedOutfits);
         const unlockedAccessories = new Set(s.rpg.unlockedAccessories);
         const unlockedHairstyles = new Set(s.rpg.unlockedHairstyles);
+        const unlockedAvatarFrames = new Set(s.rpg.unlockedAvatarFrames);
         for (const item of inventory) {
           if (item.category === 'outfit') unlockedOutfits.add(item.item_id);
           else if (item.category === 'accessory') unlockedAccessories.add(item.item_id);
           else if (item.category === 'hairstyle') unlockedHairstyles.add(item.item_id);
+          else if (item.category === 'avatar_frame') unlockedAvatarFrames.add(item.item_id);
         }
         s.rpg.unlockedOutfits = [...unlockedOutfits];
         s.rpg.unlockedAccessories = [...unlockedAccessories];
         s.rpg.unlockedHairstyles = [...unlockedHairstyles];
+        s.rpg.unlockedAvatarFrames = [...unlockedAvatarFrames];
         if (showcaseItems.length > 0) s.rpg.showcaseItems = showcaseItems;
       })
     );
@@ -716,7 +738,8 @@ function applyStoredState(parsed: unknown) {
           ...(data.rpg || {}),
           unlockedOutfits: unionStrings(DEFAULT_RPG.unlockedOutfits, data.rpg?.unlockedOutfits),
           unlockedAccessories: unionStrings(DEFAULT_RPG.unlockedAccessories, data.rpg?.unlockedAccessories),
-          unlockedHairstyles: unionStrings(DEFAULT_RPG.unlockedHairstyles, data.rpg?.unlockedHairstyles)
+          unlockedHairstyles: unionStrings(DEFAULT_RPG.unlockedHairstyles, data.rpg?.unlockedHairstyles),
+          unlockedAvatarFrames: unionStrings(DEFAULT_RPG.unlockedAvatarFrames, data.rpg?.unlockedAvatarFrames)
         },
         calendar: {
           ...DEFAULT_STATE.calendar,
@@ -967,8 +990,8 @@ export function spendCoins(amount: number): boolean {
   return true;
 }
 
-export function unlockCosmetic(category: 'outfits' | 'accessories' | 'hairstyles', id: string) {
-  const key = category === 'outfits' ? 'unlockedOutfits' : category === 'accessories' ? 'unlockedAccessories' : 'unlockedHairstyles';
+export function unlockCosmetic(category: 'outfits' | 'accessories' | 'hairstyles' | 'avatar_frames', id: string) {
+  const key = category === 'outfits' ? 'unlockedOutfits' : category === 'accessories' ? 'unlockedAccessories' : category === 'hairstyles' ? 'unlockedHairstyles' : 'unlockedAvatarFrames';
   if (!state.rpg[key].includes(id)) {
     setState('rpg', key, list => [...list, id]);
     saveState();
@@ -979,7 +1002,8 @@ export function getUnlockedCosmeticsCount(): number {
   const outfits = state.rpg?.unlockedOutfits?.length || 0;
   const accessories = state.rpg?.unlockedAccessories?.length || 0;
   const hairstyles = state.rpg?.unlockedHairstyles?.length || 0;
-  return outfits + accessories + hairstyles;
+  const avatarFrames = state.rpg?.unlockedAvatarFrames?.length || 0;
+  return outfits + accessories + hairstyles + avatarFrames;
 }
 
 export function isCosmeticUnlocked(categoryOrId: string, id?: string): boolean {
@@ -990,10 +1014,12 @@ export function isCosmeticUnlocked(categoryOrId: string, id?: string): boolean {
     if (cat === 'outfit') return (state.rpg?.unlockedOutfits || []).includes(targetId);
     if (cat === 'accessory') return (state.rpg?.unlockedAccessories || []).includes(targetId);
     if (cat === 'hairstyle') return (state.rpg?.unlockedHairstyles || []).includes(targetId);
+    if (cat === 'avatar_frame') return (state.rpg?.unlockedAvatarFrames || []).includes(targetId);
     return (
       (state.rpg?.unlockedOutfits || []).includes(targetId) ||
       (state.rpg?.unlockedAccessories || []).includes(targetId) ||
-      (state.rpg?.unlockedHairstyles || []).includes(targetId)
+      (state.rpg?.unlockedHairstyles || []).includes(targetId) ||
+      (state.rpg?.unlockedAvatarFrames || []).includes(targetId)
     );
   }
 
@@ -1002,7 +1028,9 @@ export function isCosmeticUnlocked(categoryOrId: string, id?: string): boolean {
     ? 'unlockedOutfits'
     : categoryOrId === 'accessories' || categoryOrId === 'accessory'
     ? 'unlockedAccessories'
-    : 'unlockedHairstyles';
+    : categoryOrId === 'hairstyles' || categoryOrId === 'hairstyle'
+    ? 'unlockedHairstyles'
+    : 'unlockedAvatarFrames';
   return (state.rpg?.[key] || []).includes(id);
 }
 
@@ -1024,6 +1052,7 @@ export function claimAffectionReward(level: number): boolean {
       if (item.category === 'outfit') unlockCosmetic('outfits', item.id);
       else if (item.category === 'accessory') unlockCosmetic('accessories', item.id);
       else if (item.category === 'hairstyle') unlockCosmetic('hairstyles', item.id);
+      else if (item.category === 'avatar_frame') unlockCosmetic('avatar_frames', item.id);
     }
     const label = getMilestoneRewardLabel(milestone.level, milestone.rewardLabel);
     showToast(`🎁 ${t('rpg.toasts.unlockedReward', { label, level })}`);
@@ -1248,7 +1277,7 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
 
   const picked = candidates[Math.floor(Math.random() * candidates.length)];
 
-  const categoryKey = picked.category === 'outfit' ? 'unlockedOutfits' : picked.category === 'accessory' ? 'unlockedAccessories' : 'unlockedHairstyles';
+  const categoryKey = picked.category === 'outfit' ? 'unlockedOutfits' : picked.category === 'accessory' ? 'unlockedAccessories' : picked.category === 'hairstyle' ? 'unlockedHairstyles' : 'unlockedAvatarFrames';
   const isDuplicate = (state.rpg?.[categoryKey] || []).includes(picked.id);
 
   let duplicateCoins = 0;
@@ -1262,7 +1291,7 @@ export function openLootbox(boxType: 'standard' | 'royal'): LootboxResult | null
     addCoins(duplicateCoins);
     gainBondExp(duplicateExp);
   } else {
-    unlockCosmetic(picked.category === 'outfit' ? 'outfits' : picked.category === 'accessory' ? 'accessories' : 'hairstyles', picked.id);
+    unlockCosmetic(picked.category === 'outfit' ? 'outfits' : picked.category === 'accessory' ? 'accessories' : picked.category === 'hairstyle' ? 'hairstyles' : 'avatar_frames', picked.id);
   }
 
   saveState();

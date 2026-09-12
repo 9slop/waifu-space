@@ -437,7 +437,7 @@ export function getRandomGreeting(personalityId: string): GreetingMood {
   };
 }
 
-export function getRandomComplimentResponse(personalityId: string): PersonalityReaction {
+export function getRandomComplimentResponse(personalityId: string): ReactionItem {
   const persona = getPersonality(personalityId);
   const list = persona.compliments || [
     { text: "Thank you for the kind words!", mood: persona.defaultMood }
@@ -445,7 +445,7 @@ export function getRandomComplimentResponse(personalityId: string): PersonalityR
   return list[Math.floor(Math.random() * list.length)];
 }
 
-export function getRandomTaskCompleteResponse(personalityId: string): PersonalityReaction {
+export function getRandomTaskCompleteResponse(personalityId: string): ReactionItem {
   const persona = getPersonality(personalityId);
   const list = persona.taskComplete || [
     { text: "Great job completing your task!", mood: 'happy' }
@@ -453,7 +453,7 @@ export function getRandomTaskCompleteResponse(personalityId: string): Personalit
   return list[Math.floor(Math.random() * list.length)];
 }
 
-export function getRandomThanksResponse(personalityId: string): PersonalityReaction {
+export function getRandomThanksResponse(personalityId: string): ReactionItem {
   const persona = getPersonality(personalityId);
   const list = persona.thanks || [
     { text: "You're very welcome!", mood: persona.defaultMood }
@@ -461,7 +461,7 @@ export function getRandomThanksResponse(personalityId: string): PersonalityReact
   return list[Math.floor(Math.random() * list.length)];
 }
 
-export function getRandomHelpResponse(personalityId: string): PersonalityReaction {
+export function getRandomHelpResponse(personalityId: string): ReactionItem {
   const persona = getPersonality(personalityId);
   const list = persona.help || [
     { text: "I can review your schedule, remind you of tasks, and keep you company!", mood: persona.defaultMood }
@@ -469,7 +469,7 @@ export function getRandomHelpResponse(personalityId: string): PersonalityReactio
   return list[Math.floor(Math.random() * list.length)];
 }
 
-export function getRandomDefaultResponse(personalityId: string): PersonalityReaction {
+export function getRandomDefaultResponse(personalityId: string): ReactionItem {
   const persona = getPersonality(personalityId);
   const list = persona.defaults || [
     { text: "Understood. I'm right here beside you.", mood: persona.defaultMood }

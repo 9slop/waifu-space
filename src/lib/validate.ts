@@ -178,6 +178,7 @@ function sanitizeRpg(raw: unknown): RpgState {
     unlockedOutfits: dedupeStrings(src.unlockedOutfits),
     unlockedAccessories: dedupeStrings(src.unlockedAccessories),
     unlockedHairstyles: dedupeStrings(src.unlockedHairstyles),
+    unlockedAvatarFrames: dedupeStrings(src.unlockedAvatarFrames),
     showcaseItems,
     claimedAffectionMilestones: Array.isArray(src.claimedAffectionMilestones)
       ? Array.from(new Set(src.claimedAffectionMilestones.filter(x => typeof x === 'number' && Number.isFinite(x) && x >= 0).map(x => Math.floor(x))))
@@ -229,7 +230,8 @@ export function sanitizeRawState(raw: unknown): SanitizeResult {
         customAvatarUrl: toStr(appearance.customAvatarUrl, ''),
         avatarMode: (VALID_AVATAR_MODES as readonly string[]).includes(appearance.avatarMode as string)
           ? (appearance.avatarMode as 'svg' | 'custom')
-          : 'svg'
+          : 'svg',
+        avatarFrame: toStr(appearance.avatarFrame, 'none')
       },
       mood: toStr(raw.waifu.mood, 'neutral'),
       bondLevel: toPositiveInt(raw.waifu.bondLevel, 1),

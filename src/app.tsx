@@ -18,6 +18,7 @@ import { SakuraCanvas } from './components/SakuraCanvas';
 import { ToastNotification } from './components/ToastNotification';
 import { AuthModal } from './components/AuthModal';
 import { LeaderboardModal } from './components/LeaderboardModal';
+import { AvatarFrameOverlay } from './components/AvatarFrame';
 
 // Global Styles
 import './styles/themes.css';
@@ -185,6 +186,7 @@ function AppLayout(props: { children: any }) {
           }>
             <div class="user-profile-badge">
               <A href="/profile" class="user-badge-link" title={state.user?.username} onClick={e => handleNavClick(e, '/profile')}>
+                <div class="user-avatar-tiny-wrap">
                 <Show when={state.user?.avatarUrl} fallback={<span class="user-avatar-tiny">🌸</span>}>
                   <img
                     src={state.user?.avatarUrl}
@@ -195,6 +197,8 @@ function AppLayout(props: { children: any }) {
                     }}
                   />
                 </Show>
+                <AvatarFrameOverlay frameId={state.waifu?.appearance?.avatarFrame} class="user-avatar-tiny-frame" />
+              </div>
                 <span class="user-badge-name">{state.user?.username}</span>
               </A>
               <button
