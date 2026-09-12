@@ -1379,11 +1379,11 @@ export class StrikeBabylonEngine {
       this.callbacks.onInvulnerableChange?.(false);
     }
 
-    // Report hit direction for the HUD's damage-direction indicator (Fortnite-style)
+    // Report hit direction for the HUD's circular damage indicator (points toward attacker)
     if (sourcePos) {
       const cam = this.camera.position;
-      const dx = cam.x - sourcePos.x;
-      const dz = cam.z - sourcePos.z;
+      const dx = sourcePos.x - cam.x;
+      const dz = sourcePos.z - cam.z;
       const len = Math.hypot(dx, dz);
       if (len > 0.001) {
         this.callbacks.onDamageDirection?.({ x: dx / len, z: dz / len });

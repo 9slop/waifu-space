@@ -182,35 +182,37 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
 }
 
-/* Damage Direction Indicator (Fortnite-style arrow pointing at the shooter) */
+/* Damage Direction Indicator: Circular ring glowing on the incoming hit side */
 .strike-damage-dir {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 54px;
-  height: 50px;
-  margin: -58px 0 0 -27px;
+  width: 200px;
+  height: 200px;
+  margin: -100px 0 0 -100px;
   pointer-events: none;
   z-index: 26;
-  animation: damageDirFade 1.4s ease-out forwards;
+  transform-origin: center center;
+  animation: damageDirFade 1.6s ease-out forwards;
 }
 
 .strike-damage-dir svg {
   width: 100%;
   height: 100%;
   display: block;
-  animation: damageDirPop 0.3s ease-out;
-  filter: drop-shadow(0 0 6px rgba(255, 235, 200, 0.85));
+  animation: damageDirPop 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  filter: drop-shadow(0 0 10px rgba(255, 30, 30, 0.85));
 }
 
 @keyframes damageDirPop {
-  0% { transform: scale(0.5); opacity: 0.3; }
+  0% { transform: scale(0.75); opacity: 0.2; }
+  60% { transform: scale(1.04); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes damageDirFade {
   0% { opacity: 1; }
-  55% { opacity: 1; }
+  65% { opacity: 0.95; }
   100% { opacity: 0; }
 }
 

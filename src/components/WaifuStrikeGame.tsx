@@ -638,16 +638,52 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         </div>
       </Show>
 
-      {/* Damage Direction Indicator (Fortnite-style arrow pointing at the shooter) */}
+      {/* Damage Direction Indicator: circular ring that lights up brightly on the side you were hit from */}
       <Show when={damageDir()} keyed>
         {(dir) => (
           <div
             class="strike-damage-dir"
             style={{ transform: `rotate(${dir.angleDeg}deg)` }}
           >
-            <svg viewBox="0 0 48 46" aria-hidden="true">
-              <path d="M24 2 L44 44 L24 33 L4 44 Z" fill="rgba(255,255,255,0.9)" />
-              <path d="M24 9 L38 38 L24 31 L10 38 Z" fill="#ff5b3d" />
+            <svg viewBox="0 0 200 200" aria-hidden="true">
+              <defs>
+                <radialGradient id="hitWedgeGrad" cx="50%" cy="15%" r="45%">
+                  <stop offset="0%" stop-color="#ff2222" stop-opacity="0.45" />
+                  <stop offset="100%" stop-color="#ff2222" stop-opacity="0" />
+                </radialGradient>
+                <linearGradient id="hitArcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#ff6b6b" stop-opacity="0.1" />
+                  <stop offset="35%" stop-color="#ff2222" stop-opacity="0.95" />
+                  <stop offset="50%" stop-color="#ffffff" stop-opacity="1" />
+                  <stop offset="65%" stop-color="#ff2222" stop-opacity="0.95" />
+                  <stop offset="100%" stop-color="#ff6b6b" stop-opacity="0.1" />
+                </linearGradient>
+                <filter id="hitGlow">
+                  <feGaussianBlur stdDeviation="3.5" result="glow" />
+                  <feMerge>
+                    <feMergeNode in="glow" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              {/* Subtle circular ring guide around reticle */}
+              <circle cx="100" cy="100" r="82" fill="none" stroke="rgba(255, 40, 40, 0.18)" stroke-width="2.5" />
+              {/* Soft directional flare in hit sector */}
+              <path d="M 100 100 L 52 35 A 82 82 0 0 1 148 35 Z" fill="url(#hitWedgeGrad)" />
+              {/* Bright glowing hit arc on the side you were shot from */}
+              <circle
+                cx="100"
+                cy="100"
+                r="82"
+                fill="none"
+                stroke="url(#hitArcGrad)"
+                stroke-width="7"
+                stroke-linecap="round"
+                stroke-dasharray="130 385"
+                stroke-dashoffset="65"
+                transform="rotate(-90 100 100)"
+                filter="url(#hitGlow)"
+              />
             </svg>
           </div>
         )}
