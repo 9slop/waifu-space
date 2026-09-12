@@ -630,14 +630,6 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   windowGlowMat.disableLighting = true;
   windowGlowMat.maxSimultaneousLights = 4;
 
-  // Projected warm ground light pool (simulates radiant light pool under lamps and in front of lit windows)
-  const lightPoolMat = new StandardMaterial('matLightPool', scene);
-  lightPoolMat.diffuseColor = new Color3(1.0, 0.85, 0.45);
-  lightPoolMat.emissiveColor = new Color3(1.1, 0.85, 0.4);
-  lightPoolMat.alpha = 0.38;
-  lightPoolMat.disableLighting = true;
-  lightPoolMat.maxSimultaneousLights = 4;
-
   // Sakura tree foliage (flowering cherry blossom clusters)
   const sakuraMat = createTexturedMat(
     'matSakura',
@@ -836,13 +828,6 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
       addBox(`${prefix}_ShU`, Math.min(w * 0.5, 4), h * 0.22, 0.12,
         new Vector3(pos.x, pos.y + h * 0.75, pos.z + d / 2 + 0.08), windowGlowMat, false);
 
-      // Projected warm ground light pool in front of the lit windows
-      const winPool = MeshBuilder.CreateDisc(`${prefix}_WinPool`, { radius: 2.5, tessellation: 16 }, scene);
-      winPool.position = new Vector3(pos.x, 0.025, pos.z + d / 2 + 1.2);
-      winPool.rotation.x = Math.PI / 2;
-      winPool.material = lightPoolMat;
-      winPool.isPickable = false;
-
       // Warm point light radiating outward from the window
       const winPL = new PointLight(`${prefix}_WinPL`, new Vector3(pos.x, pos.y + h * 0.35, pos.z + d / 2 + 0.6), scene);
       winPL.diffuse = new Color3(1.0, 0.86, 0.52);
@@ -964,18 +949,11 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     addBox(`${prefix}_Rf`, w + 1.2, 0.4, d + 1.0, new Vector3(pos.x, h + 0.2, pos.z), tileRoofMat);
   }
 
-  /** Stone lantern (base + glow cap + stone roof cap + warm emitted point light + light pool) */
+  /** Stone lantern (base + glow cap + stone roof cap + warm emitted point light) */
   function createStoneLantern(name: string, pos: Vector3) {
     addBox(`${name}_B`, 0.7, 1.7, 0.7, new Vector3(pos.x, pos.y + 0.85, pos.z), stoneMat);
     addBox(`${name}_G`, 0.52, 0.52, 0.52, new Vector3(pos.x, pos.y + 1.95, pos.z), lanternGlowMat, false, false);
     addBox(`${name}_Cap`, 0.85, 0.25, 0.85, new Vector3(pos.x, pos.y + 2.3, pos.z), tileRoofMat, false, false);
-
-    // Warm ground light pool beneath lantern
-    const pool = MeshBuilder.CreateDisc(`${name}_Pool`, { radius: 2.2, tessellation: 16 }, scene);
-    pool.position = new Vector3(pos.x, 0.025, pos.z);
-    pool.rotation.x = Math.PI / 2;
-    pool.material = lightPoolMat;
-    pool.isPickable = false;
 
     // Warm golden lantern light emission illuminating ground and surroundings
     const pl = new PointLight(`${name}_PL`, new Vector3(pos.x, pos.y + 2.05, pos.z), scene);
@@ -990,13 +968,6 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   function createHangingLantern(name: string, pos: Vector3) {
     addBox(`${name}_Hook`, 0.08, 0.22, 0.08, new Vector3(pos.x, pos.y + 0.35, pos.z), darkWoodMat, false, false);
     addBox(`${name}_Glow`, 0.44, 0.58, 0.44, new Vector3(pos.x, pos.y, pos.z), lanternGlowMat, false, false);
-
-    // Warm ground light pool beneath hanging lantern
-    const pool = MeshBuilder.CreateDisc(`${name}_Pool`, { radius: 1.9, tessellation: 16 }, scene);
-    pool.position = new Vector3(pos.x, 0.025, pos.z);
-    pool.rotation.x = Math.PI / 2;
-    pool.material = lightPoolMat;
-    pool.isPickable = false;
 
     const pl = new PointLight(`${name}_PL`, new Vector3(pos.x, pos.y, pos.z), scene);
     pl.diffuse = new Color3(1.0, 0.82, 0.44);
@@ -1119,13 +1090,6 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
 
     // Iron-barred storehouse window glowing warm from within
     addBox(`${prefix}_Win`, 2.0, 1.2, 0.15, new Vector3(pos.x, pos.y + h * 0.65, pos.z + d / 2 + 0.08), windowGlowMat, false);
-
-    // Projected warm ground light pool in front of lit storehouse window
-    const pool = MeshBuilder.CreateDisc(`${prefix}_WinPool`, { radius: 2.2, tessellation: 16 }, scene);
-    pool.position = new Vector3(pos.x, 0.025, pos.z + d / 2 + 1.0);
-    pool.rotation.x = Math.PI / 2;
-    pool.material = lightPoolMat;
-    pool.isPickable = false;
 
     // Warm window light (cycled with lanterns by updateDayNightCycle)
     const winPL = new PointLight(`${prefix}_WinPL`, new Vector3(pos.x, pos.y + h * 0.65, pos.z + d / 2 + 0.6), scene);
@@ -1416,18 +1380,6 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // Tea house lit windows spilling warm light into the arena
   addBox('teaWinL', 1.9, 1.6, 0.12, new Vector3(-36, 3.3, -24.88), windowGlowMat, false);
   addBox('teaWinR', 1.9, 1.6, 0.12, new Vector3(-30, 3.3, -24.88), windowGlowMat, false);
-
-  const teaPool1 = MeshBuilder.CreateDisc('teaPool1', { radius: 2.5, tessellation: 16 }, scene);
-  teaPool1.position = new Vector3(-36, 0.62, -23.5);
-  teaPool1.rotation.x = Math.PI / 2;
-  teaPool1.material = lightPoolMat;
-  teaPool1.isPickable = false;
-
-  const teaPool2 = MeshBuilder.CreateDisc('teaPool2', { radius: 2.5, tessellation: 16 }, scene);
-  teaPool2.position = new Vector3(-30, 0.62, -23.5);
-  teaPool2.rotation.x = Math.PI / 2;
-  teaPool2.material = lightPoolMat;
-  teaPool2.isPickable = false;
 
   const teaWinPL1 = new PointLight('teaWinPL1', new Vector3(-36, 2.8, -24.2), scene);
   teaWinPL1.diffuse = new Color3(1.0, 0.85, 0.5);
