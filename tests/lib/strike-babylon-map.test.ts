@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { NullEngine, Scene, StandardMaterial, DynamicTexture, PointLight, UniversalCamera, Vector3 } from '@babylonjs/core';
+import { NullEngine, Scene, StandardMaterial, DynamicTexture, PointLight, UniversalCamera, Vector3, GlowLayer } from '@babylonjs/core';
 import { createKyotoMap } from '../../src/lib/strike/strike-babylon-map';
 import { createBabylonWeaponMesh, BabylonAvatarModel, BabylonViewmodel } from '../../src/lib/strike/strike-babylon-avatars';
 
@@ -224,6 +224,24 @@ describe('strike-babylon-map (Kyoto v2)', () => {
 
     r1.dispose();
     r2.dispose();
+  });
+
+  it('instantiates luminous map lanterns and supports GlowLayer bloom', () => {
+    createKyotoMap(scene);
+
+    const pointLights = scene.lights.filter((l) => l instanceof PointLight) as PointLight[];
+    expect(pointLights.length).toBeGreaterThanOrEqual(20);
+
+    const lanternMat = scene.getMaterialByName('matLanternGlow') as StandardMaterial;
+    expect(lanternMat).toBeDefined();
+    expect(lanternMat.disableLighting).toBe(true);
+    expect(lanternMat.emissiveColor.r).toBeGreaterThan(1.0);
+
+    const glow = new GlowLayer('testGlow', scene, { blurKernelSize: 24, mainTextureRatio: 0.5 });
+    expect(glow).toBeDefined();
+    glow.isEnabled = true;
+    expect(glow.isEnabled).toBe(true);
+    glow.dispose();
   });
 });
 

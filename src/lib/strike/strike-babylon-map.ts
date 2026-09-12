@@ -614,10 +614,12 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   goldMat.emissiveColor = new Color3(0.08, 0.06, 0.02);
   goldMat.maxSimultaneousLights = 4;
 
-  // Glowing lantern paper
+  // Glowing lantern paper (vibrant luminous gold with radiant bloom)
   const lanternGlowMat = new StandardMaterial('matLanternGlow', scene);
-  lanternGlowMat.diffuseColor = new Color3(0.95, 0.82, 0.50);
-  lanternGlowMat.emissiveColor = new Color3(0.70, 0.55, 0.25);
+  lanternGlowMat.diffuseColor = new Color3(1.0, 0.90, 0.55);
+  lanternGlowMat.emissiveColor = new Color3(1.4, 1.15, 0.55);
+  lanternGlowMat.specularColor = new Color3(0, 0, 0);
+  lanternGlowMat.disableLighting = true;
   lanternGlowMat.maxSimultaneousLights = 4;
 
   // Sakura tree foliage (flowering cherry blossom clusters)
@@ -931,16 +933,30 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     addBox(`${prefix}_Rf`, w + 1.2, 0.4, d + 1.0, new Vector3(pos.x, h + 0.2, pos.z), tileRoofMat);
   }
 
-  /** Stone lantern (base + glow cap + warm emitted point light) */
+  /** Stone lantern (base + glow cap + stone roof cap + warm emitted point light) */
   function createStoneLantern(name: string, pos: Vector3) {
-    addBox(`${name}_B`, 0.7, 1.7, 0.7, new Vector3(pos.x, 0.85, pos.z), stoneMat);
-    addBox(`${name}_G`, 0.5, 0.5, 0.5, new Vector3(pos.x, 1.95, pos.z), lanternGlowMat, false, false);
+    addBox(`${name}_B`, 0.7, 1.7, 0.7, new Vector3(pos.x, pos.y + 0.85, pos.z), stoneMat);
+    addBox(`${name}_G`, 0.52, 0.52, 0.52, new Vector3(pos.x, pos.y + 1.95, pos.z), lanternGlowMat, false, false);
+    addBox(`${name}_Cap`, 0.85, 0.25, 0.85, new Vector3(pos.x, pos.y + 2.3, pos.z), tileRoofMat, false, false);
 
     // Warm golden lantern light emission illuminating ground and surroundings
-    const pl = new PointLight(`${name}_PL`, new Vector3(pos.x, 2.1, pos.z), scene);
-    pl.diffuse = new Color3(1.0, 0.78, 0.42);
+    const pl = new PointLight(`${name}_PL`, new Vector3(pos.x, pos.y + 2.05, pos.z), scene);
+    pl.diffuse = new Color3(1.0, 0.82, 0.45);
     pl.specular = new Color3(0.18, 0.14, 0.08);
-    pl.intensity = 0.65;
+    pl.intensity = 0.85;
+    pl.range = 10.5;
+    lanternLights.push(pl);
+  }
+
+  /** Hanging paper lantern (Chochin) under eaves, stalls, or shrine gates */
+  function createHangingLantern(name: string, pos: Vector3) {
+    addBox(`${name}_Hook`, 0.08, 0.22, 0.08, new Vector3(pos.x, pos.y + 0.35, pos.z), darkWoodMat, false, false);
+    addBox(`${name}_Glow`, 0.44, 0.58, 0.44, new Vector3(pos.x, pos.y, pos.z), lanternGlowMat, false, false);
+
+    const pl = new PointLight(`${name}_PL`, new Vector3(pos.x, pos.y, pos.z), scene);
+    pl.diffuse = new Color3(1.0, 0.80, 0.42);
+    pl.specular = new Color3(0.15, 0.12, 0.06);
+    pl.intensity = 0.75;
     pl.range = 9.0;
     lanternLights.push(pl);
   }
@@ -1185,6 +1201,12 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // --- Engawa veranda protrusion (subtle angle break, east side) ---
   addBox('engawaA', 2, 0.45, 5, new Vector3(-25.5, 0.22, -16), woodDeckMat);
 
+  // --- Stone Lanterns for Machiya Street Illumination ---
+  createStoneLantern('lanA_S', new Vector3(-32, 0, 24));
+  createStoneLantern('lanA_GateL', new Vector3(-31, 0, 2.5));
+  createStoneLantern('lanA_GateR', new Vector3(-26, 0, 2.5));
+  createStoneLantern('lanA_N', new Vector3(-32, 0, -18));
+
   // ═══════════════════════════════════════════════════════════════════
   // 7. ZONE 4: LANE B — "B-SHORT" (East Merchant Quarter, X = +22..+34)
   //    Close-quarters lane. Tactically sealed perimeter, authentic merchant
@@ -1232,7 +1254,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   addBox('norenB1', 3.5, 2.2, 0.12, new Vector3(28, 2.9, -5), shojiMat, false);
   addBox('norenB2', 3.5, 2.2, 0.12, new Vector3(28, 2.9, 15), shojiMat, false);
 
-  // --- Atmospheric Covered Arcade Arcades (supported by timber columns, not floating!) ---
+  // --- Atmospheric Covered Arcades (supported by timber columns, illuminated by hanging lanterns) ---
   const bArcades = [
     { name: 'bArc1', z: -8, d: 7.5 },
     { name: 'bArc2', z: 8, d: 7.5 },
@@ -1247,12 +1269,13 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     addBox(`${arc.name}_P2`, 0.38, 3.85, 0.38, new Vector3(30.8, 1.92, arc.z - zOff), timberMat, false);
     addBox(`${arc.name}_P3`, 0.38, 3.85, 0.38, new Vector3(25.2, 1.92, arc.z + zOff), timberMat, false);
     addBox(`${arc.name}_P4`, 0.38, 3.85, 0.38, new Vector3(30.8, 1.92, arc.z + zOff), timberMat, false);
-    // Hanging paper lantern under each arcade
-    addBox(`${arc.name}_Lant`, 0.45, 0.6, 0.45, new Vector3(28, 3.2, arc.z), lanternGlowMat, false);
+    // Illuminated hanging paper lantern under each arcade
+    createHangingLantern(`${arc.name}_Lant`, new Vector3(28, 3.1, arc.z));
   }
 
   // --- Stone Lanterns for Alleyway Illumination ---
   createStoneLantern('lanB_S', new Vector3(31, 0, 21));
+  createStoneLantern('lanB_Mid', new Vector3(25, 0, 3));
   createStoneLantern('lanB_N', new Vector3(25, 0, -19));
 
   // ═══════════════════════════════════════════════════════════════════
@@ -1283,6 +1306,10 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // --- Stone lanterns (orientation + thin cover) ---
   createStoneLantern('lanMidL', new Vector3(-6, 0, 0));
   createStoneLantern('lanMidR', new Vector3(6, 0, 0));
+  createStoneLantern('lanMid_S', new Vector3(-5, 0, 14));
+  createStoneLantern('lanMid_S2', new Vector3(5, 0, 14));
+  createStoneLantern('lanMid_N', new Vector3(-4, 0, -12));
+  createStoneLantern('lanMid_N2', new Vector3(4, 0, -12));
 
   // --- Mid flanking walls (channel players, separate from lanes) ---
   // These walls define the west and east edges of Mid
@@ -1335,9 +1362,11 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   createGardenBush('bushA1', new Vector3(-24, 0, -25), 1.15);
   createGardenBush('bushA2', new Vector3(-32, 0, -34), 0.95);
 
-  // --- Stone lanterns ---
+  // --- Stone lanterns & Hanging Veranda Lanterns ---
   createStoneLantern('lanAL', new Vector3(-20, 0, -26));
   createStoneLantern('lanAR', new Vector3(-35, 0, -33));
+  createHangingLantern('lanTeaHang1', new Vector3(-30, 2.6, -24.5));
+  createHangingLantern('lanTeaHang2', new Vector3(-36, 2.6, -24.5));
 
   // --- Bamboo privacy screen at A-Short entry (east edge of site) ---
   createBambooFence('bambooAShort', new Vector3(-17, 0, -29), 5, true);
@@ -1392,9 +1421,13 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   createSakeBarrelStack('sakeBSiteAltar', new Vector3(23, 0.9, -27), true);
   createSakeBarrelStack('sakeBSiteSouth', new Vector3(23, 0, -22.5), false);
 
-  // --- Stone lanterns ---
+  // --- Stone lanterns & Shrine Illuminations ---
   createStoneLantern('lanBL', new Vector3(20, 0, -26));
   createStoneLantern('lanBR', new Vector3(34, 0, -26));
+  createStoneLantern('lanShrineHondoL', new Vector3(20, 0, -37));
+  createStoneLantern('lanShrineHondoR', new Vector3(34, 0, -37));
+  createHangingLantern('lanHondoHangL', new Vector3(23, 4.2, -37.5));
+  createHangingLantern('lanHondoHangR', new Vector3(31, 4.2, -37.5));
 
   // --- GRAND KYOTO SHRINE SANCTUARY (HONDO) — Majestic North Backdrop ---
   // Seals the massive north void between Z=-36 and the perimeter wall Z=-52
@@ -1519,8 +1552,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     // Vertical timber posts supporting the beam
     addBox(`secPostW${i}`, 0.3, 3.2, 0.3, new Vector3(38.3, 1.6, zP), timberMat, false);
     addBox(`secPostE${i}`, 0.3, 3.2, 0.3, new Vector3(42.7, 1.6, zP), timberMat, false);
-    // Hanging lantern
-    addBox(`secLant${i}`, 0.45, 0.6, 0.45, new Vector3(40.5, 2.65, zP), lanternGlowMat, false);
+    // Hanging lantern with warm point light
+    createHangingLantern(`secLant${i}`, new Vector3(40.5, 2.65, zP));
   }
 
   // Bamboo screen gates at alley entries
@@ -1830,8 +1863,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
         skyMat.emissiveColor = new Color3(1.0, 1.0, 1.0);
       }
 
-      // Lanterns are dimmed during the daytime
-      const lanternIntensity = Math.max(0.15, 0.75 - sunElevation * 0.65);
+      // Lanterns remain luminous during daytime with warm ambient glow
+      const lanternIntensity = Math.max(0.65, 1.15 - sunElevation * 0.4);
       lanternLights.forEach((l) => (l.intensity = lanternIntensity));
     } else {
       // Nighttime (Directional light becomes cool moonlight)
@@ -1852,7 +1885,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
       skyMat.emissiveColor = new Color3(0.12, 0.15, 0.28);
 
       // Lanterns shine brightly at night!
-      lanternLights.forEach((l) => (l.intensity = 0.95));
+      lanternLights.forEach((l) => (l.intensity = 1.25));
     }
   };
 

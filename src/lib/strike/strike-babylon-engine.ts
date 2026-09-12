@@ -9,7 +9,8 @@ import {
   MeshBuilder,
   StandardMaterial,
   AbstractMesh,
-  DynamicTexture
+  DynamicTexture,
+  GlowLayer
 } from '@babylonjs/core';
 import {
   WeaponId,
@@ -111,6 +112,7 @@ export class StrikeBabylonEngine {
   public localShadowCaster: AbstractMesh | null = null;
   public bulletMarks: AbstractMesh[] = [];
   private bulletMarkMaterial: StandardMaterial | null = null;
+  public glowLayer: GlowLayer | null = null;
 
   // Event listener references for leak-free disposal
   private boundPointerLockChange: (() => void) | null = null;
@@ -192,6 +194,18 @@ export class StrikeBabylonEngine {
       this.scene.render();
     });
 
+    // Post-processing Bloom Glow Layer for map lamps, lasers, and weapon emissives
+    try {
+      this.glowLayer = new GlowLayer('glowLayer', this.scene, {
+        blurKernelSize: 24,
+        mainTextureRatio: 0.5
+      });
+      this.glowLayer.intensity = 0.85;
+      this.glowLayer.isEnabled = this.graphicsSettings.postProcessing;
+    } catch (err) {
+      console.warn('[StrikeEngine] GlowLayer initialization failed:', err);
+    }
+
     // Apply initial graphics settings (default: Low for smooth playability across all hardware)
     this.setGraphicsSettings(DEFAULT_GRAPHICS_SETTINGS);
 
@@ -234,6 +248,11 @@ export class StrikeBabylonEngine {
       for (const tex of this.scene.textures) {
         tex.anisotropicFilteringLevel = filterLevel;
       }
+    }
+
+    // 5. Post-Processing / Bloom GlowLayer
+    if (this.glowLayer) {
+      this.glowLayer.isEnabled = !!this.graphicsSettings.postProcessing;
     }
   }
 
@@ -1176,6 +1195,10 @@ export class StrikeBabylonEngine {
     this.bulletMarks = [];
     this.bulletMarkMaterial?.dispose();
     this.bulletMarkMaterial = null;
+    if (this.glowLayer) {
+      this.glowLayer.dispose();
+      this.glowLayer = null;
+    }
     this.viewmodel.dispose();
     this.remoteAvatars.forEach((av) => av.dispose());
     this.remoteAvatars.clear();
