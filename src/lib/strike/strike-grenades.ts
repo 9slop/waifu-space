@@ -4,9 +4,12 @@ import {
   MeshBuilder,
   StandardMaterial,
   Color3,
+  Color4,
   PointLight,
   Ray,
-  AbstractMesh
+  AbstractMesh,
+  ParticleSystem,
+  Texture
 } from '@babylonjs/core';
 import { GrenadeType } from './strike-types';
 import { strikeAudio } from './strike-weapons';
@@ -30,7 +33,9 @@ export interface ActiveFireZone {
   durationMs: number; // 6000ms (6 seconds)
   spawnTime: number;
   lastTickTime: number;
-  mesh: AbstractMesh;
+  mesh: AbstractMesh;          // ground disc (shows fire radius)
+  fireParticles?: ParticleSystem;
+  smokeParticles?: ParticleSystem;
   light?: PointLight;
   throwerId: string;
 }
@@ -253,13 +258,22 @@ export class StrikeGrenadeManager {
       if (elapsed >= f.durationMs) {
         f.mesh.dispose();
         f.light?.dispose();
+        f.fireParticles?.stop();
+        f.fireParticles?.dispose();
+        f.smokeParticles?.stop();
+        f.smokeParticles?.dispose();
         this.activeFireZones.splice(i, 1);
         continue;
       }
 
-      // Gentle pulsating flicker
+      // Gentle pulsating flicker on the ground disc
       const pulse = 1.0 + Math.sin(elapsed * 0.015) * 0.15;
       f.mesh.scaling = new Vector3(pulse, 1, pulse);
+
+      // Flicker the fire point light for a dynamic flame effect
+      if (f.light) {
+        f.light.intensity = 1.2 + Math.sin(elapsed * 0.028) * 0.4 + (Math.random() - 0.5) * 0.25;
+      }
 
       // Damage tick check every 250ms (0.25s): 5 damage per tick (20 dmg / second)
       if (now - f.lastTickTime >= 250) {
@@ -340,12 +354,13 @@ export class StrikeGrenadeManager {
 
   /**
    * Spawns a Molotov Fire Zone (4.5m radius, 6s duration, 5 damage per 0.25s).
+   * Uses a Babylon.js ParticleSystem to produce realistic rising flames and smoke.
    */
   public spawnFireZone(pos: Vector3, throwerId: string): ActiveFireZone {
     const id = `fire_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const radius = 4.5;
 
-    // Flat ground fire disk
+    // Ground fire disc — faint emissive glow to mark the fire radius
     const mesh = MeshBuilder.CreateDisc(
       id,
       { radius, tessellation: 24 },
@@ -356,13 +371,80 @@ export class StrikeGrenadeManager {
     mesh.material = this.fireGroundMat;
     mesh.isPickable = false;
 
-    // Glowing warm fire point light
+    // ── Fire Particle System ─────────────────────────────────────────────────
+    let fireParticles: ParticleSystem | undefined;
+    try {
+      fireParticles = new ParticleSystem(`${id}_fire`, 300, this.scene);
+      // Use a 1×1 white square texture (built-in Babylon flare texture)
+      fireParticles.particleTexture = new Texture(
+        'https://assets.babylonjs.com/particles/textures/explosion/Smoke10.png',
+        this.scene,
+        true, true
+      );
+      fireParticles.emitter = new Vector3(pos.x, pos.y + 0.05, pos.z);
+      // Spread across the fire disc area
+      fireParticles.minEmitBox = new Vector3(-radius * 0.55, 0, -radius * 0.55);
+      fireParticles.maxEmitBox = new Vector3(radius * 0.55, 0, radius * 0.55);
+      // Upward with slight outward wobble
+      fireParticles.direction1 = new Vector3(-0.4, 5, -0.4);
+      fireParticles.direction2 = new Vector3(0.4, 8, 0.4);
+      fireParticles.minLifeTime = 0.5;
+      fireParticles.maxLifeTime = 1.1;
+      fireParticles.emitRate = 140;
+      fireParticles.minSize = 0.5;
+      fireParticles.maxSize = 1.4;
+      fireParticles.minEmitPower = 0.6;
+      fireParticles.maxEmitPower = 1.4;
+      // Fire color: bright yellow core → orange → deep red at end
+      fireParticles.addColorGradient(0.0, new Color4(1.0, 0.95, 0.35, 0.9));
+      fireParticles.addColorGradient(0.35, new Color4(1.0, 0.55, 0.1, 0.8));
+      fireParticles.addColorGradient(0.7, new Color4(0.9, 0.2, 0.05, 0.5));
+      fireParticles.addColorGradient(1.0, new Color4(0.4, 0.08, 0.02, 0.0));
+      fireParticles.gravity = new Vector3(0, -1.5, 0);
+      fireParticles.blendMode = ParticleSystem.BLENDMODE_ADD;
+      fireParticles.renderingGroupId = 1;
+      fireParticles.start();
+    } catch { /* fallback: particles unavailable (test env) */ }
+
+    // ── Smoke Particle System ────────────────────────────────────────────────
+    let smokeParticles: ParticleSystem | undefined;
+    try {
+      smokeParticles = new ParticleSystem(`${id}_smoke`, 80, this.scene);
+      smokeParticles.particleTexture = new Texture(
+        'https://assets.babylonjs.com/particles/textures/explosion/Smoke10.png',
+        this.scene,
+        true, true
+      );
+      smokeParticles.emitter = new Vector3(pos.x, pos.y + 1.5, pos.z);
+      smokeParticles.minEmitBox = new Vector3(-radius * 0.3, 0, -radius * 0.3);
+      smokeParticles.maxEmitBox = new Vector3(radius * 0.3, 0, radius * 0.3);
+      smokeParticles.direction1 = new Vector3(-0.5, 3, -0.5);
+      smokeParticles.direction2 = new Vector3(0.5, 5.5, 0.5);
+      smokeParticles.minLifeTime = 1.5;
+      smokeParticles.maxLifeTime = 3.0;
+      smokeParticles.emitRate = 28;
+      smokeParticles.minSize = 1.2;
+      smokeParticles.maxSize = 2.8;
+      smokeParticles.minEmitPower = 0.3;
+      smokeParticles.maxEmitPower = 0.8;
+      // Dark smoky grey, fading out
+      smokeParticles.addColorGradient(0.0, new Color4(0.22, 0.18, 0.14, 0.0));
+      smokeParticles.addColorGradient(0.2, new Color4(0.22, 0.18, 0.14, 0.55));
+      smokeParticles.addColorGradient(0.7, new Color4(0.18, 0.15, 0.12, 0.35));
+      smokeParticles.addColorGradient(1.0, new Color4(0.12, 0.10, 0.09, 0.0));
+      smokeParticles.gravity = new Vector3(0, -0.3, 0);
+      smokeParticles.blendMode = ParticleSystem.BLENDMODE_STANDARD;
+      smokeParticles.renderingGroupId = 1;
+      smokeParticles.start();
+    } catch { /* fallback */ }
+
+    // Glowing warm fire point light (flicker updated in update loop)
     let light: PointLight | undefined;
     try {
-      light = new PointLight(`${id}_light`, new Vector3(pos.x, pos.y + 0.5, pos.z), this.scene);
-      light.diffuse = new Color3(1.0, 0.5, 0.1);
-      light.intensity = 1.2;
-      light.range = 8.0;
+      light = new PointLight(`${id}_light`, new Vector3(pos.x, pos.y + 1.0, pos.z), this.scene);
+      light.diffuse = new Color3(1.0, 0.45, 0.08);
+      light.intensity = 1.4;
+      light.range = 10.0;
     } catch {}
 
     const zone: ActiveFireZone = {
@@ -373,6 +455,8 @@ export class StrikeGrenadeManager {
       spawnTime: performance.now(),
       lastTickTime: performance.now(),
       mesh,
+      fireParticles,
+      smokeParticles,
       light,
       throwerId
     };
@@ -533,6 +617,10 @@ export class StrikeGrenadeManager {
     for (const f of this.activeFireZones) {
       f.mesh.dispose();
       f.light?.dispose();
+      f.fireParticles?.stop();
+      f.fireParticles?.dispose();
+      f.smokeParticles?.stop();
+      f.smokeParticles?.dispose();
     }
     this.activeFireZones = [];
 
