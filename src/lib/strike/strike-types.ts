@@ -113,7 +113,6 @@ export interface ScoreboardPlayer {
   headshots: number;
   score: number;
   streak: number;
-  ping: number;
   avatarOutfit: string;
 }
 
@@ -157,8 +156,9 @@ export interface P2PPlayerState {
   deaths: number;
   headshots: number;
   streak: number;
-  ping: number;
   avatarOutfit: string;
+  seq?: number;
+  timestamp?: number;
 }
 
 export interface P2PShootEvent {
@@ -168,6 +168,9 @@ export interface P2PShootEvent {
   direction: Vector3D;
   targetId: string | null;
   isHeadshot: boolean;
+  part?: 'head' | 'torso' | 'limb';
   damage: number;
+  seq?: number;
+  timestamp?: number;
 }
 

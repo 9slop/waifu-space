@@ -6,12 +6,14 @@ export default defineConfig({
       crawlLinks: false
     }
   },
+  solid: {
+    babel: {
+      compact: true
+    }
+  },
   vite: {
     build: {
       chunkSizeWarningLimit: 1200
-    },
-    optimizeDeps: {
-      include: ['three']
     }
   }
 });

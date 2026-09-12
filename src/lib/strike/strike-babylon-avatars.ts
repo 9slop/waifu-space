@@ -140,6 +140,11 @@ export function createBabylonWeaponMesh(weaponId: WeaponId, scene: Scene): Trans
     handle.parent = root;
   }
 
+  // Ensure weapon viewmodel parts never block player shooting raycasts
+  root.getChildMeshes().forEach((m) => {
+    m.isPickable = false;
+  });
+
   return root;
 }
 
@@ -284,17 +289,21 @@ export class BabylonAvatarModel {
     whiteMat.diffuseColor = new Color3(0.95, 0.95, 0.95);
 
     // ==================== 1. HEAD & HAIR ====================
-    // Head Sphere (Hitbox: avatarHead)
+    // Head Sphere (Hitbox: head)
     this.headMesh = MeshBuilder.CreateSphere(`avatarHead_${id}`, { diameter: 0.52, segments: 10 }, scene);
     this.headMesh.position = new Vector3(0, 1.55, 0);
     this.headMesh.material = skinMat;
     this.headMesh.parent = this.root;
+    this.headMesh.isPickable = true;
+    this.headMesh.metadata = { isHitbox: true, part: 'head', playerId: id };
 
     // Hair Cap
     const hairCap = MeshBuilder.CreateSphere(`hairCap_${id}`, { diameter: 0.56, segments: 10 }, scene);
     hairCap.position = new Vector3(0, 0.05, -0.03);
     hairCap.material = hairMat;
     hairCap.parent = this.headMesh;
+    hairCap.isPickable = true;
+    hairCap.metadata = { isHitbox: true, part: 'head', playerId: id };
 
     // Twin tails
     const leftTail = MeshBuilder.CreateCylinder(`lTail_${id}`, { height: 0.5, diameterTop: 0.18, diameterBottom: 0.02 }, scene);
@@ -302,12 +311,16 @@ export class BabylonAvatarModel {
     leftTail.rotation.z = 0.38;
     leftTail.material = hairMat;
     leftTail.parent = this.headMesh;
+    leftTail.isPickable = true;
+    leftTail.metadata = { isHitbox: true, part: 'head', playerId: id };
 
     const rightTail = MeshBuilder.CreateCylinder(`rTail_${id}`, { height: 0.5, diameterTop: 0.18, diameterBottom: 0.02 }, scene);
     rightTail.position = new Vector3(0.28, 0.05, -0.08);
     rightTail.rotation.z = -0.38;
     rightTail.material = hairMat;
     rightTail.parent = this.headMesh;
+    rightTail.isPickable = true;
+    rightTail.metadata = { isHitbox: true, part: 'head', playerId: id };
 
     // Anime Eyes
     const eyeMat = new StandardMaterial(`eyeMat_${id}`, scene);
@@ -318,46 +331,84 @@ export class BabylonAvatarModel {
     leftEye.position = new Vector3(-0.09, 0.02, 0.25);
     leftEye.material = eyeMat;
     leftEye.parent = this.headMesh;
+    leftEye.isPickable = false;
 
     const rightEye = MeshBuilder.CreatePlane(`rEye_${id}`, { size: 0.07 }, scene);
     rightEye.position = new Vector3(0.09, 0.02, 0.25);
     rightEye.material = eyeMat;
     rightEye.parent = this.headMesh;
+    rightEye.isPickable = false;
+
+    // Generous head hitbox volume for reliable hit registration
+    const headHitbox = MeshBuilder.CreateSphere(`hitboxHead_${id}`, { diameter: 0.68, segments: 6 }, scene);
+    headHitbox.position = new Vector3(0, 1.55, 0);
+    headHitbox.visibility = 0;
+    headHitbox.isPickable = true;
+    headHitbox.metadata = { isHitbox: true, part: 'head', playerId: id };
+    headHitbox.parent = this.root;
 
     // ==================== 2. TORSO & SKIRT ====================
-    // Body Box (Hitbox: avatarBody)
+    // Body Box (Hitbox: torso)
     this.bodyMesh = MeshBuilder.CreateBox(`avatarBody_${id}`, { width: 0.44, height: 0.55, depth: 0.26 }, scene);
     this.bodyMesh.position = new Vector3(0, 1.15, 0);
     this.bodyMesh.material = outfitMat;
     this.bodyMesh.parent = this.root;
+    this.bodyMesh.isPickable = true;
+    this.bodyMesh.metadata = { isHitbox: true, part: 'torso', playerId: id };
 
     // Skirt
     const skirt = MeshBuilder.CreateCylinder(`skirt_${id}`, { height: 0.26, diameterTop: 0.45, diameterBottom: 0.65, tessellation: 10 }, scene);
     skirt.position = new Vector3(0, -0.32, 0);
     skirt.material = outfitMat;
     skirt.parent = this.bodyMesh;
+    skirt.isPickable = true;
+    skirt.metadata = { isHitbox: true, part: 'torso', playerId: id };
 
-    // ==================== 3. LEGS ====================
+    // Torso Hitbox Volume
+    const torsoHitbox = MeshBuilder.CreateBox(`hitboxTorso_${id}`, { width: 0.62, height: 0.72, depth: 0.44 }, scene);
+    torsoHitbox.position = new Vector3(0, 1.12, 0);
+    torsoHitbox.visibility = 0;
+    torsoHitbox.isPickable = true;
+    torsoHitbox.metadata = { isHitbox: true, part: 'torso', playerId: id };
+    torsoHitbox.parent = this.root;
+
+    // ==================== 3. LEGS & LIMBS ====================
     this.leftLeg = MeshBuilder.CreateBox(`lLeg_${id}`, { width: 0.15, height: 0.74, depth: 0.17 }, scene);
     this.leftLeg.position = new Vector3(-0.13, 0.42, 0);
     this.leftLeg.material = whiteMat;
     this.leftLeg.parent = this.root;
+    this.leftLeg.isPickable = true;
+    this.leftLeg.metadata = { isHitbox: true, part: 'limb', playerId: id };
 
     this.rightLeg = MeshBuilder.CreateBox(`rLeg_${id}`, { width: 0.15, height: 0.74, depth: 0.17 }, scene);
     this.rightLeg.position = new Vector3(0.13, 0.42, 0);
     this.rightLeg.material = whiteMat;
     this.rightLeg.parent = this.root;
+    this.rightLeg.isPickable = true;
+    this.rightLeg.metadata = { isHitbox: true, part: 'limb', playerId: id };
 
     // ==================== 4. ARMS & WEAPON MOUNT ====================
     this.leftArm = MeshBuilder.CreateBox(`lArm_${id}`, { width: 0.12, height: 0.46, depth: 0.13 }, scene);
     this.leftArm.position = new Vector3(-0.29, 1.15, 0);
     this.leftArm.material = skinMat;
     this.leftArm.parent = this.root;
+    this.leftArm.isPickable = true;
+    this.leftArm.metadata = { isHitbox: true, part: 'limb', playerId: id };
 
     this.rightArm = MeshBuilder.CreateBox(`rArm_${id}`, { width: 0.12, height: 0.46, depth: 0.13 }, scene);
     this.rightArm.position = new Vector3(0.29, 1.15, 0);
     this.rightArm.material = skinMat;
     this.rightArm.parent = this.root;
+    this.rightArm.isPickable = true;
+    this.rightArm.metadata = { isHitbox: true, part: 'limb', playerId: id };
+
+    // Limbs Hitbox Volume
+    const limbsHitbox = MeshBuilder.CreateBox(`hitboxLimbs_${id}`, { width: 0.65, height: 0.78, depth: 0.42 }, scene);
+    limbsHitbox.position = new Vector3(0, 0.4, 0);
+    limbsHitbox.visibility = 0;
+    limbsHitbox.isPickable = true;
+    limbsHitbox.metadata = { isHitbox: true, part: 'limb', playerId: id };
+    limbsHitbox.parent = this.root;
 
     this.weaponMount = new TransformNode(`avatarWeaponMount_${id}`, scene);
     this.weaponMount.position = new Vector3(0.25, 1.05, 0.28);

@@ -12,13 +12,14 @@ interface WaifuStrikeGameProps {
 }
 
 export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
+  let containerRef!: HTMLDivElement;
   let canvasRef!: HTMLCanvasElement;
 
   const [engine, setEngine] = createSignal<StrikeBabylonEngine | null>(null);
   const [network, setNetwork] = createSignal<StrikeP2PManager | null>(null);
 
-  const [health, setHealth] = createSignal(100);
-  const [maxHealth] = createSignal(100);
+  const [health, setHealth] = createSignal(150);
+  const [maxHealth] = createSignal(150);
   const [ammo, setAmmo] = createSignal({ mag: 30, reserve: 90 });
   const [activeWeapon, setActiveWeapon] = createSignal<WeaponDef>(WEAPON_CATALOG.rifle);
 
@@ -27,11 +28,11 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [showControlsOverlay, setShowControlsOverlay] = createSignal(true);
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [showSummaryModal, setShowSummaryModal] = createSignal(false);
+  const [isFullscreen, setIsFullscreen] = createSignal(false);
 
   const [killfeed, setKillfeed] = createSignal<KillfeedEntry[]>([]);
   const [medal, setMedal] = createSignal<{ title: string; sub: string } | null>(null);
   const [scoreboard, setScoreboard] = createSignal<ScoreboardPlayer[]>([]);
-  const [ping, setPing] = createSignal(24);
   const [connected, setConnected] = createSignal(false);
   const [peerCount, setPeerCount] = createSignal(0);
 
@@ -44,6 +45,20 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [audioVol, setAudioVol] = createSignal(50);
 
   let matchStartTime = Date.now();
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await containerRef?.requestFullscreen?.();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen?.();
+        setIsFullscreen(false);
+      }
+    } catch (err) {
+      console.warn('Fullscreen toggle failed', err);
+    }
+  };
 
   onMount(() => {
     matchStartTime = Date.now();
@@ -60,8 +75,8 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         setHitmarker({ isHeadshot, id: Date.now() });
         setTimeout(() => setHitmarker(null), 250);
       },
-      onLocalShoot: (ray, isHeadshot, targetId) => {
-        net?.registerPlayerShot(ray, isHeadshot, targetId);
+      onLocalShoot: (ray, isHeadshot, targetId, part, damage) => {
+        net?.registerPlayerShot(ray, isHeadshot, targetId, part, damage);
       },
       onKillAnnouncement: (text) => {
         setMedal({ title: text, sub: '' });
@@ -87,9 +102,8 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         setMedal({ title, sub });
         setTimeout(() => setMedal(null), 2000);
       },
-      onConnectionStatus: (conn, latency, peers) => {
+      onConnectionStatus: (conn, peers) => {
         setConnected(conn);
-        setPing(latency);
         setPeerCount(peers);
       }
     });
@@ -108,10 +122,16 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       });
 
     const handleResize = () => eng.handleResize();
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
     window.addEventListener('resize', handleResize);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
 
     onCleanup(() => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
       eng.dispose();
       net?.stop();
     });
@@ -119,7 +139,11 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
   const handleStartPlay = () => {
     setShowControlsOverlay(false);
-    engine()?.requestPointerLock();
+    const eng = engine();
+    if (eng) {
+      eng.startPlaying();
+      eng.requestPointerLock();
+    }
   };
 
   const handleLeaveMatch = async () => {
@@ -190,7 +214,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   };
 
   return (
-    <div class="strike-viewport-container" role="region" aria-label="Waifu Strike FPS">
+    <div ref={containerRef} class="strike-viewport-container" role="region" aria-label="Waifu Strike FPS">
       {/* 3D Babylon.js WebGL Canvas Viewport */}
       <canvas
         ref={canvasRef}
@@ -242,10 +266,24 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       <div class="strike-top-banner">
         <span class="strike-room-tag">⚡ {t('strike.modeTitle') || 'Waifu Strike DM'}</span>
         <span>⛩️ {t('strike.mapName') || 'Cyber Shrine'}</span>
-        <span>📶 {ping()}ms</span>
         <Show when={peerCount() > 0}>
           <span style={{ color: '#2ed573' }}>👥 {peerCount()} P2P Peer{peerCount() > 1 ? 's' : ''}</span>
         </Show>
+        <button
+          class="btn-fullscreen-toggle"
+          style={{
+            background: isFullscreen() ? 'rgba(0, 206, 201, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+            border: isFullscreen() ? '1px solid #00cec9' : '1px solid rgba(255, 255, 255, 0.2)',
+            color: '#fff',
+            padding: '2px 10px',
+            'border-radius': '6px',
+            cursor: 'pointer'
+          }}
+          onClick={toggleFullscreen}
+          title="Toggle Fullscreen"
+        >
+          {isFullscreen() ? '🗗 Exit Fullscreen' : '⛶ Fullscreen'}
+        </button>
         <button
           class="btn-controls-toggle"
           style={{
@@ -260,6 +298,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
             if (typeof document !== 'undefined' && document.pointerLockElement) {
               document.exitPointerLock?.();
             }
+            engine()?.pausePlaying();
             setShowControlsOverlay(true);
           }}
         >
@@ -496,7 +535,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                   <th>K/D</th>
                   <th>Streak</th>
                   <th>Score</th>
-                  <th>Ping</th>
                 </tr>
               </thead>
               <tbody>
@@ -515,7 +553,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                         <td>{kd}</td>
                         <td>{p.streak}</td>
                         <td style={{ color: '#ffd32a' }}>{p.score}</td>
-                        <td>{p.ping}ms</td>
                       </tr>
                     );
                   }}

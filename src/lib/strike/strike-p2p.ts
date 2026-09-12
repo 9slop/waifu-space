@@ -17,7 +17,7 @@ export interface P2PNetworkCallbacks {
   onScoreboardUpdate: (players: ScoreboardPlayer[]) => void;
   onKillfeedEntry: (entry: KillfeedEntry) => void;
   onMedalAnnouncement: (title: string, sub: string) => void;
-  onConnectionStatus: (connected: boolean, ping: number, peerCount: number) => void;
+  onConnectionStatus: (connected: boolean, peerCount: number) => void;
 }
 
 interface PeerConnectionWrapper {
@@ -26,27 +26,8 @@ interface PeerConnectionWrapper {
   pc: RTCPeerConnection;
   dc: RTCDataChannel | null;
   state: P2PPlayerState | null;
-}
-
-interface BotEntity {
-  id: string;
-  name: string;
-  avatarOutfit: string;
-  hairColor: string;
-  weaponId: WeaponId;
-  position: Vector3;
-  yaw: number;
-  pitch: number;
-  health: number;
-  isDead: boolean;
-  respawnTime: number;
-  currentWaypointIdx: number;
-  lastShotTime: number;
-  kills: number;
-  deaths: number;
-  headshots: number;
-  streak: number;
-  ping: number;
+  lastPacketTime: number;
+  lastShootTime: number;
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -55,6 +36,22 @@ const ICE_SERVERS: RTCConfiguration = {
     { urls: 'stun:stun1.l.google.com:19302' }
   ]
 };
+
+// Singleton Supabase client for Realtime with isolated storageKey to prevent GoTrue warning
+let sharedStrikeClient: SupabaseClient | null = null;
+function getStrikeRealtimeClient(url: string, key: string): SupabaseClient {
+  if (!sharedStrikeClient) {
+    sharedStrikeClient = createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storageKey: 'sb-strike-p2p-client'
+      }
+    });
+  }
+  return sharedStrikeClient;
+}
 
 export class StrikeP2PManager {
   private engine: StrikeBabylonEngine;
@@ -67,13 +64,11 @@ export class StrikeP2PManager {
   private supabase: SupabaseClient | null = null;
   private channel: RealtimeChannel | null = null;
 
-  // WebRTC P2P Peers
+  // WebRTC P2P Peers (Encrypted end-to-end via DTLS)
   private peers: Map<string, PeerConnectionWrapper> = new Map();
 
-  // Tactical AI Bots
-  private bots: BotEntity[] = [];
   private tickInterval: any = null;
-  private tickCount = 0;
+  private packetSeq = 0;
 
   // Match statistics
   public localKills = 0;
@@ -94,17 +89,14 @@ export class StrikeP2PManager {
   public async start(playerName: string, supabaseUrl?: string, supabaseKey?: string) {
     this.myName = playerName || 'Commander';
 
-    // 1. Initialize Bots for immediate local play & offline fallback
-    this.initBots();
-
-    // 2. Connect to Supabase Realtime if credentials exist
+    // Connect to Supabase Realtime if credentials exist
     if (supabaseUrl && supabaseKey) {
       this.initSupabaseRealtime(supabaseUrl, supabaseKey);
     } else {
-      this.callbacks.onConnectionStatus(true, 18, 0);
+      this.callbacks.onConnectionStatus(true, 0);
     }
 
-    // 3. Start 25 Hz simulation & P2P sync tick
+    // Start 25 Hz P2P sync tick
     this.tickInterval = setInterval(() => {
       this.tick();
     }, 40);
@@ -132,9 +124,7 @@ export class StrikeP2PManager {
 
   private initSupabaseRealtime(url: string, key: string) {
     try {
-      this.supabase = createClient(url, key, {
-        auth: { persistSession: false }
-      });
+      this.supabase = getStrikeRealtimeClient(url, key);
 
       this.channel = this.supabase.channel('waifu-strike-lobby', {
         config: {
@@ -149,98 +139,123 @@ export class StrikeP2PManager {
           const state = this.channel?.presenceState() || {};
           this.handlePresenceSync(state);
         })
-        .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-          if (key !== this.myPeerId) {
-            this.connectToPeer(key, (newPresences[0] as any)?.name || 'Player');
-          }
+        .on('presence', { event: 'join' }, ({ newPresences }) => {
+          this.handlePeerJoin(newPresences);
         })
-        .on('presence', { event: 'leave' }, ({ key }) => {
-          this.removePeer(key);
-        })
-        // Broadcast: WebRTC Signaling
-        .on('broadcast', { event: 'signal' }, ({ payload }) => {
-          this.handleSignalMessage(payload as P2PSignalPayload);
-        })
-        .subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            await this.channel?.track({
-              peerId: this.myPeerId,
-              name: this.myName,
-              joinedAt: Date.now()
-            });
-            this.callbacks.onConnectionStatus(true, 28, this.peers.size);
-          }
+        .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+          this.handlePeerLeave(leftPresences);
         });
+
+      // Broadcast: WebRTC Signaling (Offers, Answers, ICE Candidates)
+      this.channel.on('broadcast', { event: 'signal' }, ({ payload }) => {
+        this.handleSignal(payload as P2PSignalPayload);
+      });
+
+      this.channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await this.channel?.track({
+            peerId: this.myPeerId,
+            name: this.myName,
+            joinedAt: Date.now()
+          });
+          this.callbacks.onConnectionStatus(true, this.peers.size);
+        }
+      });
     } catch {
-      // Graceful fallback to solo bots
-      this.callbacks.onConnectionStatus(true, 20, 0);
+      this.callbacks.onConnectionStatus(true, 0);
     }
   }
 
-  private handlePresenceSync(presenceState: Record<string, any[]>) {
-    const activeKeys = Object.keys(presenceState);
-    for (const peerId of activeKeys) {
-      if (peerId !== this.myPeerId && !this.peers.has(peerId)) {
-        // Initiator rule: smaller peer ID offers connection to avoid collision
-        if (this.myPeerId < peerId) {
-          const peerData = presenceState[peerId]?.[0];
-          this.connectToPeer(peerId, peerData?.name || 'Player');
+  private handlePresenceSync(state: Record<string, any[]>) {
+    const activePeers = new Set<string>();
+    for (const key of Object.keys(state)) {
+      if (key !== this.myPeerId) {
+        activePeers.add(key);
+        if (!this.peers.has(key)) {
+          this.initiatePeerConnection(key);
         }
       }
     }
-    this.callbacks.onConnectionStatus(true, 28, this.peers.size);
+
+    // Prune stale peers
+    for (const peerId of this.peers.keys()) {
+      if (!activePeers.has(peerId)) {
+        this.removePeer(peerId);
+      }
+    }
+
+    this.callbacks.onConnectionStatus(true, this.peers.size);
+    this.publishScoreboard();
   }
 
-  private async connectToPeer(peerId: string, peerName: string) {
-    if (this.peers.has(peerId)) return;
-
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-    const wrapper: PeerConnectionWrapper = {
-      peerId,
-      name: peerName,
-      pc,
-      dc: null,
-      state: null
-    };
-    this.peers.set(peerId, wrapper);
-
-    // Create DataChannel (un-ordered, low-latency UDP behavior)
-    const dc = pc.createDataChannel('strike-p2p', {
-      ordered: false,
-      maxRetransmits: 0
-    });
-    wrapper.dc = dc;
-    this.setupDataChannel(wrapper, dc);
-
-    // ICE Candidate gathering
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        this.sendSignal({
-          to: peerId,
-          from: this.myPeerId,
-          type: 'ice-candidate',
-          candidate: event.candidate
-        });
+  private handlePeerJoin(newPresences: any[]) {
+    for (const p of newPresences) {
+      if (p.peerId && p.peerId !== this.myPeerId) {
+        if (this.myPeerId < p.peerId && !this.peers.has(p.peerId)) {
+          this.initiatePeerConnection(p.peerId);
+        }
       }
-    };
+    }
+  }
 
-    // Create Offer
+  private handlePeerLeave(leftPresences: any[]) {
+    for (const p of leftPresences) {
+      if (p.peerId) {
+        this.removePeer(p.peerId);
+      }
+    }
+  }
+
+  private async initiatePeerConnection(targetPeerId: string) {
+    if (this.peers.has(targetPeerId)) return;
+    if (typeof RTCPeerConnection === 'undefined') return;
+
     try {
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      const dc = pc.createDataChannel('gameData', {
+        ordered: false,
+        maxRetransmits: 0
+      });
+
+      const wrapper: PeerConnectionWrapper = {
+        peerId: targetPeerId,
+        name: 'Player',
+        pc,
+        dc,
+        state: null,
+        lastPacketTime: Date.now(),
+        lastShootTime: 0
+      };
+      this.peers.set(targetPeerId, wrapper);
+
+      this.setupDataChannel(wrapper, dc);
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          this.sendSignal({
+            to: targetPeerId,
+            from: this.myPeerId,
+            type: 'ice-candidate',
+            candidate: event.candidate
+          });
+        }
+      };
+
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+
       this.sendSignal({
-        to: peerId,
+        to: targetPeerId,
         from: this.myPeerId,
         type: 'offer',
         sdp: offer
       });
-    } catch {
-      // Peer connection failure fallback
-    }
+    } catch {}
   }
 
-  private async handleSignalMessage(msg: P2PSignalPayload) {
-    if (msg.to !== this.myPeerId) return;
+  private async handleSignal(msg: P2PSignalPayload) {
+    if (!msg || msg.to !== this.myPeerId) return;
+    if (typeof RTCPeerConnection === 'undefined') return;
 
     if (msg.type === 'offer') {
       let wrapper = this.peers.get(msg.from);
@@ -251,7 +266,9 @@ export class StrikeP2PManager {
           name: 'Player',
           pc,
           dc: null,
-          state: null
+          state: null,
+          lastPacketTime: Date.now(),
+          lastShootTime: 0
         };
         this.peers.set(msg.from, wrapper);
 
@@ -309,9 +326,9 @@ export class StrikeP2PManager {
 
   private setupDataChannel(wrapper: PeerConnectionWrapper, dc: RTCDataChannel) {
     dc.onopen = () => {
-      this.callbacks.onConnectionStatus(true, 24, this.peers.size);
+      this.callbacks.onConnectionStatus(true, this.peers.size);
 
-      // Create 3D Avatar for this peer
+      // Create 3D Avatar for this human peer
       const avatar = new BabylonAvatarModel(
         wrapper.peerId,
         {
@@ -322,24 +339,23 @@ export class StrikeP2PManager {
         this.engine.scene
       );
       this.engine.remoteAvatars.set(wrapper.peerId, avatar);
+      this.publishScoreboard();
     };
 
     dc.onmessage = (event) => {
       try {
+        if (!event.data || typeof event.data !== 'string') return;
         const data = JSON.parse(event.data);
+        if (!data || typeof data.type !== 'string') return;
+
+        // Security: validate packet types
         if (data.type === 'state') {
-          wrapper.state = data.state;
-          const av = this.engine.remoteAvatars.get(wrapper.peerId);
-          if (av && data.state) {
-            av.root.position = Vector3.Lerp(av.root.position, new Vector3(data.state.x, data.state.y, data.state.z), 0.4);
-            av.root.rotation.y = data.state.yaw;
-            av.updateAnimation(data.state.animState, performance.now() * 0.001);
-          }
+          this.handleRemoteState(wrapper, data.state);
         } else if (data.type === 'shoot') {
-          const shoot = data.shoot as P2PShootEvent;
-          strikeAudio.playGunfire(shoot.weaponId);
-          if (shoot.targetId === this.myPeerId) {
-            this.engine.applyDamage(shoot.damage, wrapper.name);
+          this.handleRemoteShoot(wrapper, data.shoot);
+        } else if (data.type === 'tracer') {
+          if (data.origin && data.direction && data.weaponId) {
+            strikeAudio.playGunfire(data.weaponId);
           }
         }
       } catch {}
@@ -348,6 +364,93 @@ export class StrikeP2PManager {
     dc.onclose = () => {
       this.removePeer(wrapper.peerId);
     };
+  }
+
+  // Validates incoming player state packet with boundary and anti-teleport checks
+  private handleRemoteState(wrapper: PeerConnectionWrapper, rawState: any) {
+    if (!rawState || typeof rawState !== 'object') return;
+
+    // Boundary validation (Map is 84x84m from -42 to 42)
+    const x = Math.max(-41.5, Math.min(41.5, Number(rawState.x) || 0));
+    const y = Math.max(-1.0, Math.min(25.0, Number(rawState.y) || 1.62));
+    const z = Math.max(-41.5, Math.min(41.5, Number(rawState.z) || 0));
+
+    // Velocity / teleport sanity check
+    const now = Date.now();
+    const dt = Math.max(0.01, (now - wrapper.lastPacketTime) / 1000);
+    wrapper.lastPacketTime = now;
+
+    if (wrapper.state) {
+      const dist = Math.hypot(x - wrapper.state.x, z - wrapper.state.z);
+      const speed = dist / dt;
+      // If moving faster than plausible max CS speed (18 m/s), clamp movement
+      if (speed > 18) {
+        return;
+      }
+    }
+
+    wrapper.state = {
+      peerId: wrapper.peerId,
+      name: String(rawState.name || wrapper.name).slice(0, 24),
+      x,
+      y,
+      z,
+      yaw: Number(rawState.yaw) || 0,
+      pitch: Number(rawState.pitch) || 0,
+      animState: Number(rawState.animState) || 0,
+      health: Math.max(0, Math.min(200, Number(rawState.health) || 150)),
+      weaponId: (rawState.weaponId in WEAPON_CATALOG ? rawState.weaponId : 'rifle') as WeaponId,
+      kills: Math.max(0, Number(rawState.kills) || 0),
+      deaths: Math.max(0, Number(rawState.deaths) || 0),
+      headshots: Math.max(0, Number(rawState.headshots) || 0),
+      streak: Math.max(0, Number(rawState.streak) || 0),
+      avatarOutfit: rawState.avatarOutfit || '#00cec9',
+      seq: Number(rawState.seq) || 0,
+      timestamp: now
+    };
+
+    wrapper.name = wrapper.state.name;
+
+    const av = this.engine.remoteAvatars.get(wrapper.peerId);
+    if (av) {
+      av.root.position = Vector3.Lerp(av.root.position, new Vector3(x, y - 0.77, z), 0.45);
+      av.root.rotation.y = wrapper.state.yaw;
+      av.updateAnimation(wrapper.state.animState, performance.now() * 0.001);
+      av.setWeapon(wrapper.state.weaponId);
+    }
+
+    this.publishScoreboard();
+  }
+
+  // Validates incoming shoot packet with damage and rate-limit checks
+  private handleRemoteShoot(wrapper: PeerConnectionWrapper, shoot: any) {
+    if (!shoot || typeof shoot !== 'object') return;
+    const now = Date.now();
+
+    // Weapon validation
+    const weaponId = (shoot.weaponId in WEAPON_CATALOG ? shoot.weaponId : 'rifle') as WeaponId;
+    const def = WEAPON_CATALOG[weaponId];
+
+    // Rate-limiting check (enforces weapon fire-rate limit)
+    const minCooldown = (60 / def.fireRateRpm) * 800;
+    if (now - wrapper.lastShootTime < minCooldown) {
+      return;
+    }
+    wrapper.lastShootTime = now;
+
+    strikeAudio.playGunfire(weaponId);
+
+    // If local player was targeted and hit
+    if (shoot.targetId === this.myPeerId) {
+      const damage = Math.max(1, Math.min(350, Math.round(Number(shoot.damage) || def.damage)));
+      const isHeadshot = !!shoot.isHeadshot;
+
+      this.engine.applyDamage(damage, wrapper.name);
+
+      if (this.engine.health <= 0) {
+        this.registerPlayerDeath(wrapper.name);
+      }
+    }
   }
 
   private removePeer(peerId: string) {
@@ -362,67 +465,15 @@ export class StrikeP2PManager {
       av.dispose();
       this.engine.remoteAvatars.delete(peerId);
     }
-    this.callbacks.onConnectionStatus(true, 28, this.peers.size);
-  }
-
-  private initBots() {
-    const botArchetypes = [
-      { name: 'Bot Asuka', outfit: '#ff6584', hair: '#ff7597', weapon: 'rifle' as WeaponId },
-      { name: 'Bot Rei', outfit: '#00cec9', hair: '#74b9ff', weapon: 'sniper' as WeaponId },
-      { name: 'Bot Kaguya', outfit: '#2d3436', hair: '#2d3436', weapon: 'pistol' as WeaponId },
-      { name: 'Bot Rem', outfit: '#0984e3', hair: '#74b9ff', weapon: 'rifle' as WeaponId },
-      { name: 'Bot Kurisu', outfit: '#e17055', hair: '#d63031', weapon: 'rifle' as WeaponId }
-    ];
-
-    const waypoints = this.engine.mapData?.botWaypoints || [Vector3.Zero()];
-
-    this.bots = botArchetypes.map((spec, i) => {
-      const id = `bot_${i + 1}`;
-      const wp = waypoints[i % waypoints.length] || new Vector3(0, 1, 0);
-
-      // Create 3D Babylon Avatar
-      const avatar = new BabylonAvatarModel(
-        id,
-        {
-          name: spec.name,
-          hairColor: spec.hair,
-          outfitColor: spec.outfit
-        },
-        this.engine.scene
-      );
-      avatar.setWeapon(spec.weapon);
-      avatar.root.position = wp.clone();
-      this.engine.remoteAvatars.set(id, avatar);
-
-      return {
-        id,
-        name: spec.name,
-        avatarOutfit: spec.outfit,
-        hairColor: spec.hair,
-        weaponId: spec.weapon,
-        position: wp.clone(),
-        yaw: Math.random() * Math.PI * 2,
-        pitch: 0,
-        health: 100,
-        isDead: false,
-        respawnTime: 0,
-        currentWaypointIdx: i,
-        lastShotTime: 0,
-        kills: Math.floor(Math.random() * 3),
-        deaths: Math.floor(Math.random() * 2),
-        headshots: 0,
-        streak: 0,
-        ping: 28 + Math.floor(Math.random() * 15)
-      };
-    });
+    this.callbacks.onConnectionStatus(true, this.peers.size);
+    this.publishScoreboard();
   }
 
   private tick() {
-    this.tickCount++;
-    const now = performance.now();
-    const dt = 0.04;
+    this.packetSeq++;
+    const now = Date.now();
 
-    // 1. Broadcast local player state over open WebRTC DataChannels
+    // Broadcast local player state over open WebRTC DataChannels
     const myPos = this.engine.camera.position;
     const myYaw = this.engine.camera.rotation.y;
     const myPitch = this.engine.camera.rotation.x;
@@ -442,106 +493,58 @@ export class StrikeP2PManager {
       deaths: this.localDeaths,
       headshots: this.localHeadshots,
       streak: this.localCurrentStreak,
-      ping: 24,
-      avatarOutfit: '#ff7597'
+      avatarOutfit: '#ff7597',
+      seq: this.packetSeq,
+      timestamp: now
     };
 
     const statePacket = JSON.stringify({ type: 'state', state: myState });
     this.peers.forEach((p) => {
       if (p.dc && p.dc.readyState === 'open') {
-        p.dc.send(statePacket);
+        try {
+          p.dc.send(statePacket);
+        } catch {}
       }
     });
 
-    // 2. Simulate AI Bots (Waypoints, sighting, shooting)
-    const waypoints = this.engine.mapData?.botWaypoints || [Vector3.Zero()];
-    const spawns = this.engine.mapData?.spawnPoints || [{ position: new Vector3(0, 1, 0), yaw: 0 }];
-
-    for (const bot of this.bots) {
-      if (bot.isDead) {
-        if (now >= bot.respawnTime) {
-          const sp = spawns[Math.floor(Math.random() * spawns.length)];
-          bot.position = sp.position.clone();
-          bot.health = 100;
-          bot.isDead = false;
-          const av = this.engine.remoteAvatars.get(bot.id);
-          if (av) {
-            av.root.setEnabled(true);
-            av.root.position = bot.position.clone();
-          }
-        }
-        continue;
-      }
-
-      // Check distance to player
-      const distToPlayer = Vector3.Distance(bot.position, myPos);
-      const canSeePlayer = !this.engine.isDead && distToPlayer < 32;
-
-      if (canSeePlayer) {
-        const dir = myPos.subtract(bot.position).normalize();
-        bot.yaw = Math.atan2(dir.x, dir.z);
-
-        const def = WEAPON_CATALOG[bot.weaponId];
-        const shotCooldown = (60 / def.fireRateRpm) * 1000;
-        if (now - bot.lastShotTime > shotCooldown) {
-          bot.lastShotTime = now;
-          const hitChance = bot.weaponId === 'sniper' ? 0.35 : 0.45;
-          if (Math.random() < hitChance) {
-            const isHeadshot = Math.random() < 0.2;
-            const mult = isHeadshot ? def.headshotMultiplier : 1.0;
-            const dmg = Math.round(def.damage * mult * 0.4);
-            this.engine.applyDamage(dmg, bot.name);
-          }
-          strikeAudio.playGunfire(bot.weaponId);
-        }
-      } else {
-        // Patrol waypoints
-        const targetWp = waypoints[bot.currentWaypointIdx];
-        if (targetWp) {
-          const dist = Vector3.Distance(bot.position, targetWp);
-          if (dist < 1.5) {
-            bot.currentWaypointIdx = (bot.currentWaypointIdx + 1) % waypoints.length;
-          } else {
-            const moveDir = targetWp.subtract(bot.position).normalize();
-            bot.yaw = Math.atan2(moveDir.x, moveDir.z);
-            bot.position.addInPlace(moveDir.scale(3.8 * dt));
-          }
-        }
-      }
-
-      // Update 3D avatar position
-      const av = this.engine.remoteAvatars.get(bot.id);
-      if (av) {
-        av.root.position = bot.position.clone();
-        av.root.rotation.y = bot.yaw;
-        av.updateAnimation(canSeePlayer ? 0 : 1, now * 0.001);
-      }
-    }
-
-    // 3. Publish Scoreboard every 10 ticks
-    if (this.tickCount % 10 === 0) {
-      this.publishScoreboard();
-    }
+    this.publishScoreboard();
   }
 
-  public registerPlayerShot(ray: HitscanRay, isHeadshot: boolean, targetId: string | null) {
+  public registerPlayerShot(
+    ray: HitscanRay,
+    isHeadshot: boolean,
+    targetId: string | null,
+    part: 'head' | 'torso' | 'limb' = 'torso',
+    damage = 30
+  ) {
     this.localShotsFired++;
 
-    if (targetId) {
+    if (targetId !== null) {
       this.localShotsHit++;
-      const def = WEAPON_CATALOG[ray.weaponId];
-      const mult = isHeadshot ? def.headshotMultiplier : 1.0;
-      const damage = Math.round(def.damage * mult);
       this.localDamageDealt += damage;
 
-      // Check if target is an AI bot
-      const bot = this.bots.find((b) => b.id === targetId);
-      if (bot && !bot.isDead) {
-        bot.health -= damage;
-        if (bot.health <= 0) {
-          bot.isDead = true;
-          bot.deaths++;
-          bot.respawnTime = performance.now() + 2500;
+      // Check if target is a connected P2P peer
+      const peer = this.peers.get(targetId);
+      if (peer && peer.dc && peer.dc.readyState === 'open') {
+        const shootPacket: P2PShootEvent = {
+          shooterId: this.myPeerId,
+          weaponId: ray.weaponId,
+          origin: ray.origin,
+          direction: ray.direction,
+          targetId,
+          isHeadshot,
+          part,
+          damage,
+          seq: this.packetSeq,
+          timestamp: Date.now()
+        };
+
+        try {
+          peer.dc.send(JSON.stringify({ type: 'shoot', shoot: shootPacket }));
+        } catch {}
+
+        // Check if lethal
+        if (peer.state && peer.state.health <= damage) {
           this.localKills++;
           this.localCurrentStreak++;
           if (this.localCurrentStreak > this.localBestStreak) {
@@ -549,21 +552,15 @@ export class StrikeP2PManager {
           }
           if (isHeadshot) this.localHeadshots++;
 
-          // Hide avatar
-          const av = this.engine.remoteAvatars.get(bot.id);
-          if (av) av.root.setEnabled(false);
-
-          // Killfeed entry
           this.callbacks.onKillfeedEntry({
             id: `kill_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             killerName: 'You',
-            victimName: bot.name,
+            victimName: peer.name,
             weaponId: ray.weaponId,
             isHeadshot,
             timestamp: Date.now()
           });
 
-          // Medal announcement
           if (isHeadshot) {
             this.callbacks.onMedalAnnouncement('HEADSHOT!', '+150 PTS');
           } else if (this.localCurrentStreak === 3) {
@@ -577,39 +574,33 @@ export class StrikeP2PManager {
           this.publishScoreboard();
         }
       }
-
-      // Check if target is a P2P peer
-      const peer = this.peers.get(targetId);
-      if (peer && peer.dc && peer.dc.readyState === 'open') {
-        const shootPacket: P2PShootEvent = {
-          shooterId: this.myPeerId,
-          weaponId: ray.weaponId,
-          origin: ray.origin,
-          direction: ray.direction,
-          targetId,
-          isHeadshot,
-          damage
-        };
-        peer.dc.send(JSON.stringify({ type: 'shoot', shoot: shootPacket }));
-      }
     }
+
+    // Broadcast tracer line to other peers
+    const tracerPacket = JSON.stringify({
+      type: 'tracer',
+      origin: ray.origin,
+      direction: ray.direction,
+      weaponId: ray.weaponId
+    });
+    this.peers.forEach((p) => {
+      if (p.peerId !== targetId && p.dc && p.dc.readyState === 'open') {
+        try {
+          p.dc.send(tracerPacket);
+        } catch {}
+      }
+    });
   }
 
   public registerPlayerDeath(attackerName: string) {
     this.localDeaths++;
     this.localCurrentStreak = 0;
 
-    const killerBot = this.bots.find((b) => b.name === attackerName);
-    if (killerBot) {
-      killerBot.kills++;
-      killerBot.streak++;
-    }
-
     this.callbacks.onKillfeedEntry({
       id: `death_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       killerName: attackerName,
       victimName: 'You',
-      weaponId: killerBot?.weaponId || 'rifle',
+      weaponId: 'rifle',
       isHeadshot: false,
       timestamp: Date.now()
     });
@@ -628,7 +619,6 @@ export class StrikeP2PManager {
         headshots: this.localHeadshots,
         score: this.localKills * 100 + this.localHeadshots * 50,
         streak: this.localCurrentStreak,
-        ping: 24,
         avatarOutfit: '#ff7597'
       },
       ...Array.from(this.peers.values()).map((p, idx) => ({
@@ -640,20 +630,7 @@ export class StrikeP2PManager {
         headshots: p.state?.headshots || 0,
         score: (p.state?.kills || 0) * 100 + (p.state?.headshots || 0) * 50,
         streak: p.state?.streak || 0,
-        ping: p.state?.ping || 32,
         avatarOutfit: p.state?.avatarOutfit || '#00cec9'
-      })),
-      ...this.bots.map((b, idx) => ({
-        id: idx + 1,
-        name: b.name,
-        isBot: true,
-        kills: b.kills,
-        deaths: b.deaths,
-        headshots: b.headshots,
-        score: b.kills * 100 + b.headshots * 50,
-        streak: b.streak,
-        ping: b.ping,
-        avatarOutfit: b.avatarOutfit
       }))
     ];
 

@@ -26,7 +26,7 @@ export interface StrikeBabylonCallbacks {
   onAmmoChange: (mag: number, reserve: number) => void;
   onWeaponChange: (weapon: WeaponDef) => void;
   onHitmarker: (isHeadshot: boolean, damage: number) => void;
-  onLocalShoot: (ray: HitscanRay, isHeadshot: boolean, targetId: string | null) => void;
+  onLocalShoot: (ray: HitscanRay, isHeadshot: boolean, targetId: string | null, part?: 'head' | 'torso' | 'limb', damage?: number) => void;
   onKillAnnouncement: (text: string) => void;
   onScoreboardToggle: (visible: boolean) => void;
   onScopeChange?: (isScoped: boolean) => void;
@@ -44,6 +44,9 @@ export class StrikeBabylonEngine {
 
   // Player Physics Collider Body
   public playerCollider: AbstractMesh;
+
+  // Play state (false until player clicks "Drop In & Play")
+  public isPlaying = false;
 
   // Local Player Physics State
   public velocity = new Vector3(0, 0, 0);
@@ -73,9 +76,9 @@ export class StrikeBabylonEngine {
   public lastShotTime = 0;
   public reloadEndTime = 0;
 
-  // Local Stats
-  public health = 100;
-  public maxHealth = 100;
+  // Local Stats (150 HP base)
+  public health = 150;
+  public maxHealth = 150;
   public isDead = false;
 
   // Input & Sensitivity
@@ -114,8 +117,8 @@ export class StrikeBabylonEngine {
     });
 
     this.scene = new Scene(this.engine);
-    // Dark cyberpunk shrine night sky clear color (never black screen!)
-    this.scene.clearColor = new Color4(0.08, 0.10, 0.14, 1.0);
+    // Vibrant twilight anime sky clear color (bright and atmospheric)
+    this.scene.clearColor = new Color4(0.24, 0.28, 0.38, 1.0);
     this.scene.collisionsEnabled = true;
 
     // 2. Setup FPS Universal Camera & Physics Collider
@@ -142,7 +145,7 @@ export class StrikeBabylonEngine {
     // 5. Setup Input & Resize Listeners
     this.setupInputs();
 
-    // 6. Spawn Local Player
+    // 6. Spawn Local Player (Initial positioning)
     this.respawnLocalPlayer();
 
     // 7. Render Loop
@@ -159,6 +162,18 @@ export class StrikeBabylonEngine {
     this.callbacks.onWeaponChange(WEAPON_CATALOG[this.activeWeaponId]);
   }
 
+  public startPlaying() {
+    this.isPlaying = true;
+    this.respawnLocalPlayer();
+    this.requestPointerLock();
+  }
+
+  public pausePlaying() {
+    this.isPlaying = false;
+    this.keysDown = {};
+    this.mouseButtons = {};
+  }
+
   private setupInputs() {
     this.boundPointerLockChange = () => {
       this.isPointerLocked = document.pointerLockElement === this.canvas;
@@ -170,7 +185,7 @@ export class StrikeBabylonEngine {
     document.addEventListener('pointerlockchange', this.boundPointerLockChange);
 
     this.boundKeyDown = (e) => {
-      if (!this.isPointerLocked) return;
+      if (!this.isPointerLocked || !this.isPlaying) return;
       this.keysDown[e.code] = true;
       if (e.code === 'KeyR') this.reload();
       if (e.code === 'Digit1') this.switchWeapon('rifle');
@@ -196,7 +211,7 @@ export class StrikeBabylonEngine {
     window.addEventListener('keyup', this.boundKeyUp);
 
     this.boundMouseMove = (e) => {
-      if (!this.isPointerLocked) return;
+      if (!this.isPointerLocked || !this.isPlaying) return;
       const sens = this.isScoped ? this.mouseSensitivity * 0.4 : this.mouseSensitivity;
       this.camera.rotation.y += e.movementX * sens;
       this.camera.rotation.x += e.movementY * sens;
@@ -209,11 +224,12 @@ export class StrikeBabylonEngine {
 
     this.boundMouseDown = (e) => {
       if (!this.isPointerLocked) {
-        if (e.target === this.canvas) {
+        if (e.target === this.canvas && this.isPlaying) {
           this.requestPointerLock();
         }
         return;
       }
+      if (!this.isPlaying) return;
       this.mouseButtons[e.button] = true;
       if (e.button === 0) {
         // Immediate shot execution for sniper/deagle single-clicks
@@ -240,7 +256,7 @@ export class StrikeBabylonEngine {
     // Mouse wheel weapon cycling
     const weaponCycle: WeaponId[] = ['rifle', 'sniper', 'pistol', 'knife'];
     this.boundWheel = (e) => {
-      if (!this.isPointerLocked) return;
+      if (!this.isPointerLocked || !this.isPlaying) return;
       e.preventDefault();
       const curIdx = weaponCycle.indexOf(this.activeWeaponId);
       if (curIdx === -1) return;
@@ -266,7 +282,7 @@ export class StrikeBabylonEngine {
     this.camera.position = new Vector3(sp.position.x, sp.position.y + this.baseEyeHeight, sp.position.z);
     this.camera.rotation = new Vector3(0, sp.yaw, 0);
     this.velocity = Vector3.Zero();
-    this.health = 100;
+    this.health = this.maxHealth;
     this.isDead = false;
     this.isScoped = false;
     this.isReloading = false;
@@ -321,7 +337,7 @@ export class StrikeBabylonEngine {
   }
 
   public shoot() {
-    if (this.isDead || this.isReloading) return;
+    if (!this.isPlaying || this.isDead || this.isReloading) return;
     const now = performance.now();
     const def = WEAPON_CATALOG[this.activeWeaponId];
     const shotCooldown = (60 / def.fireRateRpm) * 1000;
@@ -347,26 +363,63 @@ export class StrikeBabylonEngine {
     this.camera.rotation.x -= def.recoilVertical * 0.35;
     this.camera.rotation.y += (Math.random() - 0.5) * def.recoilHorizontal;
 
-    // Raycast shooting via Babylon.js scene picking
-    const forwardRay = this.camera.getForwardRay(250);
-    const hit = this.scene.pickWithRay(forwardRay);
+    // Raycast shooting via Babylon.js scene picking (excluding viewmodel & local player collider)
+    const forwardRay = this.camera.getForwardRay(300);
+    const hit = this.scene.pickWithRay(forwardRay, (mesh) => {
+      return (
+        mesh.isPickable &&
+        mesh !== this.playerCollider &&
+        !mesh.name.startsWith('playerCollider') &&
+        !mesh.name.startsWith('Viewmodel') &&
+        !mesh.name.startsWith('FirstPerson')
+      );
+    });
 
     let isHeadshot = false;
     let targetId: string | null = null;
-    let hitPoint = forwardRay.origin.add(forwardRay.direction.scale(250));
+    let hitPart: 'head' | 'torso' | 'limb' = 'torso';
+    let hitPoint = forwardRay.origin.add(forwardRay.direction.scale(300));
 
     if (hit && hit.hit && hit.pickedMesh) {
       if (hit.pickedPoint) {
         hitPoint = hit.pickedPoint;
       }
-      const meshName = hit.pickedMesh.name;
-
-      if (meshName.startsWith('avatarHead_')) {
-        isHeadshot = true;
-        targetId = meshName.replace('avatarHead_', '');
-      } else if (meshName.startsWith('avatarBody_') || meshName.startsWith('lLeg_') || meshName.startsWith('rLeg_')) {
-        isHeadshot = false;
-        targetId = meshName.split('_')[1] || null;
+      const meta = hit.pickedMesh.metadata;
+      if (meta && meta.isHitbox) {
+        targetId = String(meta.playerId);
+        hitPart = meta.part || 'torso';
+        isHeadshot = hitPart === 'head';
+      } else {
+        const meshName = hit.pickedMesh.name;
+        if (
+          meshName.startsWith('avatarHead_') ||
+          meshName.startsWith('hitboxHead_') ||
+          meshName.startsWith('hairCap_') ||
+          meshName.startsWith('lTail_') ||
+          meshName.startsWith('rTail_')
+        ) {
+          isHeadshot = true;
+          hitPart = 'head';
+          targetId = meshName.split('_')[1] || null;
+        } else if (
+          meshName.startsWith('avatarBody_') ||
+          meshName.startsWith('hitboxTorso_') ||
+          meshName.startsWith('skirt_')
+        ) {
+          isHeadshot = false;
+          hitPart = 'torso';
+          targetId = meshName.split('_')[1] || null;
+        } else if (
+          meshName.startsWith('lArm_') ||
+          meshName.startsWith('rArm_') ||
+          meshName.startsWith('lLeg_') ||
+          meshName.startsWith('rLeg_') ||
+          meshName.startsWith('hitboxLimbs_')
+        ) {
+          isHeadshot = false;
+          hitPart = 'limb';
+          targetId = meshName.split('_')[1] || null;
+        }
       }
     }
 
@@ -375,21 +428,29 @@ export class StrikeBabylonEngine {
 
     if (targetId !== null) {
       strikeAudio.playHitmarker(isHeadshot);
-      const mult = isHeadshot ? def.headshotMultiplier : 1.0;
+      let mult = 1.0;
+      if (hitPart === 'head') mult = def.headshotMultiplier;
+      else if (hitPart === 'limb') mult = 0.75;
       const dmg = Math.round(def.damage * mult);
       this.callbacks.onHitmarker(isHeadshot, dmg);
     }
+
+    let calculatedDmg = def.damage;
+    if (hitPart === 'head') calculatedDmg = Math.round(def.damage * def.headshotMultiplier);
+    else if (hitPart === 'limb') calculatedDmg = Math.round(def.damage * 0.75);
 
     this.callbacks.onLocalShoot(
       {
         origin: { x: forwardRay.origin.x, y: forwardRay.origin.y, z: forwardRay.origin.z },
         direction: { x: forwardRay.direction.x, y: forwardRay.direction.y, z: forwardRay.direction.z },
-        maxDistance: 250,
+        maxDistance: 300,
         shooterId: 0,
         weaponId: this.activeWeaponId
       },
       isHeadshot,
-      targetId
+      targetId,
+      hitPart,
+      calculatedDmg
     );
   }
 
@@ -410,7 +471,7 @@ export class StrikeBabylonEngine {
   }
 
   public applyDamage(dmg: number, attackerName: string) {
-    if (this.isDead) return;
+    if (!this.isPlaying || this.isDead) return;
     this.health = Math.max(0, this.health - dmg);
     this.callbacks.onHealthChange(this.health, this.maxHealth);
 
@@ -428,7 +489,7 @@ export class StrikeBabylonEngine {
   }
 
   private update(dt: number) {
-    if (this.isDead) return;
+    if (!this.isPlaying || this.isDead) return;
 
     // Reload timer check
     if (this.isReloading && performance.now() >= this.reloadEndTime) {
