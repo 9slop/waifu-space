@@ -204,6 +204,27 @@ describe('strike-babylon-map (Kyoto v2)', () => {
     expect(() => viewmodel.triggerAttack('knife', 0, 0, true)).not.toThrow();
     viewmodel.update(0.016, false, 0);
   });
+
+  it('caches weapon materials across multiple weapon mesh instantiations to prevent RAM leaks', () => {
+    const matCountBefore = scene.materials.length;
+
+    // Create rifle mesh 1
+    const r1 = createBabylonWeaponMesh('rifle', scene);
+    const matCountAfterR1 = scene.materials.length;
+    expect(matCountAfterR1).toBeGreaterThan(matCountBefore);
+
+    // Create rifle mesh 2 (should reuse cached materials, not create new ones)
+    const r2 = createBabylonWeaponMesh('rifle', scene);
+    expect(scene.materials.length).toBe(matCountAfterR1);
+
+    // Meshes should share the exact same material instances
+    const r1Body = r1.getChildMeshes().find((m) => m.name === 'rifleBody');
+    const r2Body = r2.getChildMeshes().find((m) => m.name === 'rifleBody');
+    expect(r1Body?.material).toBe(r2Body?.material);
+
+    r1.dispose();
+    r2.dispose();
+  });
 });
 
 

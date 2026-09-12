@@ -769,6 +769,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     if (castShadow && shadowGen) {
       shadowGen.addShadowCaster(box);
     }
+    box.freezeWorldMatrix();
+    box.doNotSyncBoundingInfo = true;
     return box;
   }
 
@@ -1817,6 +1819,13 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
       lanternLights.forEach((l) => (l.intensity = 0.95));
     }
   };
+
+  // Performance optimization: Freeze world matrix on all static map architecture colliders
+  // to eliminate per-frame bounding box sync and world matrix recalculation.
+  for (let i = 0; i < colliders.length; i++) {
+    colliders[i].freezeWorldMatrix();
+    colliders[i].doNotSyncBoundingInfo = true;
+  }
 
   return {
     spawnPoints,

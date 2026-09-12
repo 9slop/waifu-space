@@ -69,108 +69,139 @@ function createTexturedMat(
   return mat;
 }
 
+const weaponMaterialCache = new WeakMap<Scene, Map<string, StandardMaterial>>();
+
+function getOrCreateWeaponMat(
+  scene: Scene,
+  key: string,
+  factory: () => StandardMaterial
+): StandardMaterial {
+  let cache = weaponMaterialCache.get(scene);
+  if (!cache) {
+    cache = new Map();
+    weaponMaterialCache.set(scene, cache);
+  }
+  let mat = cache.get(key);
+  const isDisposed = !mat || (typeof (mat as any).isDisposed === 'function' ? (mat as any).isDisposed() : Boolean((mat as any).isDisposed)) || !scene.materials.includes(mat);
+  if (isDisposed) {
+    mat = factory();
+    cache.set(key, mat);
+  }
+  return mat;
+}
+
 /**
  * Creates textured 3D weapon meshes for Babylon.js first-person viewmodel or third-person avatar hands.
  */
 export function createBabylonWeaponMesh(weaponId: WeaponId, scene: Scene): TransformNode {
-  const root = new TransformNode(`WeaponRoot_${weaponId}_${Math.random()}`, scene);
+  const root = new TransformNode(`WeaponRoot_${weaponId}`, scene);
 
   if (weaponId === 'rifle') {
-    // Textured Rifle Materials
-    const rifleBodyMat = createTexturedMat(`rifleBody_${Math.random()}`, scene, new Color3(0.9, 0.9, 0.9), 256, 256, (ctx, w, h) => {
-      ctx.fillStyle = '#1c1f26'; // Dark matte receiver
-      ctx.fillRect(0, 0, w, h);
-      // Split line
-      ctx.fillStyle = '#0e1014';
-      ctx.fillRect(0, h * 0.48, w, 4);
-      // Ejection port
-      ctx.fillStyle = '#12141a';
-      ctx.fillRect(w * 0.45, h * 0.2, w * 0.35, h * 0.22);
-      ctx.fillStyle = '#d4af37'; // Brass casing
-      ctx.fillRect(w * 0.52, h * 0.26, w * 0.2, h * 0.1);
-      // Ventilation slots
-      ctx.fillStyle = '#0a0c0f';
-      for (let i = 0; i < 5; i++) {
-        ctx.fillRect(w * 0.08 + i * 18, h * 0.22, 10, h * 0.18);
-      }
-      // Fire selector markings
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillText('SAFE', w * 0.2, h * 0.82);
-      ctx.fillStyle = '#f59e0b';
-      ctx.fillText('SEMI', w * 0.45, h * 0.82);
-      ctx.fillStyle = '#ff2b75';
-      ctx.fillText('AUTO', w * 0.72, h * 0.82);
-      // Edge highlights
-      ctx.strokeStyle = '#383f4d';
-      ctx.lineWidth = 3;
-      if (ctx.strokeRect) ctx.strokeRect(2, 2, w - 4, h - 4);
-    }, new Color3(0.25, 0.25, 0.28), undefined, 48);
-
-    const rifleBarrelMat = createTexturedMat(`rifleBarrel_${Math.random()}`, scene, new Color3(0.85, 0.88, 0.9), 128, 128, (ctx, w, h) => {
-      ctx.fillStyle = '#2b303b';
-      ctx.fillRect(0, 0, w, h);
-      for (let x = 0; x < w; x += 16) {
-        ctx.fillStyle = '#181b22';
-        ctx.fillRect(x, 0, 7, h);
-        ctx.fillStyle = '#485060';
-        ctx.fillRect(x + 7, 0, 2, h);
-      }
-    }, new Color3(0.4, 0.4, 0.45), undefined, 64);
-
-    const rifleMagMat = createTexturedMat(`rifleMag_${Math.random()}`, scene, new Color3(1.0, 0.85, 0.9), 128, 256, (ctx, w, h) => {
-      ctx.fillStyle = '#ff2b75'; // Cyberpunk hot pink
-      ctx.fillRect(0, 0, w, h);
-      // Diagonal ribbed waffle grip
-      ctx.strokeStyle = '#d61858';
-      ctx.lineWidth = 4;
-      for (let y = -w; y < h + w; y += 18) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y + w);
-        ctx.stroke();
-      }
-      // Transparent round indicator window
-      ctx.fillStyle = '#181a20';
-      ctx.fillRect(w * 0.7, h * 0.15, w * 0.22, h * 0.7);
-      for (let r = 0; r < 6; r++) {
-        ctx.fillStyle = '#eab308';
-        ctx.fillRect(w * 0.72, h * 0.2 + r * 26, w * 0.18, 14);
-      }
-      ctx.font = 'bold 10px monospace';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText('30', w * 0.12, h * 0.25);
-      ctx.fillText('20', w * 0.12, h * 0.5);
-      ctx.fillText('10', w * 0.12, h * 0.75);
-    }, new Color3(0.2, 0.15, 0.18), new Color3(0.12, 0.03, 0.06), 32);
-
-    const rifleStockMat = createTexturedMat(`rifleStock_${Math.random()}`, scene, new Color3(0.85, 0.85, 0.85), 128, 128, (ctx, w, h) => {
-      ctx.fillStyle = '#16181d';
-      ctx.fillRect(0, 0, w, h);
-      // Carbon weave
-      for (let y = 0; y < h; y += 8) {
-        for (let x = 0; x < w; x += 8) {
-          ctx.fillStyle = ((x + y) % 16 === 0) ? '#282c35' : '#1b1e25';
-          ctx.fillRect(x, y, 8, 8);
+    // Cached Textured Rifle Materials (singleton per scene)
+    const rifleBodyMat = getOrCreateWeaponMat(scene, 'rifleBody', () =>
+      createTexturedMat('rifleBody', scene, new Color3(0.9, 0.9, 0.9), 256, 256, (ctx, w, h) => {
+        ctx.fillStyle = '#1c1f26'; // Dark matte receiver
+        ctx.fillRect(0, 0, w, h);
+        // Split line
+        ctx.fillStyle = '#0e1014';
+        ctx.fillRect(0, h * 0.48, w, 4);
+        // Ejection port
+        ctx.fillStyle = '#12141a';
+        ctx.fillRect(w * 0.45, h * 0.2, w * 0.35, h * 0.22);
+        ctx.fillStyle = '#d4af37'; // Brass casing
+        ctx.fillRect(w * 0.52, h * 0.26, w * 0.2, h * 0.1);
+        // Ventilation slots
+        ctx.fillStyle = '#0a0c0f';
+        for (let i = 0; i < 5; i++) {
+          ctx.fillRect(w * 0.08 + i * 18, h * 0.22, 10, h * 0.18);
         }
-      }
-      // Rubber recoil pad
-      ctx.fillStyle = '#0a0b0e';
-      ctx.fillRect(w * 0.8, 0, w * 0.2, h);
-      for (let y = 4; y < h; y += 10) {
-        ctx.fillStyle = '#22262e';
-        ctx.fillRect(w * 0.8, y, w * 0.2, 4);
-      }
-    }, new Color3(0.15, 0.15, 0.15), undefined, 24);
+        // Fire selector markings
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('SAFE', w * 0.2, h * 0.82);
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillText('SEMI', w * 0.45, h * 0.82);
+        ctx.fillStyle = '#ff2b75';
+        ctx.fillText('AUTO', w * 0.72, h * 0.82);
+        // Edge highlights
+        ctx.strokeStyle = '#383f4d';
+        ctx.lineWidth = 3;
+        if (ctx.strokeRect) ctx.strokeRect(2, 2, w - 4, h - 4);
+      }, new Color3(0.25, 0.25, 0.28), undefined, 48)
+    );
 
-    const rifleSightMat = createTexturedMat(`rifleSight_${Math.random()}`, scene, new Color3(1.0, 0.8, 0.9), 64, 64, (ctx, w, h) => {
-      ctx.fillStyle = '#ff2b75';
-      ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = '#22c55e'; // Tritium night sight dot
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, 8, 0, Math.PI * 2);
-      ctx.fill();
-    }, new Color3(0.3, 0.1, 0.2), new Color3(0.2, 0.35, 0.1), 40);
+    const rifleBarrelMat = getOrCreateWeaponMat(scene, 'rifleBarrel', () =>
+      createTexturedMat('rifleBarrel', scene, new Color3(0.85, 0.88, 0.9), 128, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#2b303b';
+        ctx.fillRect(0, 0, w, h);
+        for (let x = 0; x < w; x += 16) {
+          ctx.fillStyle = '#181b22';
+          ctx.fillRect(x, 0, 7, h);
+          ctx.fillStyle = '#485060';
+          ctx.fillRect(x + 7, 0, 2, h);
+        }
+      }, new Color3(0.4, 0.4, 0.45), undefined, 64)
+    );
+
+    const rifleMagMat = getOrCreateWeaponMat(scene, 'rifleMag', () =>
+      createTexturedMat('rifleMag', scene, new Color3(1.0, 0.85, 0.9), 128, 256, (ctx, w, h) => {
+        ctx.fillStyle = '#ff2b75'; // Cyberpunk hot pink
+        ctx.fillRect(0, 0, w, h);
+        // Diagonal ribbed waffle grip
+        ctx.strokeStyle = '#d61858';
+        ctx.lineWidth = 4;
+        for (let y = -w; y < h + w; y += 18) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y + w);
+          ctx.stroke();
+        }
+        // Transparent round indicator window
+        ctx.fillStyle = '#181a20';
+        ctx.fillRect(w * 0.7, h * 0.15, w * 0.22, h * 0.7);
+        for (let r = 0; r < 6; r++) {
+          ctx.fillStyle = '#eab308';
+          ctx.fillRect(w * 0.72, h * 0.2 + r * 26, w * 0.18, 14);
+        }
+        ctx.font = 'bold 10px monospace';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText('30', w * 0.12, h * 0.25);
+        ctx.fillText('20', w * 0.12, h * 0.5);
+        ctx.fillText('10', w * 0.12, h * 0.75);
+      }, new Color3(0.2, 0.15, 0.18), new Color3(0.12, 0.03, 0.06), 32)
+    );
+
+    const rifleStockMat = getOrCreateWeaponMat(scene, 'rifleStock', () =>
+      createTexturedMat('rifleStock', scene, new Color3(0.85, 0.85, 0.85), 128, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#16181d';
+        ctx.fillRect(0, 0, w, h);
+        // Carbon weave
+        for (let y = 0; y < h; y += 8) {
+          for (let x = 0; x < w; x += 8) {
+            ctx.fillStyle = ((x + y) % 16 === 0) ? '#282c35' : '#1b1e25';
+            ctx.fillRect(x, y, 8, 8);
+          }
+        }
+        // Rubber recoil pad
+        ctx.fillStyle = '#0a0b0e';
+        ctx.fillRect(w * 0.8, 0, w * 0.2, h);
+        for (let y = 4; y < h; y += 10) {
+          ctx.fillStyle = '#22262e';
+          ctx.fillRect(w * 0.8, y, w * 0.2, 4);
+        }
+      }, new Color3(0.15, 0.15, 0.15), undefined, 24)
+    );
+
+    const rifleSightMat = getOrCreateWeaponMat(scene, 'rifleSight', () =>
+      createTexturedMat('rifleSight', scene, new Color3(1.0, 0.8, 0.9), 64, 64, (ctx, w, h) => {
+        ctx.fillStyle = '#ff2b75';
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#22c55e'; // Tritium night sight dot
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, 8, 0, Math.PI * 2);
+        ctx.fill();
+      }, new Color3(0.3, 0.1, 0.2), new Color3(0.2, 0.35, 0.1), 40)
+    );
 
     // Receiver
     const body = MeshBuilder.CreateBox('rifleBody', { width: 0.08, height: 0.12, depth: 0.45 }, scene);
@@ -203,107 +234,119 @@ export function createBabylonWeaponMesh(weaponId: WeaponId, scene: Scene): Trans
     sight.material = rifleSightMat;
     sight.parent = root;
   } else if (weaponId === 'sniper') {
-    // Textured Sniper Materials
-    const sniperBodyMat = createTexturedMat(`sniperBody_${Math.random()}`, scene, new Color3(0.9, 0.95, 1.0), 256, 256, (ctx, w, h) => {
-      ctx.fillStyle = '#12151b'; // Deep carbon chassis
-      ctx.fillRect(0, 0, w, h);
-      for (let y = 0; y < h; y += 6) {
-        ctx.fillStyle = (y % 12 === 0) ? '#1a1e27' : '#141720';
-        ctx.fillRect(0, y, w, 6);
-      }
-      // Glowing cyan cyber circuit lines
-      ctx.strokeStyle = '#00e5ff';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.moveTo(10, h * 0.3);
-      ctx.lineTo(w * 0.4, h * 0.3);
-      ctx.lineTo(w * 0.5, h * 0.6);
-      ctx.lineTo(w * 0.9, h * 0.6);
-      ctx.stroke();
-      ctx.fillStyle = '#00e5ff';
-      ctx.beginPath();
-      ctx.arc(w * 0.9, h * 0.6, 5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.font = 'bold 11px monospace';
-      ctx.fillStyle = '#00e5ff';
-      ctx.fillText('AWM // .338 MAG', w * 0.15, h * 0.85);
-    }, new Color3(0.2, 0.3, 0.35), new Color3(0.04, 0.15, 0.18), 48);
-
-    const sniperBarrelMat = createTexturedMat(`sniperBarrel_${Math.random()}`, scene, new Color3(0.9, 0.9, 0.95), 128, 128, (ctx, w, h) => {
-      ctx.fillStyle = '#222731';
-      ctx.fillRect(0, 0, w, h);
-      for (let x = 0; x < w; x += 14) {
-        ctx.fillStyle = '#13161c';
-        ctx.fillRect(x, 0, 6, h);
-        ctx.fillStyle = '#414959';
-        ctx.fillRect(x + 6, 0, 2, h);
-      }
-    }, new Color3(0.35, 0.38, 0.42), undefined, 64);
-
-    const sniperBrakeMat = createTexturedMat(`sniperBrake_${Math.random()}`, scene, new Color3(0.95, 0.9, 1.0), 128, 128, (ctx, w, h) => {
-      const grad = ctx.createLinearGradient ? ctx.createLinearGradient(0, 0, w, 0) : null;
-      if (grad) {
-        grad.addColorStop(0.0, '#2b303c');
-        grad.addColorStop(0.4, '#382a4d');
-        grad.addColorStop(0.7, '#6b21a8');
-        grad.addColorStop(1.0, '#00e5ff');
-        ctx.fillStyle = grad;
-      } else {
-        ctx.fillStyle = '#6b21a8';
-      }
-      ctx.fillRect(0, 0, w, h);
-      ctx.fillStyle = '#0b0d11';
-      for (let i = 0; i < 3; i++) {
-        ctx.fillRect(18 + i * 36, h * 0.2, 16, h * 0.6);
-      }
-    }, new Color3(0.3, 0.2, 0.4), new Color3(0.05, 0.05, 0.1), 48);
-
-    const sniperScopeMat = createTexturedMat(`sniperScope_${Math.random()}`, scene, new Color3(0.85, 0.85, 0.88), 128, 128, (ctx, w, h) => {
-      ctx.fillStyle = '#161920';
-      ctx.fillRect(0, 0, w, h);
-      for (let x = 0; x < w; x += 6) {
-        ctx.fillStyle = (x % 12 === 0) ? '#2d3340' : '#1a1d25';
-        ctx.fillRect(x, h * 0.35, 3, h * 0.3);
-      }
-      ctx.font = 'bold 9px monospace';
-      ctx.fillStyle = '#00e5ff';
-      ctx.fillText('10x-40x56', 8, h * 0.85);
-    }, new Color3(0.25, 0.25, 0.28), undefined, 32);
-
-    const sniperLensMat = createTexturedMat(`sniperLens_${Math.random()}`, scene, new Color3(0.9, 1.0, 1.0), 128, 128, (ctx, w, h) => {
-      const lensGrad = ctx.createRadialGradient ? ctx.createRadialGradient(w/2, h/2, 5, w/2, h/2, w/2) : null;
-      if (lensGrad) {
-        lensGrad.addColorStop(0.0, '#002b28');
-        lensGrad.addColorStop(0.7, '#004d40');
-        lensGrad.addColorStop(1.0, '#00b4d8');
-        ctx.fillStyle = lensGrad;
-      } else {
-        ctx.fillStyle = '#004d40';
-      }
-      ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = '#00e5ff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, w * 0.35, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(w / 2, 6);
-      ctx.lineTo(w / 2, h - 6);
-      ctx.moveTo(6, h / 2);
-      ctx.lineTo(w - 6, h / 2);
-      ctx.stroke();
-    }, new Color3(0.2, 0.5, 0.6), new Color3(0.1, 0.35, 0.4), 80);
-
-    const sniperStockMat = createTexturedMat(`sniperStock_${Math.random()}`, scene, new Color3(0.85, 0.85, 0.85), 128, 128, (ctx, w, h) => {
-      ctx.fillStyle = '#16181d';
-      ctx.fillRect(0, 0, w, h);
-      for (let y = 0; y < h; y += 8) {
-        for (let x = 0; x < w; x += 8) {
-          ctx.fillStyle = ((x + y) % 16 === 0) ? '#242831' : '#17191f';
-          ctx.fillRect(x, y, 8, 8);
+    // Cached Textured Sniper Materials
+    const sniperBodyMat = getOrCreateWeaponMat(scene, 'sniperBody', () =>
+      createTexturedMat('sniperBody', scene, new Color3(0.9, 0.95, 1.0), 256, 256, (ctx, w, h) => {
+        ctx.fillStyle = '#12151b'; // Deep carbon chassis
+        ctx.fillRect(0, 0, w, h);
+        for (let y = 0; y < h; y += 6) {
+          ctx.fillStyle = (y % 12 === 0) ? '#1a1e27' : '#141720';
+          ctx.fillRect(0, y, w, 6);
         }
-      }
-    }, new Color3(0.2, 0.2, 0.2), undefined, 24);
+        // Glowing cyan cyber circuit lines
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(10, h * 0.3);
+        ctx.lineTo(w * 0.4, h * 0.3);
+        ctx.lineTo(w * 0.5, h * 0.6);
+        ctx.lineTo(w * 0.9, h * 0.6);
+        ctx.stroke();
+        ctx.fillStyle = '#00e5ff';
+        ctx.beginPath();
+        ctx.arc(w * 0.9, h * 0.6, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = 'bold 11px monospace';
+        ctx.fillStyle = '#00e5ff';
+        ctx.fillText('AWM // .338 MAG', w * 0.15, h * 0.85);
+      }, new Color3(0.2, 0.3, 0.35), new Color3(0.04, 0.15, 0.18), 48)
+    );
+
+    const sniperBarrelMat = getOrCreateWeaponMat(scene, 'sniperBarrel', () =>
+      createTexturedMat('sniperBarrel', scene, new Color3(0.9, 0.9, 0.95), 128, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#222731';
+        ctx.fillRect(0, 0, w, h);
+        for (let x = 0; x < w; x += 14) {
+          ctx.fillStyle = '#13161c';
+          ctx.fillRect(x, 0, 6, h);
+          ctx.fillStyle = '#414959';
+          ctx.fillRect(x + 6, 0, 2, h);
+        }
+      }, new Color3(0.35, 0.38, 0.42), undefined, 64)
+    );
+
+    const sniperBrakeMat = getOrCreateWeaponMat(scene, 'sniperBrake', () =>
+      createTexturedMat('sniperBrake', scene, new Color3(0.95, 0.9, 1.0), 128, 128, (ctx, w, h) => {
+        const grad = ctx.createLinearGradient ? ctx.createLinearGradient(0, 0, w, 0) : null;
+        if (grad) {
+          grad.addColorStop(0.0, '#2b303c');
+          grad.addColorStop(0.4, '#382a4d');
+          grad.addColorStop(0.7, '#6b21a8');
+          grad.addColorStop(1.0, '#00e5ff');
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = '#6b21a8';
+        }
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#0b0d11';
+        for (let i = 0; i < 3; i++) {
+          ctx.fillRect(18 + i * 36, h * 0.2, 16, h * 0.6);
+        }
+      }, new Color3(0.3, 0.2, 0.4), new Color3(0.05, 0.05, 0.1), 48)
+    );
+
+    const sniperScopeMat = getOrCreateWeaponMat(scene, 'sniperScope', () =>
+      createTexturedMat('sniperScope', scene, new Color3(0.85, 0.85, 0.88), 128, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#161920';
+        ctx.fillRect(0, 0, w, h);
+        for (let x = 0; x < w; x += 6) {
+          ctx.fillStyle = (x % 12 === 0) ? '#2d3340' : '#1a1d25';
+          ctx.fillRect(x, h * 0.35, 3, h * 0.3);
+        }
+        ctx.font = 'bold 9px monospace';
+        ctx.fillStyle = '#00e5ff';
+        ctx.fillText('10x-40x56', 8, h * 0.85);
+      }, new Color3(0.25, 0.25, 0.28), undefined, 32)
+    );
+
+    const sniperLensMat = getOrCreateWeaponMat(scene, 'sniperLens', () =>
+      createTexturedMat('sniperLens', scene, new Color3(0.9, 1.0, 1.0), 128, 128, (ctx, w, h) => {
+        const lensGrad = ctx.createRadialGradient ? ctx.createRadialGradient(w/2, h/2, 5, w/2, h/2, w/2) : null;
+        if (lensGrad) {
+          lensGrad.addColorStop(0.0, '#002b28');
+          lensGrad.addColorStop(0.7, '#004d40');
+          lensGrad.addColorStop(1.0, '#00b4d8');
+          ctx.fillStyle = lensGrad;
+        } else {
+          ctx.fillStyle = '#004d40';
+        }
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#00e5ff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(w / 2, h / 2, w * 0.35, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(w / 2, 6);
+        ctx.lineTo(w / 2, h - 6);
+        ctx.moveTo(6, h / 2);
+        ctx.lineTo(w - 6, h / 2);
+        ctx.stroke();
+      }, new Color3(0.2, 0.5, 0.6), new Color3(0.1, 0.35, 0.4), 80)
+    );
+
+    const sniperStockMat = getOrCreateWeaponMat(scene, 'sniperStock', () =>
+      createTexturedMat('sniperStock', scene, new Color3(0.85, 0.85, 0.85), 128, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#16181d';
+        ctx.fillRect(0, 0, w, h);
+        for (let y = 0; y < h; y += 8) {
+          for (let x = 0; x < w; x += 8) {
+            ctx.fillStyle = ((x + y) % 16 === 0) ? '#242831' : '#17191f';
+            ctx.fillRect(x, y, 8, 8);
+          }
+        }
+      }, new Color3(0.2, 0.2, 0.2), undefined, 24)
+    );
 
     // Sleek long body
     const body = MeshBuilder.CreateBox('sniperBody', { width: 0.09, height: 0.13, depth: 0.65 }, scene);
@@ -343,36 +386,40 @@ export function createBabylonWeaponMesh(weaponId: WeaponId, scene: Scene): Trans
     stock.material = sniperStockMat;
     stock.parent = root;
   } else if (weaponId === 'pistol') {
-    // Textured Pistol Materials
-    const pistolSlideMat = createTexturedMat(`pistolSlide_${Math.random()}`, scene, new Color3(0.95, 0.95, 0.98), 256, 128, (ctx, w, h) => {
-      ctx.fillStyle = '#7a8291';
-      ctx.fillRect(0, 0, w, h);
-      for (let y = 0; y < h; y += 3) {
-        ctx.fillStyle = (y % 6 === 0) ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
-        ctx.fillRect(0, y, w, 1.5);
-      }
-      ctx.fillStyle = '#373d48';
-      for (let s = 0; s < 5; s++) {
-        ctx.fillRect(16 + s * 10, h * 0.15, 5, h * 0.7);
-        ctx.fillRect(w - 65 + s * 10, h * 0.15, 5, h * 0.7);
-      }
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillStyle = '#22262e';
-      ctx.fillText('WAIFU-9 // 9x19 MATCH', w * 0.28, h * 0.58);
-    }, new Color3(0.45, 0.48, 0.55), undefined, 64);
-
-    const pistolGripMat = createTexturedMat(`pistolGrip_${Math.random()}`, scene, new Color3(0.9, 0.9, 0.9), 128, 128, (ctx, w, h) => {
-      ctx.fillStyle = '#1e2128';
-      ctx.fillRect(0, 0, w, h);
-      for (let y = 0; y < h; y += 8) {
-        for (let x = 0; x < w; x += 8) {
-          ctx.fillStyle = ((x + y) % 16 === 0) ? '#313744' : '#14161b';
-          ctx.fillRect(x, y, 4, 4);
+    // Cached Textured Pistol Materials
+    const pistolSlideMat = getOrCreateWeaponMat(scene, 'pistolSlide', () =>
+      createTexturedMat('pistolSlide', scene, new Color3(0.95, 0.95, 0.98), 256, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#7a8291';
+        ctx.fillRect(0, 0, w, h);
+        for (let y = 0; y < h; y += 3) {
+          ctx.fillStyle = (y % 6 === 0) ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
+          ctx.fillRect(0, y, w, 1.5);
         }
-      }
-      ctx.fillStyle = '#ff2b75';
-      ctx.fillRect(w * 0.75, h * 0.25, 14, 10);
-    }, new Color3(0.18, 0.18, 0.2), undefined, 28);
+        ctx.fillStyle = '#373d48';
+        for (let s = 0; s < 5; s++) {
+          ctx.fillRect(16 + s * 10, h * 0.15, 5, h * 0.7);
+          ctx.fillRect(w - 65 + s * 10, h * 0.15, 5, h * 0.7);
+        }
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillStyle = '#22262e';
+        ctx.fillText('WAIFU-9 // 9x19 MATCH', w * 0.28, h * 0.58);
+      }, new Color3(0.45, 0.48, 0.55), undefined, 64)
+    );
+
+    const pistolGripMat = getOrCreateWeaponMat(scene, 'pistolGrip', () =>
+      createTexturedMat('pistolGrip', scene, new Color3(0.9, 0.9, 0.9), 128, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#1e2128';
+        ctx.fillRect(0, 0, w, h);
+        for (let y = 0; y < h; y += 8) {
+          for (let x = 0; x < w; x += 8) {
+            ctx.fillStyle = ((x + y) % 16 === 0) ? '#313744' : '#14161b';
+            ctx.fillRect(x, y, 4, 4);
+          }
+        }
+        ctx.fillStyle = '#ff2b75';
+        ctx.fillRect(w * 0.75, h * 0.25, 14, 10);
+      }, new Color3(0.18, 0.18, 0.2), undefined, 28)
+    );
 
     // Slide
     const slide = MeshBuilder.CreateBox('pistolSlide', { width: 0.06, height: 0.08, depth: 0.24 }, scene);
@@ -393,52 +440,58 @@ export function createBabylonWeaponMesh(weaponId: WeaponId, scene: Scene): Trans
     grip.material = pistolGripMat;
     grip.parent = root;
   } else if (weaponId === 'knife') {
-    // Textured Damascus Knife Materials
-    const knifeBladeMat = createTexturedMat(`knifeBlade_${Math.random()}`, scene, new Color3(0.98, 0.98, 1.0), 256, 128, (ctx, w, h) => {
-      ctx.fillStyle = '#bcc4d1';
-      ctx.fillRect(0, 0, w, h);
-      ctx.lineWidth = 2.5;
-      for (let i = 0; i < 18; i++) {
-        const yBase = i * 8;
-        ctx.strokeStyle = (i % 2 === 0) ? 'rgba(75, 85, 102, 0.45)' : 'rgba(240, 245, 255, 0.55)';
-        ctx.beginPath();
-        ctx.moveTo(0, yBase);
-        for (let x = 0; x <= w; x += 20) {
-          const wave = Math.sin(x * 0.08 + i * 1.5) * 6;
-          ctx.lineTo(x, yBase + wave);
+    // Cached Textured Damascus Knife Materials
+    const knifeBladeMat = getOrCreateWeaponMat(scene, 'knifeBlade', () =>
+      createTexturedMat('knifeBlade', scene, new Color3(0.98, 0.98, 1.0), 256, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#bcc4d1';
+        ctx.fillRect(0, 0, w, h);
+        ctx.lineWidth = 2.5;
+        for (let i = 0; i < 18; i++) {
+          const yBase = i * 8;
+          ctx.strokeStyle = (i % 2 === 0) ? 'rgba(75, 85, 102, 0.45)' : 'rgba(240, 245, 255, 0.55)';
+          ctx.beginPath();
+          ctx.moveTo(0, yBase);
+          for (let x = 0; x <= w; x += 20) {
+            const wave = Math.sin(x * 0.08 + i * 1.5) * 6;
+            ctx.lineTo(x, yBase + wave);
+          }
+          ctx.stroke();
+        }
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(0, h * 0.78, w, h * 0.22);
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(w * 0.15, h * 0.38, w * 0.65, 3.5);
+      }, new Color3(0.55, 0.58, 0.65), undefined, 96)
+    );
+
+    const knifeGuardMat = getOrCreateWeaponMat(scene, 'knifeGuard', () =>
+      createTexturedMat('knifeGuard', scene, new Color3(0.9, 0.85, 0.8), 64, 64, (ctx, w, h) => {
+        ctx.fillStyle = '#2c313a';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#f59e0b';
+        ctx.lineWidth = 3;
+        if (ctx.strokeRect) ctx.strokeRect(2, 2, w - 4, h - 4);
+      }, new Color3(0.35, 0.32, 0.25), undefined, 48)
+    );
+
+    const knifeHandleMat = getOrCreateWeaponMat(scene, 'knifeHandle', () =>
+      createTexturedMat('knifeHandle', scene, new Color3(0.9, 0.9, 0.9), 128, 128, (ctx, w, h) => {
+        ctx.fillStyle = '#1c1f26';
+        ctx.fillRect(0, 0, w, h);
+        ctx.strokeStyle = '#2d3340';
+        ctx.lineWidth = 5;
+        for (let y = -w; y < h + w; y += 18) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y + 24);
         }
         ctx.stroke();
-      }
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(0, h * 0.78, w, h * 0.22);
-      ctx.fillStyle = '#475569';
-      ctx.fillRect(w * 0.15, h * 0.38, w * 0.65, 3.5);
-    }, new Color3(0.55, 0.58, 0.65), undefined, 96);
-
-    const knifeGuardMat = createTexturedMat(`knifeGuard_${Math.random()}`, scene, new Color3(0.9, 0.85, 0.8), 64, 64, (ctx, w, h) => {
-      ctx.fillStyle = '#2c313a';
-      ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 3;
-      if (ctx.strokeRect) ctx.strokeRect(2, 2, w - 4, h - 4);
-    }, new Color3(0.35, 0.32, 0.25), undefined, 48);
-
-    const knifeHandleMat = createTexturedMat(`knifeHandle_${Math.random()}`, scene, new Color3(0.9, 0.9, 0.9), 128, 128, (ctx, w, h) => {
-      ctx.fillStyle = '#1c1f26';
-      ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = '#2d3340';
-      ctx.lineWidth = 5;
-      for (let y = -w; y < h + w; y += 18) {
+        ctx.fillStyle = '#ff2b75';
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y + 24);
-        ctx.stroke();
-      }
-      ctx.fillStyle = '#ff2b75';
-      ctx.beginPath();
-      ctx.arc(w / 2, h / 2, 7, 0, Math.PI * 2);
-      ctx.fill();
-    }, new Color3(0.2, 0.2, 0.2), undefined, 24);
+        ctx.arc(w / 2, h / 2, 7, 0, Math.PI * 2);
+        ctx.fill();
+      }, new Color3(0.2, 0.2, 0.2), undefined, 24)
+    );
 
     // Blade
     const blade = MeshBuilder.CreateBox('knifeBlade', { width: 0.02, height: 0.06, depth: 0.28 }, scene);
@@ -1277,6 +1330,16 @@ export class BabylonAvatarModel {
 
   public dispose() {
     this.nameplateTexture?.dispose();
+    const meshes = this.root.getChildMeshes(false);
+    for (const m of meshes) {
+      if (m.material && m.material.name.includes(String(this.playerId))) {
+        const mat = m.material as StandardMaterial;
+        if (mat.diffuseTexture && mat.diffuseTexture.name.includes(String(this.playerId))) {
+          mat.diffuseTexture.dispose();
+        }
+        mat.dispose();
+      }
+    }
     this.root.dispose();
   }
 }
