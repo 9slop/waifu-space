@@ -234,6 +234,10 @@ export class StrikeBabylonEngine {
     }
   }
 
+  public setRtxShadows(enabled: boolean) {
+    this.setGraphicsSettings({ shadows: enabled ? 'rtx' : 'off' });
+  }
+
   public startPlaying() {
     this.isPlaying = true;
     this.respawnLocalPlayer();

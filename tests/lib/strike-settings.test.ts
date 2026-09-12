@@ -64,4 +64,26 @@ describe('Strike Settings & Keybindings', () => {
       mapData.setShadowQuality?.('rtx');
     }).not.toThrow();
   });
+
+  it('validates all graphics preset configurations and parameters', async () => {
+    const { GRAPHICS_PRESETS } = await import('../../src/lib/strike/strike-types');
+    const presets = ['low', 'medium', 'high', 'ultra'] as const;
+
+    for (const p of presets) {
+      const config = GRAPHICS_PRESETS[p];
+      expect(config).toBeDefined();
+      expect(config.preset).toBe(p);
+      expect(['off', 'low', 'medium', 'rtx']).toContain(config.shadows);
+      expect(config.renderScale).toBeGreaterThanOrEqual(0.75);
+      expect(config.renderScale).toBeLessThanOrEqual(1.5);
+      expect(config.anisotropicFiltering).toBeGreaterThanOrEqual(1);
+      expect(config.fov).toBe(85);
+      expect(typeof config.postProcessing).toBe('boolean');
+    }
+  });
+
+  it('distinguishes scoreboard hold key from escape pause menu', () => {
+    expect(DEFAULT_KEYBINDINGS.scoreboard).toBe('Tab');
+    expect(DEFAULT_KEYBINDINGS.scoreboard).not.toBe('Escape');
+  });
 });

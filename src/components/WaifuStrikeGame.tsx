@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, For, Show } from 'solid-js';
+import { createSignal, createEffect, onMount, onCleanup, For, Show } from 'solid-js';
 import { StrikeBabylonEngine } from '../lib/strike/strike-babylon-engine';
 import { StrikeP2PManager } from '../lib/strike/strike-p2p';
 import { StrikeWeatherManager, WeatherType } from '../lib/strike/strike-weather';
@@ -9,7 +9,12 @@ import {
   StrikeMatchStats,
   StrikeChatMessage,
   StrikeKeybindings,
-  DEFAULT_KEYBINDINGS
+  DEFAULT_KEYBINDINGS,
+  StrikeGraphicsSettings,
+  DEFAULT_GRAPHICS_SETTINGS,
+  GRAPHICS_PRESETS,
+  GraphicsPreset,
+  ShadowQuality
 } from '../lib/strike/strike-types';
 import { WEAPON_CATALOG, strikeAudio } from '../lib/strike/strike-weapons';
 import { t } from '../lib/i18n';
@@ -72,7 +77,8 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [showSummaryModal, setShowSummaryModal] = createSignal(false);
   const [isFullscreen, setIsFullscreen] = createSignal(false);
 
-  // ESC Pause Menu & Key Rebinding
+  // ESC Pause Menu Tabs & Key Rebinding
+  const [escTab, setEscTab] = createSignal<'controls' | 'graphics'>('controls');
   const loadSavedKeybindings = (): StrikeKeybindings => {
     try {
       const saved = localStorage.getItem('waifu_strike_keybindings');
@@ -84,10 +90,49 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [rebindingAction, setRebindingAction] = createSignal<keyof StrikeKeybindings | null>(null);
   const [showEscMenu, setShowEscMenu] = createSignal(false);
 
-  // RTX Shadows
-  const [rtxShadows, setRtxShadows] = createSignal(
-    typeof localStorage !== 'undefined' ? localStorage.getItem('waifu_strike_rtx') === 'true' : false
-  );
+  let isClosingEscMenu = false;
+  const closeEscMenu = () => {
+    isClosingEscMenu = true;
+    setShowEscMenu(false);
+    engine()?.requestPointerLock();
+    setTimeout(() => {
+      isClosingEscMenu = false;
+    }, 350);
+  };
+
+  // Graphics Settings (Low as default for universal device accessibility)
+  const loadSavedGraphics = (): StrikeGraphicsSettings => {
+    try {
+      const saved = localStorage.getItem('waifu_strike_graphics');
+      if (saved) return { ...DEFAULT_GRAPHICS_SETTINGS, ...JSON.parse(saved) };
+    } catch {}
+    return { ...DEFAULT_GRAPHICS_SETTINGS };
+  };
+  const [graphicsSettings, setGraphicsSettings] = createSignal<StrikeGraphicsSettings>(loadSavedGraphics());
+
+  const updateGraphicsSettings = (partial: Partial<StrikeGraphicsSettings>) => {
+    const updated = { ...graphicsSettings(), ...partial };
+    setGraphicsSettings(updated);
+    try {
+      localStorage.setItem('waifu_strike_graphics', JSON.stringify(updated));
+    } catch {}
+    engine()?.setGraphicsSettings(updated);
+  };
+
+  const applyGraphicsPreset = (preset: GraphicsPreset) => {
+    const presetConfig = GRAPHICS_PRESETS[preset];
+    if (presetConfig) {
+      updateGraphicsSettings(presetConfig);
+    }
+  };
+
+  // Synchronize pause state: halt local player movement and shooting when in ESC menu
+  createEffect(() => {
+    const eng = engine();
+    if (eng) {
+      eng.setPaused(showEscMenu());
+    }
+  });
 
   const [killfeed, setKillfeed] = createSignal<KillfeedEntry[]>([]);
   const [medal, setMedal] = createSignal<{ title: string; sub: string } | null>(null);
@@ -168,9 +213,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
     eng.setSensitivity(mouseSens());
     eng.setKeybindings(keybindings());
-    if (rtxShadows()) {
-      eng.setRtxShadows(true);
-    }
+    eng.setGraphicsSettings(graphicsSettings());
 
     const weatherManager = new StrikeWeatherManager(eng.scene, eng.camera, (w) => {
       setWeather(w);
@@ -222,6 +265,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     };
 
     const handlePointerLockChange = () => {
+      if (isClosingEscMenu) return;
       const plEl = document.pointerLockElement || (document as any).mozPointerLockElement;
       if (!plEl && !showControlsOverlay() && !showSummaryModal() && !isChatOpen()) {
         setShowEscMenu(true);
@@ -265,8 +309,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           setChatInputText('');
           engine()?.requestPointerLock();
         } else if (showEscMenu()) {
-          setShowEscMenu(false);
-          engine()?.requestPointerLock();
+          closeEscMenu();
         } else {
           if (typeof document !== 'undefined' && document.pointerLockElement) {
             document.exitPointerLock?.();
@@ -276,16 +319,39 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       }
     };
 
+    // Tab switch & Page close automatic cleanup
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        eng.pausePlaying();
+        eng.setPaused(true);
+      } else {
+        if (!showEscMenu()) {
+          eng.setPaused(false);
+        }
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      net?.stop();
+      eng.dispose();
+    };
+
     window.addEventListener('resize', handleResize);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('pointerlockchange', handlePointerLockChange);
     window.addEventListener('keydown', handleGlobalKeyDown);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handleBeforeUnload);
 
     onCleanup(() => {
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('pointerlockchange', handlePointerLockChange);
       window.removeEventListener('keydown', handleGlobalKeyDown);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handleBeforeUnload);
       weatherManager.dispose();
       eng.dispose();
       net?.stop();
@@ -293,8 +359,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   });
 
   const handleResumeMatch = () => {
-    setShowEscMenu(false);
-    engine()?.requestPointerLock();
+    closeEscMenu();
   };
 
   const handleResetKeybindings = () => {
@@ -486,128 +551,300 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
               <button class="btn-esc-resume" onClick={handleResumeMatch}>
                 ▶ Resume Match [Esc]
               </button>
-              <button class="btn-esc-leave" onClick={handleLeaveMatch}>
-                🏃 {t('strike.leaveMatch') || 'Leave Match'}
+            </div>
+
+            {/* Tabs Header */}
+            <div class="strike-esc-tabs">
+              <button
+                class={`strike-esc-tab-btn ${escTab() === 'controls' ? 'active' : ''}`}
+                onClick={() => setEscTab('controls')}
+              >
+                🎮 Controls
+              </button>
+              <button
+                class={`strike-esc-tab-btn ${escTab() === 'graphics' ? 'active' : ''}`}
+                onClick={() => setEscTab('graphics')}
+              >
+                🖥️ Graphics
               </button>
             </div>
 
             {/* Settings Sections */}
             <div class="strike-esc-content">
-              {/* Controls Rebinding Section */}
-              <div class="strike-esc-section">
-                <h3>🎮 Controls & Key Rebinding</h3>
-                <p class="strike-esc-hint">Click any key button below to rebind. Press Esc to cancel.</p>
+              {/* Controls Tab */}
+              <Show when={escTab() === 'controls'}>
+                <div class="strike-esc-section">
+                  <h3>🎮 Controls & Key Rebinding</h3>
+                  <p class="strike-esc-hint">Click any key button below to rebind. Press Esc to cancel.</p>
 
-                <div class="strike-rebind-grid">
-                  <For each={Object.entries(ACTION_LABELS) as [keyof StrikeKeybindings, string][]}>
-                    {([action, label]) => (
-                      <div class="strike-rebind-row">
-                        <span>{label}</span>
-                        <button
-                          class={`strike-rebind-btn ${rebindingAction() === action ? 'is-rebinding' : ''}`}
-                          onClick={() => setRebindingAction(rebindingAction() === action ? null : action)}
-                        >
-                          {rebindingAction() === action ? 'Press key...' : formatKeyName(keybindings()[action])}
-                        </button>
-                      </div>
-                    )}
-                  </For>
-                </div>
-
-                <button class="btn-esc-reset-keys" onClick={handleResetKeybindings}>
-                  ↺ Reset to Default Controls
-                </button>
-              </div>
-
-              {/* Gameplay & Video Settings */}
-              <div class="strike-esc-section">
-                <h3>⚙️ Gameplay & Visuals</h3>
-
-                {/* RTX Shadows Toggle */}
-                <div class="strike-setting-row">
-                  <div>
-                    <span class="strike-setting-label">RTX Contact Shadows (PCSS)</span>
-                    <div class="strike-setting-sub">
-                      Contact Hardening Soft Shadows with realistic penumbra falloff (Default: OFF)
-                    </div>
+                  <div class="strike-rebind-grid">
+                    <For each={Object.entries(ACTION_LABELS) as [keyof StrikeKeybindings, string][]}>
+                      {([action, label]) => (
+                        <div class="strike-rebind-row">
+                          <span>{label}</span>
+                          <button
+                            class={`strike-rebind-btn ${rebindingAction() === action ? 'is-rebinding' : ''}`}
+                            onClick={() => setRebindingAction(rebindingAction() === action ? null : action)}
+                          >
+                            {rebindingAction() === action ? 'Press key...' : formatKeyName(keybindings()[action])}
+                          </button>
+                        </div>
+                      )}
+                    </For>
                   </div>
-                  <label class="strike-toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={rtxShadows()}
-                      onChange={(e) => handleToggleRtx(e.currentTarget.checked)}
-                    />
-                    <span class="strike-toggle-slider" />
-                  </label>
-                </div>
 
-                {/* Mouse Sensitivity */}
-                <div class="strike-setting-row">
-                  <div>
-                    <span class="strike-setting-label">Mouse Sensitivity ({mouseSens().toFixed(1)})</span>
-                    <div class="strike-setting-sub">Camera rotation look sensitivity</div>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="6.0"
-                    step="0.1"
-                    value={mouseSens()}
-                    onInput={(e) => {
-                      const val = parseFloat(e.currentTarget.value);
-                      setMouseSens(val);
-                      engine()?.setSensitivity(val);
-                    }}
-                    style={{ width: '140px', cursor: 'pointer' }}
-                  />
-                </div>
-
-                {/* SFX Volume */}
-                <div class="strike-setting-row">
-                  <div>
-                    <span class="strike-setting-label">SFX Volume ({audioVol()}%)</span>
-                    <div class="strike-setting-sub">Gunfire, footsteps, and tactical announcements</div>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={audioVol()}
-                    onInput={(e) => {
-                      const val = parseInt(e.currentTarget.value, 10);
-                      setAudioVol(val);
-                      strikeAudio.setVolume(val / 100);
-                    }}
-                    style={{ width: '140px', cursor: 'pointer' }}
-                  />
-                </div>
-
-                {/* Fullscreen Toggle */}
-                <div class="strike-setting-row">
-                  <div>
-                    <span class="strike-setting-label">Display Mode</span>
-                    <div class="strike-setting-sub">
-                      {isFullscreen() ? 'Currently in Fullscreen mode' : 'Currently in Windowed mode'}
-                    </div>
-                  </div>
-                  <button
-                    class="btn-fullscreen-toggle"
-                    style={{
-                      background: isFullscreen() ? 'rgba(0, 206, 201, 0.25)' : 'rgba(255, 255, 255, 0.1)',
-                      border: isFullscreen() ? '1px solid #00cec9' : '1px solid rgba(255, 255, 255, 0.2)',
-                      color: '#fff',
-                      padding: '6px 14px',
-                      'border-radius': '6px',
-                      cursor: 'pointer',
-                      'font-size': '0.85rem'
-                    }}
-                    onClick={toggleFullscreen}
-                  >
-                    {isFullscreen() ? '🗗 Exit Fullscreen' : '⛶ Fullscreen'}
+                  <button class="btn-esc-reset-keys" onClick={handleResetKeybindings}>
+                    ↺ Reset to Default Controls
                   </button>
                 </div>
-              </div>
+
+                <div class="strike-esc-section">
+                  <h3>⚙️ Mouse & Audio</h3>
+
+                  {/* Mouse Sensitivity */}
+                  <div class="strike-setting-row">
+                    <div>
+                      <span class="strike-setting-label">Mouse Sensitivity ({mouseSens().toFixed(1)})</span>
+                      <div class="strike-setting-sub">Camera rotation look sensitivity</div>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="6.0"
+                      step="0.1"
+                      value={mouseSens()}
+                      onInput={(e) => {
+                        const val = parseFloat(e.currentTarget.value);
+                        setMouseSens(val);
+                        engine()?.setSensitivity(val);
+                      }}
+                      style={{ width: '140px', cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  {/* SFX Volume */}
+                  <div class="strike-setting-row">
+                    <div>
+                      <span class="strike-setting-label">SFX Volume ({audioVol()}%)</span>
+                      <div class="strike-setting-sub">Gunfire, footsteps, and tactical announcements</div>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={audioVol()}
+                      onInput={(e) => {
+                        const val = parseInt(e.currentTarget.value, 10);
+                        setAudioVol(val);
+                        strikeAudio.setVolume(val / 100);
+                      }}
+                      style={{ width: '140px', cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  {/* Fullscreen Toggle */}
+                  <div class="strike-setting-row">
+                    <div>
+                      <span class="strike-setting-label">Display Mode</span>
+                      <div class="strike-setting-sub">
+                        {isFullscreen() ? 'Currently in Fullscreen mode' : 'Currently in Windowed mode'}
+                      </div>
+                    </div>
+                    <button
+                      class="btn-fullscreen-toggle"
+                      style={{
+                        background: isFullscreen() ? 'rgba(0, 206, 201, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                        border: isFullscreen() ? '1px solid #00cec9' : '1px solid rgba(255, 255, 255, 0.2)',
+                        color: '#fff',
+                        padding: '6px 14px',
+                        'border-radius': '6px',
+                        cursor: 'pointer',
+                        'font-size': '0.85rem'
+                      }}
+                      onClick={toggleFullscreen}
+                    >
+                      {isFullscreen() ? '🗗 Exit Fullscreen' : '⛶ Fullscreen'}
+                    </button>
+                  </div>
+                </div>
+              </Show>
+
+              {/* Graphics Tab */}
+              <Show when={escTab() === 'graphics'}>
+                {/* Quality Presets */}
+                <div class="strike-esc-section">
+                  <h3>🖥️ Quality Presets</h3>
+                  <p class="strike-esc-hint">Default is Low for smooth framerates on all devices.</p>
+                  <div class="strike-preset-grid">
+                    <div
+                      class={`strike-preset-card ${graphicsSettings().preset === 'low' ? 'active' : ''}`}
+                      onClick={() => applyGraphicsPreset('low')}
+                    >
+                      <div class="strike-preset-name">Low (Default)</div>
+                      <div class="strike-preset-desc">Shadows OFF, max FPS</div>
+                    </div>
+                    <div
+                      class={`strike-preset-card ${graphicsSettings().preset === 'medium' ? 'active' : ''}`}
+                      onClick={() => applyGraphicsPreset('medium')}
+                    >
+                      <div class="strike-preset-name">Medium</div>
+                      <div class="strike-preset-desc">Low shadows, 2x filter</div>
+                    </div>
+                    <div
+                      class={`strike-preset-card ${graphicsSettings().preset === 'high' ? 'active' : ''}`}
+                      onClick={() => applyGraphicsPreset('high')}
+                    >
+                      <div class="strike-preset-name">High</div>
+                      <div class="strike-preset-desc">Med shadows, 4x filter</div>
+                    </div>
+                    <div
+                      class={`strike-preset-card ${graphicsSettings().preset === 'ultra' ? 'active' : ''}`}
+                      onClick={() => applyGraphicsPreset('ultra')}
+                    >
+                      <div class="strike-preset-name">Ultra RTX</div>
+                      <div class="strike-preset-desc">PCSS Soft Shadows, 1.25x</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Granular Visual Settings */}
+                <div class="strike-esc-section">
+                  <h3>⚙️ Granular Visual Settings</h3>
+
+                  {/* Shadows Setting */}
+                  <div class="strike-setting-row">
+                    <div>
+                      <span class="strike-setting-label">Shadow Quality</span>
+                      <div class="strike-setting-sub">Real-time dynamic sun & map shadows</div>
+                    </div>
+                    <div class="strike-segmented-ctrl">
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().shadows === 'off' ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ shadows: 'off' })}
+                      >
+                        Off
+                      </button>
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().shadows === 'low' ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ shadows: 'low' })}
+                      >
+                        Low
+                      </button>
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().shadows === 'medium' ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ shadows: 'medium' })}
+                      >
+                        Medium
+                      </button>
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().shadows === 'rtx' ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ shadows: 'rtx' })}
+                      >
+                        RTX Soft
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Render Scale */}
+                  <div class="strike-setting-row">
+                    <div>
+                      <span class="strike-setting-label">Hardware Render Scale</span>
+                      <div class="strike-setting-sub">Canvas internal resolution scaling</div>
+                    </div>
+                    <div class="strike-segmented-ctrl">
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().renderScale === 0.75 ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ renderScale: 0.75 })}
+                      >
+                        0.75x (Fast)
+                      </button>
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().renderScale === 1.0 ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ renderScale: 1.0 })}
+                      >
+                        1.0x (Native)
+                      </button>
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().renderScale === 1.25 ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ renderScale: 1.25 })}
+                      >
+                        1.25x (Crisp)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Texture Filtering */}
+                  <div class="strike-setting-row">
+                    <div>
+                      <span class="strike-setting-label">Texture Filtering</span>
+                      <div class="strike-setting-sub">Reduces oblique texture blur and shimmering</div>
+                    </div>
+                    <div class="strike-segmented-ctrl">
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().anisotropicFiltering === 1 ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ anisotropicFiltering: 1 })}
+                      >
+                        1x (Fast)
+                      </button>
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().anisotropicFiltering === 2 ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ anisotropicFiltering: 2 })}
+                      >
+                        2x
+                      </button>
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().anisotropicFiltering === 4 ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ anisotropicFiltering: 4 })}
+                      >
+                        4x
+                      </button>
+                      <button
+                        class={`strike-segment-btn ${graphicsSettings().anisotropicFiltering === 8 ? 'active' : ''}`}
+                        onClick={() => updateGraphicsSettings({ anisotropicFiltering: 8 })}
+                      >
+                        8x Aniso
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Field of View */}
+                  <div class="strike-setting-row">
+                    <div>
+                      <span class="strike-setting-label">Field of View ({graphicsSettings().fov || 85}°)</span>
+                      <div class="strike-setting-sub">Horizontal camera field of vision (CS default ~85-90°)</div>
+                    </div>
+                    <input
+                      type="range"
+                      min="70"
+                      max="105"
+                      step="1"
+                      value={graphicsSettings().fov || 85}
+                      onInput={(e) => {
+                        const val = parseInt(e.currentTarget.value, 10);
+                        updateGraphicsSettings({ fov: val });
+                      }}
+                      style={{ width: '140px', cursor: 'pointer' }}
+                    />
+                  </div>
+
+                  {/* Post-Processing Toggle */}
+                  <div class="strike-setting-row">
+                    <div>
+                      <span class="strike-setting-label">Post-Processing & Glow</span>
+                      <div class="strike-setting-sub">Vignette shading and bloom enhancements</div>
+                    </div>
+                    <label class="strike-toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={graphicsSettings().postProcessing}
+                        onChange={(e) => updateGraphicsSettings({ postProcessing: e.currentTarget.checked })}
+                      />
+                      <span class="strike-toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+              </Show>
             </div>
           </div>
         </div>
