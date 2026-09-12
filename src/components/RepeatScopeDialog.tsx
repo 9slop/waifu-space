@@ -1,6 +1,7 @@
 import { CalendarEventItem } from '../lib/ical';
 import { t, formatDate } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
+import { PhClock, PhArrowsClockwise, PhX } from './icons';
 
 export type RepeatScopeAction = 'edit' | 'delete' | 'move';
 
@@ -35,7 +36,7 @@ export function RepeatScopeDialog(props: {
         <div class="modal-header">
           <h3 id={TITLE_ID}>{t('calendar.repeatScope.title')}</h3>
           <button class="modal-close-btn" type="button" onClick={props.onClose} aria-label={t('common.close')}>
-            ✕
+            <PhX />
           </button>
         </div>
 
@@ -54,14 +55,14 @@ export function RepeatScopeDialog(props: {
               class="gcal-btn gcal-btn-primary"
               onClick={() => props.onSelect('this')}
             >
-              🕐 {t('calendar.repeatScope.thisEvent')}
+              <PhClock /> {t('calendar.repeatScope.thisEvent')}
             </button>
             <button
               type="button"
               class="gcal-btn gcal-btn-outline"
               onClick={() => props.onSelect('all')}
             >
-              🔁 {t('calendar.repeatScope.allEvents')}
+              <PhArrowsClockwise /> {t('calendar.repeatScope.allEvents')}
             </button>
             <button
               type="button"

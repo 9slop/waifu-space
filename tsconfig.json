@@ -7,7 +7,7 @@
     "esModuleInterop": true,
     "jsx": "preserve",
     "jsxImportSource": "solid-js",
-    "types": ["vinxi/types/client"],
+    "types": ["vinxi/types/client", "unplugin-icons/types/solid"],
     "strict": true,
     "isolatedModules": true,
     "skipLibCheck": true

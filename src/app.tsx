@@ -19,6 +19,17 @@ import { ToastNotification } from './components/ToastNotification';
 import { AuthModal } from './components/AuthModal';
 import { LeaderboardModal } from './components/LeaderboardModal';
 import { AvatarFrameOverlay } from './components/AvatarFrame';
+import {
+  PhFlowerLotus,
+  PhCalendar,
+  PhGameController,
+  PhUserCircle,
+  PhCoins,
+  PhSparkle,
+  PhDoor,
+  PhWarning,
+  PhRunning
+} from './components/icons';
 
 // Global Styles
 import './styles/themes.css';
@@ -146,7 +157,7 @@ function AppLayout(props: { children: any }) {
       {/* TOP NAVIGATION BAR */}
       <header class="app-header">
         <A href="/" class="app-brand" onClick={e => handleNavClick(e, '/')}>
-          <span class="brand-icon">🌸</span>
+          <span class="brand-icon"><PhFlowerLotus /></span>
           <span class="brand-name">WaifuSpace</span>
           <span class="brand-tag">v2.0.0</span>
         </A>
@@ -154,15 +165,15 @@ function AppLayout(props: { children: any }) {
         {/* PRIMARY TABS */}
         <nav class="nav-tabs">
           <A href="/calendar" class="nav-tab-btn" activeClass="active" onClick={e => handleNavClick(e, '/calendar')}>
-            <span>📅</span>
+            <span><PhCalendar /></span>
             <span>{t('nav.calendar')}</span>
           </A>
           <A href="/minigames" class="nav-tab-btn" activeClass="active" onClick={e => handleNavClick(e, '/minigames')}>
-            <span>🎮</span>
+            <span><PhGameController /></span>
             <span>{t('nav.minigames')}</span>
           </A>
           <A href="/profile" class="nav-tab-btn" activeClass="active" onClick={e => handleNavClick(e, '/profile')}>
-            <span>👤</span>
+            <span><PhUserCircle /></span>
             <span>{t('nav.profile')}</span>
           </A>
         </nav>
@@ -170,7 +181,7 @@ function AppLayout(props: { children: any }) {
         {/* RIGHT HEADER META */}
         <div class="header-right">
           <A href="/minigames" class="header-coin-pill" title={t('nav.coinTooltip')} onClick={e => handleNavClick(e, '/minigames')}>
-            <span>🪙</span>
+            <span><PhCoins /></span>
             <span>{state.rpg ? state.rpg.coins : 0}</span>
           </A>
 
@@ -180,14 +191,14 @@ function AppLayout(props: { children: any }) {
               data-testid="header-btn-login"
               onClick={() => setShowAuthModal(true)}
             >
-              <span>✨</span>
+              <span><PhSparkle /></span>
               <span>{t('nav.login')}</span>
             </button>
           }>
             <div class="user-profile-badge">
               <A href="/profile" class="user-badge-link" title={state.user?.username} onClick={e => handleNavClick(e, '/profile')}>
                 <div class="user-avatar-tiny-wrap">
-                <Show when={state.user?.avatarUrl} fallback={<span class="user-avatar-tiny">🌸</span>}>
+                <Show when={state.user?.avatarUrl} fallback={<span class="user-avatar-tiny"><PhFlowerLotus /></span>}>
                   <img
                     src={state.user?.avatarUrl}
                     alt={state.user?.username || 'Avatar'}
@@ -210,7 +221,7 @@ function AppLayout(props: { children: any }) {
                   showToast(t('auth.logoutSuccess'));
                 }}
               >
-                🚪
+                <PhDoor />
               </button>
             </div>
           </Show>
@@ -238,14 +249,14 @@ function AppLayout(props: { children: any }) {
       <Show when={pendingNavHref()}>
         <div class="defense-leave-overlay" data-testid="global-defense-leave-modal">
           <div class="defense-leave-modal">
-            <h3>⚠️ {t('defense.confirmLeaveTitle')}</h3>
+            <h3><PhWarning /> {t('defense.confirmLeaveTitle')}</h3>
             <p>{t('defense.confirmLeaveDesc')}</p>
             <div class="defense-leave-actions">
               <button class="btn-stay" onClick={() => setPendingNavHref(null)}>
-                🎮 {t('defense.stayInGame')}
+                <PhGameController /> {t('defense.stayInGame')}
               </button>
               <button class="btn-leave" onClick={confirmLeaveDefense}>
-                🏃 {t('defense.leaveAnyway')}
+                <PhRunning /> {t('defense.leaveAnyway')}
               </button>
             </div>
           </div>

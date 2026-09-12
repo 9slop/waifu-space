@@ -28,6 +28,16 @@ import { CalendarWeekView } from './CalendarWeekView';
 import { CalendarDayView } from './CalendarDayView';
 import { t, getLocale, formatDate } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
+import {
+  PhPlus,
+  PhCaretDown,
+  PhCalendar,
+  PhCheckSquare,
+  PhCaretLeft,
+  PhCaretRight,
+  PhArrowsClockwise,
+  PhX
+} from './icons';
 import { SettingsIcon } from './icons';
 
 export function CalendarPlanner() {
@@ -396,7 +406,7 @@ const sidebarTasks = createMemo(() => {
                     openCreateModal(currentDate(), 'event');
                   }}
                 >
-                  <span class="dropdown-item-icon">📅</span>
+                  <span class="dropdown-item-icon"><PhCalendar /></span>
                   <div class="dropdown-item-text">
                     <span class="dropdown-item-title">{t('calendar.menu.event')}</span>
                     <span class="dropdown-item-desc">{t('calendar.menu.eventDesc')}</span>
@@ -605,7 +615,7 @@ const sidebarTasks = createMemo(() => {
                       >
                         {tk.title}
                         {tk.recurrence && tk.recurrence !== 'none' && (
-                          <span class="task-repeat-badge" title={t('calendar.sidebar.repeats', { rule: tk.recurrence })}> 🔁</span>
+                          <span class="task-repeat-badge" title={t('calendar.sidebar.repeats', { rule: tk.recurrence })}> <PhArrowsClockwise /></span>
                         )}
                       </span>
                       <button

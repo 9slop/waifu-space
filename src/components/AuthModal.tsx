@@ -2,6 +2,7 @@ import { createSignal, Show } from 'solid-js';
 import { setUserAccount, resetAccountProgress, showToast, loadCloudProgress } from '../lib/store';
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
+import { PhFlowerLotus, PhX } from './icons';
 
 export function AuthModal(props: { isOpen: boolean; onClose: () => void; initialMode?: 'login' | 'register'; canClose?: boolean }) {
   const [mode, setMode] = createSignal<'login' | 'register'>(props.initialMode || 'login');
@@ -102,11 +103,11 @@ export function AuthModal(props: { isOpen: boolean; onClose: () => void; initial
       >
         <div class="auth-modal-card" onClick={e => e.stopPropagation()}>
           <Show when={canDismiss()}>
-            <button class="modal-close-btn" onClick={props.onClose} aria-label={t('common.close')}>✕</button>
+            <button class="modal-close-btn" onClick={props.onClose} aria-label={t('common.close')}><PhX /></button>
           </Show>
 
           <div class="auth-modal-header">
-            <span class="auth-logo">🌸</span>
+            <span class="auth-logo"><PhFlowerLotus /></span>
             <h2 id="auth-modal-title">{mode() === 'login' ? t('auth.loginTitle') : t('auth.registerTitle')}</h2>
             <p>{mode() === 'login' ? t('auth.loginSubtitle') : t('auth.registerSubtitle')}</p>
           </div>

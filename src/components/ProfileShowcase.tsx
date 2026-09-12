@@ -24,6 +24,35 @@ import {
 import { compressImage } from '../lib/image-compress';
 import { WaifuAvatar } from './WaifuAvatar';
 import { AvatarFrameOverlay } from './AvatarFrame';
+import {
+  EmojiIcon,
+  PhEye,
+  PhArrowLeft,
+  PhArrowRight,
+  PhFlowerLotus,
+  PhWarning,
+  PhCheck,
+  PhLink,
+  PhGearSix,
+  PhCoins,
+  PhShieldCheck,
+  PhAlien,
+  PhHeart,
+  PhTrophy,
+  PhDress,
+  PhBackpack,
+  PhChartBar,
+  PhSparkle,
+  PhLock,
+  PhPackage,
+  PhStar,
+  PhX,
+  PhSword,
+  PhTarget,
+  PhSkull,
+  PhLightning,
+  PhFloppyDisk
+} from './icons';
 
 interface PublicProfileData {
   id: string;
@@ -332,12 +361,12 @@ export function ProfileShowcase() {
       {/* PUBLIC PROFILE BANNER (when visiting someone else's page) */}
       <Show when={isViewingPublic()}>
         <div class="public-profile-banner">
-          <span>👀 {t('profile.publicProfileOf', { name: targetUser() ?? '' })}</span>
+          <span><PhEye /> {t('profile.publicProfileOf', { name: targetUser() ?? '' })}</span>
           <button
             class="btn-back-profile"
             onClick={clearTargetUser}
           >
-            ← {t('profile.backToMyProfile')}
+            <PhArrowLeft /> {t('profile.backToMyProfile')}
           </button>
         </div>
       </Show>
@@ -345,13 +374,13 @@ export function ProfileShowcase() {
       {/* ERROR / LOADING STATE FOR PUBLIC PROFILE */}
       <Show when={isViewingPublic() && isLoadingPublic()}>
         <div class="profile-loading-box">
-          <span>🌸 Loading profile for @{targetUser()}...</span>
+          <span><PhFlowerLotus /> Loading profile for @{targetUser()}...</span>
         </div>
       </Show>
 
       <Show when={isViewingPublic() && publicError()}>
         <div class="profile-error-box">
-          <p>⚠️ {publicError()}</p>
+          <p><PhWarning /> {publicError()}</p>
           <button
             class="btn-back-profile"
             onClick={clearTargetUser}
@@ -367,7 +396,7 @@ export function ProfileShowcase() {
         <div class="profile-hero-card">
           <div class="profile-avatar-wrapper">
             <div class="profile-avatar-circle">
-              <Show when={currentUser().avatarUrl} fallback={<span class="profile-avatar-emoji">🌸</span>}>
+              <Show when={currentUser().avatarUrl} fallback={<span class="profile-avatar-emoji"><PhFlowerLotus /></span>}>
                 <img
                   src={currentUser().avatarUrl}
                   alt={currentUser().username}
@@ -391,11 +420,11 @@ export function ProfileShowcase() {
             <div class="profile-name-row">
               <h2>{currentUser().username}</h2>
               <button class="btn-share-profile" onClick={shareProfile}>
-                {copiedLink() ? '✓ ' + t('common.done') : '🔗 ' + t('profile.share')}
+                {copiedLink() ? <><PhCheck /> {t('common.done')}</> : <><PhLink /> {t('profile.share')}</>}
               </button>
               <Show when={!isViewingPublic()}>
                 <a href="/settings" class="btn-settings-profile" title={t('nav.settings')}>
-                  <span>⚙️</span>
+<span><PhGearSix /></span>
                   <span>{t('nav.settings')}</span>
                 </a>
               </Show>
@@ -408,15 +437,15 @@ export function ProfileShowcase() {
                 <span class="p-stat-lbl">{t('rpg.dashboard.goldCoins')}</span>
               </div>
               <div class="p-stat">
-                <span class="p-stat-val">🛡️ Wave {statsInfo().defenseHighWave}</span>
+                <span class="p-stat-val"><PhShieldCheck /> Wave {statsInfo().defenseHighWave}</span>
                 <span class="p-stat-lbl">{t('rpg.dashboard.defenseHighScore')}</span>
               </div>
               <div class="p-stat">
-                <span class="p-stat-val">👹 {statsInfo().goblinsDefeated}</span>
+                <span class="p-stat-val"><PhAlien /> {statsInfo().goblinsDefeated}</span>
                 <span class="p-stat-lbl">{t('profile.goblinsKilled')}</span>
               </div>
               <div class="p-stat">
-                <span class="p-stat-val">💖 Lv.{statsInfo().bondLevel}</span>
+                <span class="p-stat-val"><PhHeart /> Lv.{statsInfo().bondLevel}</span>
                 <span class="p-stat-lbl">{t('companion.affectionLevel')}</span>
               </div>
             </div>
@@ -430,14 +459,14 @@ export function ProfileShowcase() {
               class={`p-tab-btn ${activeTab() === 'showcase' ? 'active' : ''}`}
               onClick={() => setActiveTab('showcase')}
             >
-              <span>🏆</span>
+              <span><PhTrophy /></span>
               <span>{t('profile.tabs.showcase')}</span>
             </button>
             <button
               class={`p-tab-btn ${activeTab() === 'wardrobe' ? 'active' : ''}`}
               onClick={() => setActiveTab('wardrobe')}
             >
-              <span>👗</span>
+              <span><PhDress /></span>
               <span>{t('profile.tabs.wardrobe')}</span>
             </button>
             <button
@@ -445,21 +474,21 @@ export function ProfileShowcase() {
               data-testid="profile-tab-inventory"
               onClick={() => setActiveTab('inventory')}
             >
-              <span>🎒</span>
+              <span><PhBackpack /></span>
               <span>{t('profile.tabs.inventory')}</span>
             </button>
             <button
               class={`p-tab-btn ${activeTab() === 'stats' ? 'active' : ''}`}
               onClick={() => setActiveTab('stats')}
             >
-              <span>📊</span>
+              <span><PhChartBar /></span>
               <span>{t('profile.tabs.statistics')}</span>
             </button>
             <button
               class={`p-tab-btn ${activeTab() === 'settings' ? 'active' : ''}`}
               onClick={() => setActiveTab('settings')}
             >
-              <span>⚙️</span>
+              <span><PhGearSix /></span>
               <span>{t('profile.tabs.settings')}</span>
             </button>
           </div>
@@ -471,7 +500,7 @@ export function ProfileShowcase() {
             {/* PUBLIC SHOWCASE PEDESTALS */}
             <div class="profile-showcase-box">
               <div class="box-header">
-                <h3>🏆 {t('profile.showcaseTitle')}</h3>
+                <h3><PhTrophy /> {t('profile.showcaseTitle')}</h3>
                 <span class="showcase-counter">{showcaseItems().length} / 6</span>
               </div>
               <p class="box-desc">{t('profile.showcaseDesc')}</p>
@@ -493,7 +522,7 @@ export function ProfileShowcase() {
                         }>
                           <div class="pedestal-filled">
                             <div class="pedestal-icon-wrapper">
-                              <span class="pedestal-icon">{item()!.icon}</span>
+                              <span class="pedestal-icon"><EmojiIcon glyph={item()!.icon} /></span>
                               <span class={`pedestal-rarity-chip ${getRarityClass(item()!.rarity)}`}>
                                 {getRarityName(item()!.rarity)}
                               </span>
@@ -508,7 +537,7 @@ export function ProfileShowcase() {
                                 title="Remove from showcase"
                                 onClick={() => toggleShowcaseItem(item()!.id)}
                               >
-                                ✕
+                                <PhX />
                               </button>
                             </Show>
                           </div>
@@ -697,7 +726,7 @@ export function ProfileShowcase() {
                                 title="Remove from showcase"
                                 onClick={() => toggleShowcaseItem(item().id)}
                               >
-                                ✕
+                                <PhX />
                               </button>
                             </div>
                           )}

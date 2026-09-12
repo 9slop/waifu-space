@@ -19,12 +19,14 @@
     "vinxi": "^0.5.11"
   },
   "devDependencies": {
+    "@iconify-json/ph": "^1.2.2",
     "@solidjs/testing-library": "^0.8.10",
     "@testing-library/jest-dom": "^7.0.1",
     "@types/bcryptjs": "^3.0.0",
     "@types/bun": "^1.2.0",
     "happy-dom": "^20.14.3",
     "typescript": "^5.7.0",
+    "unplugin-icons": "^24.0.0",
     "vite-plugin-solid": "^2.11.14",
     "vitest": "^5.0.0"
   }

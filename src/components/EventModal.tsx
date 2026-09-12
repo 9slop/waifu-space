@@ -3,6 +3,7 @@ import { CalendarEventItem, RecurrenceRule } from '../lib/ical';
 import { addCalendarEvent, updateCalendarEvent, deleteCalendarEvent, showToast } from '../lib/store';
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
+import { PhX, PhTrash } from './icons';
 import { validateCalendarEventInput, EVENT_TITLE_MAX_LENGTH } from '../lib/validation';
 
 export function EventModal(props: {
@@ -243,7 +244,7 @@ export function EventModal(props: {
             >
               <option value="event">{t('calendar.menu.event')}</option>
               <option value="task">{t('calendar.menu.task')}</option>
-              <option value="birthday">{t('calendar.menu.birthday')} 🎂</option>
+              <option value="birthday">{t('calendar.menu.birthday')}</option>
             </select>
             {fieldErrors().type && (
               <p class="validation-error" role="alert" style={{ color: 'var(--danger, #e84393)', 'font-size': '0.85rem', 'margin-top': '4px' }}>
@@ -406,7 +407,7 @@ export function EventModal(props: {
               >
                 {confirmDelete()
                   ? t('calendar.modal.confirmDeleteAction')
-                  : `🗑️ ${t('calendar.modal.delete')}`}
+                  : <><PhTrash /> {t('calendar.modal.delete')}</>}
               </button>
             )}
             <div style={{ flex: 1 }} />

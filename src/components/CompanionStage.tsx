@@ -16,6 +16,14 @@ import { onActivateKey } from '../lib/accessibility';
 import { WaifuAvatar } from './WaifuAvatar';
 import { ChatStage } from './ChatStage';
 import { t } from '../lib/i18n';
+import {
+  PhFlowerLotus,
+  PhTrophy,
+  PhHandPointing,
+  PhCalendar,
+  PhHeart,
+  GlyphText
+} from './icons';
 
 export function CompanionStage() {
   const persona = createMemo(() => getPersonality(state.waifu.personality));
@@ -48,7 +56,7 @@ export function CompanionStage() {
             title={t('nav.leaderboard')}
             onClick={openLeaderboard}
           >
-            <span>🏆</span>
+            <span><PhTrophy /></span>
             <span class="pill-text">{t('nav.leaderboard')}</span>
           </button>
 
@@ -86,7 +94,7 @@ export function CompanionStage() {
 
           {/* SPEECH BUBBLE OVERLAY */}
           <div class={`waifu-live-bubble ${speechBubbleVisible() ? 'visible' : ''}`}>
-            <span class="bubble-text">{speechBubble()}</span>
+            <span class="bubble-text"><GlyphText text={speechBubble()} /></span>
           </div>
         </div>
 
@@ -98,7 +106,7 @@ export function CompanionStage() {
             disabled={headpatOnCooldown()}
             onClick={handleHeadpat}
           >
-            🌸 {t('companion.headpat')}
+            <PhFlowerLotus /> {t('companion.headpat')}
           </button>
           <button
             type="button"
@@ -106,21 +114,21 @@ export function CompanionStage() {
             disabled={pokeOnCooldown()}
             onClick={pokeAvatar}
           >
-            👉 {t('companion.poke')}
+            <PhHandPointing /> {t('companion.poke')}
           </button>
           <button
             type="button"
             class="stage-action-chip"
             onClick={() => sendUserMessage(t('chat.schedulePrompt'))}
           >
-            📅 {t('companion.reviewSchedule')}
+            <PhCalendar /> {t('companion.reviewSchedule')}
           </button>
           <button
             type="button"
             class="stage-action-chip"
             onClick={() => sendUserMessage(t('chat.cutePrompt'))}
           >
-            💖 {t('companion.cute')}
+            <PhHeart /> {t('companion.cute')}
           </button>
         </div>
       </div>

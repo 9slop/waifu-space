@@ -2,6 +2,7 @@ import { createSignal, onMount, onCleanup, createMemo, Show } from 'solid-js';
 import { state, isTalking, type AppState } from '../lib/store';
 import { getAvatarFrame } from '../lib/avatar-frames';
 import { AvatarFrameOverlay } from './AvatarFrame';
+import { EmojiIcon } from './icons';
 
 function shadeColor(color: string, percent: number): string {
   if (!color || !color.startsWith('#')) return color || '#ff7597';
@@ -99,7 +100,7 @@ export function WaifuAvatar(props: WaifuAvatarProps = {}) {
             class="custom-avatar-img animate-breathe"
           />
           <AvatarFrameOverlay frameId={frameId()} class="custom-avatar-overlay" />
-          <div class="custom-avatar-mood-badge">{getMoodEmoji(mood())}</div>
+          <div class="custom-avatar-mood-badge"><EmojiIcon glyph={getMoodEmoji(mood())} /></div>
         </div>
       ) : (
         <div class={`svg-avatar-wrapper animate-breathe mood-${mood()} ${classNames()}`} aria-hidden="true">
