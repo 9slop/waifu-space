@@ -1451,7 +1451,11 @@ export class BabylonAvatarModel {
     const meshes = this.root.getChildMeshes(false);
     for (const m of meshes) {
       m.isVisible = visible;
-      m.isPickable = visible;
+      // Only the actual hitbox volumes are shootable; UI plates and cosmetic
+      // parts (nameplate, held weapon) must never register as a hit.
+      if (m.metadata?.isHitbox) {
+        m.isPickable = visible;
+      }
     }
   }
 
