@@ -166,6 +166,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [grenadeArmed, setGrenadeArmed] = createSignal(false);
   const [isInSmoke, setIsInSmoke] = createSignal(false);
   const [isLoadoutOpen, setIsLoadoutOpen] = createSignal(false);
+  const [isSpawnProtected, setIsSpawnProtected] = createSignal(false);
 
   const updateLoadout = (partial: Partial<PlayerLoadout>) => {
     const updated = { ...loadout(), ...partial };
@@ -299,6 +300,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           }
         }
         setIsLoadoutOpen(visible);
+      },
+      onInvulnerableChange: (invulnerable: boolean) => {
+        setIsSpawnProtected(invulnerable);
       }
     });
 
@@ -707,7 +711,42 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         </div>
       </Show>
 
-      {/* ESC Pause & Settings Menu */}
+      {/* Spawn Protection Overlay — grayscale vignette for 2s after respawn */}
+      <Show when={isSpawnProtected()}>
+        <div
+          class="strike-spawn-protect-overlay"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            'z-index': 17,
+            'pointer-events': 'none',
+            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,0.35) 100%)',
+            filter: 'grayscale(75%)',
+            transition: 'opacity 0.4s ease'
+          }}
+        >
+          <div style={{
+            position: 'absolute',
+            top: '14px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(30,30,40,0.72)',
+            border: '1px solid rgba(255,255,255,0.18)',
+            'border-radius': '6px',
+            padding: '5px 18px',
+            color: 'rgba(200,210,255,0.9)',
+            'font-family': 'monospace',
+            'font-size': '11px',
+            'font-weight': 'bold',
+            'letter-spacing': '0.22em',
+            'white-space': 'nowrap'
+          }}>
+            ✦ SPAWN PROTECTION ✦
+          </div>
+        </div>
+      </Show>
+
+
       <Show when={showEscMenu()}>
         <div
           class="strike-esc-overlay"

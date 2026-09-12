@@ -91,6 +91,7 @@ export interface StrikeBabylonCallbacks {
   onLoadoutToggle?: (visible: boolean) => void;
   onSmokeChange?: (inSmoke: boolean) => void;
   onGrenadeArmedChange?: (armed: boolean) => void;
+  onInvulnerableChange?: (invulnerable: boolean) => void;
 }
 
 export class StrikeBabylonEngine {
@@ -623,6 +624,7 @@ export class StrikeBabylonEngine {
     // 2-second god mode upon spawn (CS2 deathmatch style spawn protection)
     this.isInvulnerable = true;
     this.invulnerableUntil = performance.now() + 2000;
+    this.callbacks.onInvulnerableChange?.(true);
 
     // Replenish ammo
     this.ammoMag = { rifle: 30, sniper: 5, pistol: 7, knife: 1, katana: 1 };
@@ -1367,7 +1369,10 @@ export class StrikeBabylonEngine {
     if (this.isInvulnerable && performance.now() < this.invulnerableUntil) {
       return;
     }
-    this.isInvulnerable = false;
+    if (this.isInvulnerable) {
+      this.isInvulnerable = false;
+      this.callbacks.onInvulnerableChange?.(false);
+    }
 
     // Report hit direction for the HUD's damage-direction indicator (Fortnite-style)
     if (sourcePos) {
@@ -1444,6 +1449,12 @@ export class StrikeBabylonEngine {
     }
 
     if (!this.isPlaying || this.isDead) return;
+
+    // Expire spawn protection and notify UI when the 2s window closes
+    if (this.isInvulnerable && performance.now() >= this.invulnerableUntil) {
+      this.isInvulnerable = false;
+      this.callbacks.onInvulnerableChange?.(false);
+    }
 
     // Trauma screen shake that ALWAYS decays smoothly back to neutral so the
     // screen never stays tilted after a hit.
