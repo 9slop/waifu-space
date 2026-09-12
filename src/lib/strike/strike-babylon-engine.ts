@@ -32,6 +32,8 @@ export interface StrikeBabylonCallbacks {
   onScopeChange?: (isScoped: boolean) => void;
   onPlayerDeath?: (attackerName: string) => void;
   onToggleFullscreen?: () => void;
+  onDamageReceived?: (damage: number, currentHp: number) => void;
+  onEscapeMenuToggle?: (visible: boolean) => void;
 }
 
 export class StrikeBabylonEngine {
@@ -86,6 +88,7 @@ export class StrikeBabylonEngine {
   public health = 150;
   public maxHealth = 150;
   public isDead = false;
+  private screenShakeTrauma = 0;
 
   // Input & Sensitivity
   private keysDown: Record<string, boolean> = {};
@@ -580,10 +583,15 @@ export class StrikeBabylonEngine {
     this.health = Math.max(0, this.health - dmg);
     this.callbacks.onHealthChange(this.health, this.maxHealth);
 
+    // Screen shake / trauma proportional to damage
+    this.screenShakeTrauma = Math.min(1.0, this.screenShakeTrauma + Math.max(0.3, dmg / 45));
+    this.callbacks.onDamageReceived?.(dmg, this.health);
+
     if (this.health <= 0) {
       this.isDead = true;
       this.isScoped = false;
       this.camera.fov = this.defaultFov;
+      this.camera.rotation.z = 0;
       this.viewmodel.root.setEnabled(true);
       this.callbacks.onScopeChange?.(false);
       this.callbacks.onKillAnnouncement(`Killed by ${attackerName}!`);
@@ -596,6 +604,21 @@ export class StrikeBabylonEngine {
 
   private update(dt: number) {
     if (!this.isPlaying || this.isDead) return;
+
+    // Apply trauma screen shake
+    if (this.screenShakeTrauma > 0) {
+      const traumaSq = this.screenShakeTrauma * this.screenShakeTrauma;
+      const shakeRoll = (Math.random() - 0.5) * 0.05 * traumaSq;
+      const shakePitch = (Math.random() - 0.5) * 0.03 * traumaSq;
+      this.camera.rotation.z = shakeRoll;
+      this.camera.rotation.x += shakePitch;
+      this.screenShakeTrauma = Math.max(0, this.screenShakeTrauma - dt * 2.8);
+      if (this.screenShakeTrauma <= 0) {
+        this.camera.rotation.z = 0;
+      }
+    } else if (this.camera.rotation.z !== 0) {
+      this.camera.rotation.z = 0;
+    }
 
     // Reload timer check
     if (this.isReloading && performance.now() >= this.reloadEndTime) {

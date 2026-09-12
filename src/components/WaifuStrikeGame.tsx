@@ -26,6 +26,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
   const [hitmarker, setHitmarker] = createSignal<{ isHeadshot: boolean; id: number } | null>(null);
   const [isScoped, setIsScoped] = createSignal(false);
+  const [damageVignette, setDamageVignette] = createSignal(0);
   const [showControlsOverlay, setShowControlsOverlay] = createSignal(true);
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [showSummaryModal, setShowSummaryModal] = createSignal(false);
@@ -92,6 +93,13 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       },
       onPlayerDeath: (attacker) => {
         net?.registerPlayerDeath(attacker);
+      },
+      onDamageReceived: (dmg) => {
+        setDamageVignette(Math.min(1.0, 0.45 + dmg * 0.015));
+        setTimeout(() => {
+          setDamageVignette((v) => Math.max(0, v * 0.4));
+          setTimeout(() => setDamageVignette(0), 180);
+        }, 120);
       },
       onToggleFullscreen: () => {
         toggleFullscreen();
@@ -277,6 +285,14 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           <div class="hitmarker-line hm-3" />
           <div class="hitmarker-line hm-4" />
         </div>
+      </Show>
+
+      {/* Red Damage Edge Vignette */}
+      <Show when={damageVignette() > 0}>
+        <div
+          class="strike-damage-vignette"
+          style={{ opacity: damageVignette().toFixed(2) }}
+        />
       </Show>
 
       {/* Top Info Banner */}
