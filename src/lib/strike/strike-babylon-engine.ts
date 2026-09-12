@@ -176,13 +176,15 @@ export class StrikeBabylonEngine {
 
   private setupInputs() {
     this.boundPointerLockChange = () => {
-      this.isPointerLocked = document.pointerLockElement === this.canvas;
+      const plEl = document.pointerLockElement || (document as any).mozPointerLockElement;
+      this.isPointerLocked = plEl === this.canvas || plEl === this.canvas.parentElement;
       if (!this.isPointerLocked) {
         this.keysDown = {};
         this.mouseButtons = {};
       }
     };
     document.addEventListener('pointerlockchange', this.boundPointerLockChange);
+    document.addEventListener('mozpointerlockchange', this.boundPointerLockChange);
 
     this.boundKeyDown = (e) => {
       if (!this.isPlaying) return;
@@ -211,10 +213,16 @@ export class StrikeBabylonEngine {
     window.addEventListener('keyup', this.boundKeyUp);
 
     this.boundMouseMove = (e) => {
-      if (!this.isPointerLocked || !this.isPlaying) return;
+      if (!this.isPlaying) return;
+      const movementX = e.movementX ?? (e as any).mozMovementX ?? 0;
+      const movementY = e.movementY ?? (e as any).mozMovementY ?? 0;
+
+      // Allow camera movement whenever pointer locked or when holding mouse buttons inside the game
+      if (!this.isPointerLocked && !this.mouseButtons[0] && !this.mouseButtons[2]) return;
+
       const sens = this.isScoped ? this.mouseSensitivity * 0.4 : this.mouseSensitivity;
-      this.camera.rotation.y += e.movementX * sens;
-      this.camera.rotation.x += e.movementY * sens;
+      this.camera.rotation.y += movementX * sens;
+      this.camera.rotation.x += movementY * sens;
 
       // Clamp pitch between -89 deg and +89 deg
       const maxPitch = (89 * Math.PI) / 180;
@@ -233,7 +241,9 @@ export class StrikeBabylonEngine {
 
       if (!isGameTarget) return;
 
-      // Automatically request pointer lock on any game click if not locked
+      // CRITICAL: Prevent browser text/element dragging on canvas so mousemove is never cancelled
+      e.preventDefault();
+
       if (!this.isPointerLocked) {
         this.requestPointerLock();
       }
@@ -243,17 +253,25 @@ export class StrikeBabylonEngine {
         // Immediate shot execution on left click
         this.shoot();
       } else if (e.button === 2) {
-        // Right click: Scope toggle (always prevent context menu)
-        e.preventDefault();
+        // Right click: Scope toggle
         this.toggleScope();
       }
     };
     window.addEventListener('mousedown', this.boundMouseDown);
+    this.canvas.addEventListener('mousedown', this.boundMouseDown);
+
+    // Ensure Firefox pointerdown does not trigger native gesture or image drag
+    this.canvas.addEventListener('pointerdown', (e) => {
+      if (this.isPlaying) {
+        e.preventDefault();
+      }
+    });
 
     this.boundMouseUp = (e) => {
       this.mouseButtons[e.button] = false;
     };
     window.addEventListener('mouseup', this.boundMouseUp);
+    this.canvas.addEventListener('mouseup', this.boundMouseUp);
 
     this.boundContextMenu = (e) => {
       if (this.isPlaying) {
@@ -262,6 +280,14 @@ export class StrikeBabylonEngine {
     };
     window.addEventListener('contextmenu', this.boundContextMenu);
     this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Prevent drag and text selection from canceling mousemove when dragging/holding buttons
+    window.addEventListener('dragstart', (e) => {
+      if (this.isPlaying) e.preventDefault();
+    });
+    window.addEventListener('selectstart', (e) => {
+      if (this.isPlaying) e.preventDefault();
+    });
 
     // Mouse wheel weapon cycling
     const weaponCycle: WeaponId[] = ['rifle', 'sniper', 'pistol', 'knife'];
@@ -279,7 +305,13 @@ export class StrikeBabylonEngine {
   }
 
   public requestPointerLock() {
-    this.canvas.requestPointerLock?.();
+    try {
+      this.canvas.focus?.();
+      const req = this.canvas.requestPointerLock || (this.canvas as any).mozRequestPointerLock;
+      req?.call(this.canvas);
+    } catch (err) {
+      console.warn('Pointer lock request error', err);
+    }
   }
 
   public respawnLocalPlayer() {
@@ -440,8 +472,10 @@ export class StrikeBabylonEngine {
       }
     }
 
-    // Visual Tracer line
-    this.createTracer(forwardRay.origin.add(new Vector3(0, -0.15, 0)), hitPoint, def.color);
+    // Visual Tracer line (guns only, knife does not emit bullet tracers)
+    if (this.activeWeaponId !== 'knife') {
+      this.createTracer(forwardRay.origin.add(new Vector3(0, -0.15, 0)), hitPoint, def.color);
+    }
 
     if (targetId !== null) {
       strikeAudio.playHitmarker(isHeadshot);

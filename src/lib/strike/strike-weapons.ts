@@ -18,15 +18,15 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     isAutomatic: true,
     hasScope: false,
     scopeZoom: 1.0,
-    color: '#ff6584',
+    color: '#ffd32a', // Vibrant yellow bullet tracer
     viewmodelScale: 1.0
   },
   sniper: {
     id: 'sniper',
     name: 'Aether Railgun (AWP)',
     category: 'primary',
-    damage: 115,
-    headshotMultiplier: 3.5, // 402 damage
+    damage: 80, // Nerfed to 80 body damage
+    headshotMultiplier: 1.25, // 80 * 1.25 = 100 head damage
     fireRateRpm: 50, // 1 shot every 1200ms
     magazineSize: 5,
     reserveAmmo: 25,
@@ -38,7 +38,7 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     isAutomatic: false,
     hasScope: true,
     scopeZoom: 0.28,
-    color: '#6c5ce7',
+    color: '#ffd32a', // Vibrant yellow bullet tracer
     viewmodelScale: 1.25
   },
   pistol: {
@@ -58,7 +58,7 @@ export const WEAPON_CATALOG: Record<WeaponId, WeaponDef> = {
     isAutomatic: false,
     hasScope: false,
     scopeZoom: 1.0,
-    color: '#00cec9',
+    color: '#ffd32a', // Vibrant yellow bullet tracer
     viewmodelScale: 0.75
   },
   knife: {

@@ -13,8 +13,9 @@ describe('Waifu Strike: Weapons and P2P Networking Protocol', () => {
     const rifleHeadshot = WEAPON_CATALOG.rifle.damage * WEAPON_CATALOG.rifle.headshotMultiplier;
     expect(rifleHeadshot).toBeGreaterThanOrEqual(100);
 
-    // Sniper body shot should be lethal (>= 100 dmg)
-    expect(WEAPON_CATALOG.sniper.damage).toBeGreaterThanOrEqual(100);
+    // Sniper body shot: 80 dmg, headshot: 100 dmg
+    expect(WEAPON_CATALOG.sniper.damage).toBe(80);
+    expect(WEAPON_CATALOG.sniper.damage * WEAPON_CATALOG.sniper.headshotMultiplier).toBe(100);
     expect(WEAPON_CATALOG.sniper.hasScope).toBe(true);
 
     // Knife backstab

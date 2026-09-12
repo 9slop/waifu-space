@@ -28,6 +28,7 @@ interface PeerConnectionWrapper {
   state: P2PPlayerState | null;
   lastPacketTime: number;
   lastShootTime: number;
+  iceCandidatesQueue: RTCIceCandidateInit[];
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -171,7 +172,8 @@ export class StrikeP2PManager {
     for (const key of Object.keys(state)) {
       if (key !== this.myPeerId) {
         activePeers.add(key);
-        if (!this.peers.has(key)) {
+        // Only initiate from the peer with the lexicographically smaller ID to avoid WebRTC offer collisions
+        if (this.myPeerId < key && !this.peers.has(key)) {
           this.initiatePeerConnection(key);
         }
       }
@@ -224,7 +226,8 @@ export class StrikeP2PManager {
         dc,
         state: null,
         lastPacketTime: Date.now(),
-        lastShootTime: 0
+        lastShootTime: 0,
+        iceCandidatesQueue: []
       };
       this.peers.set(targetPeerId, wrapper);
 
@@ -268,7 +271,8 @@ export class StrikeP2PManager {
           dc: null,
           state: null,
           lastPacketTime: Date.now(),
-          lastShootTime: 0
+          lastShootTime: 0,
+          iceCandidatesQueue: []
         };
         this.peers.set(msg.from, wrapper);
 
@@ -290,6 +294,17 @@ export class StrikeP2PManager {
       }
 
       await wrapper.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+
+      // Flush any ICE candidates received before remote description was ready
+      if (wrapper.iceCandidatesQueue.length > 0) {
+        for (const candidate of wrapper.iceCandidatesQueue) {
+          try {
+            await wrapper.pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch {}
+        }
+        wrapper.iceCandidatesQueue = [];
+      }
+
       const answer = await wrapper.pc.createAnswer();
       await wrapper.pc.setLocalDescription(answer);
 
@@ -303,13 +318,27 @@ export class StrikeP2PManager {
       const wrapper = this.peers.get(msg.from);
       if (wrapper && wrapper.pc.signalingState !== 'stable') {
         await wrapper.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+
+        // Flush any queued ICE candidates
+        if (wrapper.iceCandidatesQueue.length > 0) {
+          for (const candidate of wrapper.iceCandidatesQueue) {
+            try {
+              await wrapper.pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch {}
+          }
+          wrapper.iceCandidatesQueue = [];
+        }
       }
     } else if (msg.type === 'ice-candidate') {
       const wrapper = this.peers.get(msg.from);
       if (wrapper && msg.candidate) {
-        try {
-          await wrapper.pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-        } catch {}
+        if (!wrapper.pc.remoteDescription) {
+          wrapper.iceCandidatesQueue.push(msg.candidate);
+        } else {
+          try {
+            await wrapper.pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          } catch {}
+        }
       }
     }
   }
@@ -325,22 +354,30 @@ export class StrikeP2PManager {
   }
 
   private setupDataChannel(wrapper: PeerConnectionWrapper, dc: RTCDataChannel) {
-    dc.onopen = () => {
+    const handleOpen = () => {
       this.callbacks.onConnectionStatus(true, this.peers.size);
 
-      // Create 3D Avatar for this human peer
-      const avatar = new BabylonAvatarModel(
-        wrapper.peerId,
-        {
-          name: wrapper.name,
-          hairColor: '#ff7597',
-          outfitColor: '#00cec9'
-        },
-        this.engine.scene
-      );
-      this.engine.remoteAvatars.set(wrapper.peerId, avatar);
+      // Create 3D Avatar for this human peer if not already created
+      if (!this.engine.remoteAvatars.has(wrapper.peerId)) {
+        const avatar = new BabylonAvatarModel(
+          wrapper.peerId,
+          {
+            name: wrapper.name,
+            hairColor: '#ff7597',
+            outfitColor: '#00cec9'
+          },
+          this.engine.scene
+        );
+        this.engine.remoteAvatars.set(wrapper.peerId, avatar);
+      }
       this.publishScoreboard();
     };
+
+    if (dc.readyState === 'open') {
+      handleOpen();
+    } else {
+      dc.onopen = handleOpen;
+    }
 
     dc.onmessage = (event) => {
       try {
@@ -411,11 +448,26 @@ export class StrikeP2PManager {
 
     wrapper.name = wrapper.state.name;
 
-    const av = this.engine.remoteAvatars.get(wrapper.peerId);
+    let av = this.engine.remoteAvatars.get(wrapper.peerId);
+    if (!av) {
+      // Fallback: guarantee 3D avatar is instantiated immediately upon receiving state packet
+      av = new BabylonAvatarModel(
+        wrapper.peerId,
+        {
+          name: wrapper.name,
+          hairColor: '#ff7597',
+          outfitColor: '#00cec9'
+        },
+        this.engine.scene
+      );
+      this.engine.remoteAvatars.set(wrapper.peerId, av);
+      av.root.position = new Vector3(x, y - 1.62, z);
+    }
+
     if (av) {
-      av.root.position = Vector3.Lerp(av.root.position, new Vector3(x, y - 0.77, z), 0.45);
+      av.root.position = Vector3.Lerp(av.root.position, new Vector3(x, y - 1.62, z), 0.45);
       av.root.rotation.y = wrapper.state.yaw;
-      av.updateAnimation(wrapper.state.animState, performance.now() * 0.001);
+      av.updateAnimation(wrapper.state.animState, 0.033);
       av.setWeapon(wrapper.state.weaponId);
     }
 
@@ -582,20 +634,22 @@ export class StrikeP2PManager {
       }
     }
 
-    // Broadcast tracer line to other peers
-    const tracerPacket = JSON.stringify({
-      type: 'tracer',
-      origin: ray.origin,
-      direction: ray.direction,
-      weaponId: ray.weaponId
-    });
-    this.peers.forEach((p) => {
-      if (p.peerId !== targetId && p.dc && p.dc.readyState === 'open') {
-        try {
-          p.dc.send(tracerPacket);
-        } catch {}
-      }
-    });
+    // Broadcast tracer line to other peers (guns only, knife does not emit bullet tracers)
+    if (ray.weaponId !== 'knife') {
+      const tracerPacket = JSON.stringify({
+        type: 'tracer',
+        origin: ray.origin,
+        direction: ray.direction,
+        weaponId: ray.weaponId
+      });
+      this.peers.forEach((p) => {
+        if (p.peerId !== targetId && p.dc && p.dc.readyState === 'open') {
+          try {
+            p.dc.send(tracerPacket);
+          } catch {}
+        }
+      });
+    }
   }
 
   public registerPlayerDeath(attackerName: string) {
