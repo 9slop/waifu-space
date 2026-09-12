@@ -576,7 +576,7 @@
 .strike-chat-container {
   position: absolute;
   left: 20px;
-  bottom: 90px;
+  bottom: 150px;
   width: 360px;
   max-width: 90vw;
   z-index: 30;
@@ -867,6 +867,20 @@
   gap: 20px;
 }
 
+.strike-esc-empty {
+  padding: 28px 0;
+  text-align: center;
+  color: #a4b0be;
+  font-size: 0.95rem;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(13, 17, 23, 0.4);
+}
+
+.strike-esc-empty p {
+  margin: 0;
+}
+
 .strike-esc-section {
   background: rgba(13, 17, 23, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1033,8 +1047,8 @@
   border: 1px solid rgba(0, 206, 201, 0.35);
   border-radius: 18px;
   width: 100%;
-  max-width: 820px;
-  max-height: 86vh;
+  max-width: 700px;
+  max-height: 72vh;
   display: flex;
   flex-direction: column;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85), 0 0 35px rgba(0, 206, 201, 0.15);
@@ -1116,15 +1130,15 @@
 
 .strike-loadout-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
 }
 
 .strike-loadout-card {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 9px 12px;
   cursor: pointer;
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;

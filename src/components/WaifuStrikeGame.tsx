@@ -35,11 +35,11 @@ const ACTION_LABELS: Record<keyof StrikeKeybindings, string> = {
   walk: 'Walk / Sneak',
   reload: 'Reload Weapon',
   quickswitch: 'Quickswitch Weapon',
-  weapon1: 'Primary Weapon',
-  weapon2: 'Alternate Weapon',
-  weapon3: 'Sidearm (Deagle)',
-  weapon4: 'Melee (Knife / Katana)',
-  grenade: 'Throw Grenade',
+  weapon1: 'Slot 1: Primary Weapon',
+  weapon2: 'Slot 2: Sidearm (Pistol)',
+  weapon3: 'Slot 3: Melee (Knife / Katana)',
+  weapon4: 'Slot 4: Grenade',
+  grenade: 'Arm Grenade',
   loadout: 'Loadout Menu',
   scoreboard: 'Hold Scoreboard',
   fullscreen: 'Fullscreen'
@@ -79,12 +79,13 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [isScoped, setIsScoped] = createSignal(false);
   const [damageVignette, setDamageVignette] = createSignal(0);
   const [showControlsOverlay, setShowControlsOverlay] = createSignal(true);
+  const [focusLost, setFocusLost] = createSignal(false);
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [showSummaryModal, setShowSummaryModal] = createSignal(false);
   const [isFullscreen, setIsFullscreen] = createSignal(false);
 
-  // ESC Pause Menu Tabs & Key Rebinding
-  const [escTab, setEscTab] = createSignal<'controls' | 'graphics'>('controls');
+  // ESC Pause Menu Tabs & Key Rebinding (no auto-selected tab on open)
+  const [escTab, setEscTab] = createSignal<'controls' | 'graphics' | null>(null);
   const loadSavedKeybindings = (): StrikeKeybindings => {
     try {
       const saved = localStorage.getItem('waifu_strike_keybindings');
@@ -160,6 +161,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [loadout, setLoadout] = createSignal<PlayerLoadout>(loadSavedLoadout());
   const [grenadeCount, setGrenadeCount] = createSignal(1);
   const [grenadeType, setGrenadeType] = createSignal<GrenadeType>(loadout().grenade);
+  const [grenadeArmed, setGrenadeArmed] = createSignal(false);
   const [isInSmoke, setIsInSmoke] = createSignal(false);
   const [isLoadoutOpen, setIsLoadoutOpen] = createSignal(false);
 
@@ -267,6 +269,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         setGrenadeCount(count);
         setGrenadeType(type);
       },
+      onGrenadeArmedChange: (armed) => {
+        setGrenadeArmed(armed);
+      },
       onSmokeChange: (inSmoke) => {
         setIsInSmoke(inSmoke);
       },
@@ -339,9 +344,10 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     };
 
     const handlePointerLockChange = () => {
-      if (isClosingEscMenu) return;
+      if (isClosingEscMenu || focusLost()) return;
       const plEl = document.pointerLockElement || (document as any).mozPointerLockElement;
       if (!plEl && !showControlsOverlay() && !showSummaryModal() && !isChatOpen() && !isLoadoutOpen()) {
+        setEscTab(null);
         setShowEscMenu(true);
       }
     };
@@ -362,6 +368,22 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           localStorage.setItem('waifu_strike_keybindings', JSON.stringify(updated));
         } catch {}
         engine()?.setKeybindings(updated);
+        return;
+      }
+
+      // Resuming after window focus loss
+      if (focusLost()) {
+        if (e.code === 'Escape' || e.code === 'Enter') {
+          e.preventDefault();
+          setFocusLost(false);
+          const eng = engine();
+          if (eng) {
+            eng.setPaused(false);
+            eng.startPlaying();
+            eng.requestPointerLock();
+          }
+          return;
+        }
         return;
       }
 
@@ -402,6 +424,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           if (typeof document !== 'undefined' && document.pointerLockElement) {
             document.exitPointerLock?.();
           }
+          setEscTab(null);
           setShowEscMenu(true);
         }
       }
@@ -413,10 +436,19 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         eng.pausePlaying();
         eng.setPaused(true);
       } else {
-        if (!showEscMenu()) {
+        if (!showEscMenu() && !focusLost()) {
           eng.setPaused(false);
         }
       }
+    };
+
+    // Window focus lost: pause the game and hold it behind a resume overlay
+    // (avoids the auto-opened ESC menu fighting for pointer lock on return)
+    const handleWindowBlur = () => {
+      if (showControlsOverlay() || showSummaryModal() || isChatOpen() || isLoadoutOpen()) return;
+      setFocusLost(true);
+      eng.pausePlaying();
+      eng.setPaused(true);
     };
 
     const handleBeforeUnload = () => {
@@ -427,6 +459,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     window.addEventListener('resize', handleResize);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('pointerlockchange', handlePointerLockChange);
+    window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('keydown', handleGlobalKeyDown);
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -436,6 +469,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('pointerlockchange', handlePointerLockChange);
+      window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('keydown', handleGlobalKeyDown);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -687,6 +721,13 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
             {/* Settings Sections */}
             <div class="strike-esc-content">
+              {/* Empty state: no tab auto-selected */}
+              <Show when={escTab() === null}>
+                <div class="strike-esc-empty">
+                  <p>Select a tab above to review or customize your settings.</p>
+                </div>
+              </Show>
+
               {/* Controls Tab */}
               <Show when={escTab() === 'controls'}>
                 <div class="strike-esc-section">
@@ -1000,7 +1041,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                       </Show>
                     </div>
                     <div class="loadout-card-name">🌸 Sakura Rifle (AR-47)</div>
-                    <div class="loadout-card-desc">Fully automatic assault rifle forged from Kyoto high-tensile steel. Balanced recoil and lethal headshots.</div>
                     <div class="loadout-stats-grid">
                       <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">34 (102 Head)</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Fire Rate</span><span class="stat-val">600 RPM</span></div>
@@ -1021,7 +1061,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                       </Show>
                     </div>
                     <div class="loadout-card-name">⚡ Aether Railgun (SR-99)</div>
-                    <div class="loadout-card-desc">Electromagnetic particle sniper rifle with long-range zoom scope. Massive stopping power across sightlines.</div>
                     <div class="loadout-stats-grid">
                       <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">52 (78 Head)</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Optic</span><span class="stat-val">Zoom Scope</span></div>
@@ -1045,7 +1084,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                       <span class="loadout-equipped-badge">EQUIPPED</span>
                     </div>
                     <div class="loadout-card-name">🦅 Neo Deagle (.50 AE)</div>
-                    <div class="loadout-card-desc">High-caliber semi-automatic hand cannon with devastating stopping power and high armor penetration.</div>
                     <div class="loadout-stats-grid">
                       <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">40 (80 Head)</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Fire Rate</span><span class="stat-val">260 RPM</span></div>
@@ -1075,7 +1113,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                       </Show>
                     </div>
                     <div class="loadout-card-name">🦊 Kitsune Knife</div>
-                    <div class="loadout-card-desc">Ultra-lightweight titanium combat dagger. Maximizes movement and sprint speed for swift rotations.</div>
                     <div class="loadout-stats-grid">
                       <div class="loadout-stat"><span class="stat-lbl">Slash</span><span class="stat-val">35 DMG</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Heavy</span><span class="stat-val">65 DMG</span></div>
@@ -1096,7 +1133,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                       </Show>
                     </div>
                     <div class="loadout-card-name">⚔️ Muramasa Katana</div>
-                    <div class="loadout-card-desc">Forged folded-steel katana with extended reach and devastating damage. Heavier carry weight reduces speed.</div>
                     <div class="loadout-stats-grid">
                       <div class="loadout-stat"><span class="stat-lbl">Slash</span><span class="stat-val" style={{ color: '#ff7597' }}>55 DMG</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Heavy</span><span class="stat-val" style={{ color: '#ff7597' }}>95 DMG</span></div>
@@ -1111,7 +1147,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
               <div class="strike-loadout-cat">
                 <div class="strike-loadout-cat-title">
                   <span>💣 TACTICAL GRENADE (Pick 1)</span>
-                  <span class="strike-loadout-cat-hint">Thrown ordnance equipped every round [G]</span>
+                  <span class="strike-loadout-cat-hint">Thrown ordnance equipped every round [4] / G</span>
                 </div>
                 <div class="strike-loadout-grid">
                   {/* Molotov */}
@@ -1126,7 +1162,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                       </Show>
                     </div>
                     <div class="loadout-card-name">🍾 Kitsune Molotov</div>
-                    <div class="loadout-card-desc">Detonates on ground contact into a 4.5m pool of roaring fire. Denies chokepoints and burns enemies.</div>
                     <div class="loadout-stats-grid">
                       <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">20 DMG/sec (5/0.25s)</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Duration</span><span class="stat-val">6.0s</span></div>
@@ -1147,7 +1182,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                       </Show>
                     </div>
                     <div class="loadout-card-name">💨 Mist Veil Smoke</div>
-                    <div class="loadout-card-desc">Deploys an expanding 5.5m dense aerosol screen for 16s to obstruct sniper sightlines and facilitate safe crosses.</div>
                     <div class="loadout-stats-grid">
                       <div class="loadout-stat"><span class="stat-lbl">Vision</span><span class="stat-val" style={{ color: '#00cec9' }}>Obstructed</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Duration</span><span class="stat-val">16.0s</span></div>
@@ -1168,7 +1202,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                       </Show>
                     </div>
                     <div class="loadout-card-name">💣 Type-97 HE Grenade</div>
-                    <div class="loadout-card-desc">High-explosive fragmentation grenade dealing devastating blast damage to clear corners and clustered squads.</div>
                     <div class="loadout-stats-grid">
                       <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val" style={{ color: '#ffd32a' }}>100 at Center</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Blast Radius</span><span class="stat-val">6.5m Falloff</span></div>
@@ -1288,32 +1321,25 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
             <span>{loadout().primary === 'rifle' ? 'Rifle' : 'Railgun'}</span>
           </div>
           <div
-            class={`hud-weapon-slot ${(loadout().primary === 'rifle' ? activeWeapon().id === 'sniper' : activeWeapon().id === 'rifle') ? 'active' : ''}`}
-            onClick={() => engine()?.switchWeapon(loadout().primary === 'rifle' ? 'sniper' : 'rifle')}
-          >
-            <span class="hud-slot-key">[2]</span>
-            <span>{loadout().primary === 'rifle' ? 'Railgun' : 'Rifle'}</span>
-          </div>
-          <div
             class={`hud-weapon-slot ${activeWeapon().id === 'pistol' ? 'active' : ''}`}
             onClick={() => engine()?.switchWeapon('pistol')}
           >
-            <span class="hud-slot-key">[3]</span>
-            <span>Deagle</span>
+            <span class="hud-slot-key">[2]</span>
+            <span>Sidearm</span>
           </div>
           <div
             class={`hud-weapon-slot ${activeWeapon().id === loadout().melee ? 'active' : ''}`}
             onClick={() => engine()?.switchWeapon(loadout().melee)}
           >
-            <span class="hud-slot-key">[4]</span>
+            <span class="hud-slot-key">[3]</span>
             <span>{loadout().melee === 'katana' ? 'Katana' : 'Knife'}</span>
           </div>
           <div
-            class={`hud-weapon-slot ${grenadeCount() > 0 ? '' : 'disabled'}`}
-            title="Press G to throw grenade"
-            onClick={() => engine()?.throwGrenade()}
+            class={`hud-weapon-slot ${grenadeCount() > 0 ? '' : 'disabled'} ${grenadeArmed() ? 'active' : ''}`}
+            title="Press 4 or G to arm grenade, hold LMB to aim, release to throw"
+            onClick={() => (grenadeArmed() ? engine()?.throwGrenade() : engine()?.armGrenade())}
           >
-            <span class="hud-slot-key">[G]</span>
+            <span class="hud-slot-key">[4]</span>
             <span>{GRENADE_CATALOG[loadout().grenade]?.icon || '💣'} x{grenadeCount()}</span>
           </div>
           <div
@@ -1340,7 +1366,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         </div>
       </div>
 
-      {/* Start / Controls Instruction Overlay */}
+      {/* Start Overlay (Drop In only) */}
       <Show when={showControlsOverlay()}>
         <div class="strike-lock-overlay" onClick={handleStartPlay}>
           <div class="strike-lock-modal" onClick={(e) => e.stopPropagation()}>
@@ -1348,94 +1374,6 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
             <p style={{ color: '#a4b0be', 'margin-bottom': '16px' }}>
               {t('strike.desc') || 'Endless casual tactical deathmatch. Drop in, click to lock mouse, and frag!'}
             </p>
-
-            <div class="strike-controls-grid">
-              <div class="strike-ctrl-pill">
-                <span>Move</span>
-                <span class="strike-ctrl-key">W / A / S / D</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Jump</span>
-                <span class="strike-ctrl-key">Space</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Crouch</span>
-                <span class="strike-ctrl-key">Ctrl / C</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Walk / Sneak</span>
-                <span class="strike-ctrl-key">Shift</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Shoot</span>
-                <span class="strike-ctrl-key">Left Click</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Scope ADS</span>
-                <span class="strike-ctrl-key">Right Click</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Reload</span>
-                <span class="strike-ctrl-key">R</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Quickswitch</span>
-                <span class="strike-ctrl-key">Q</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Cycle Weapons</span>
-                <span class="strike-ctrl-key">Scroll / 1-4</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Scoreboard</span>
-                <span class="strike-ctrl-key">Hold Tab</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Fullscreen</span>
-                <span class="strike-ctrl-key">F</span>
-              </div>
-              <div class="strike-ctrl-pill">
-                <span>Chat</span>
-                <span class="strike-ctrl-key">Enter / T</span>
-              </div>
-            </div>
-
-            {/* In-Game Sensitivity & Audio Sliders */}
-            <div style={{ 'margin-top': '16px', 'border-top': '1px solid rgba(255, 255, 255, 0.1)', 'padding-top': '14px', display: 'flex', 'flex-direction': 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center', 'font-size': '0.85rem' }}>
-                <span>Mouse Sensitivity ({mouseSens().toFixed(1)})</span>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="6.0"
-                  step="0.1"
-                  value={mouseSens()}
-                  onInput={(e) => {
-                    const val = parseFloat(e.currentTarget.value);
-                    setMouseSens(val);
-                    engine()?.setSensitivity(val);
-                  }}
-                  style={{ width: '130px', cursor: 'pointer' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', 'justify-content': 'space-between', 'align-items': 'center', 'font-size': '0.85rem' }}>
-                <span>SFX Volume ({audioVol()}%)</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={audioVol()}
-                  onInput={(e) => {
-                    const val = parseInt(e.currentTarget.value, 10);
-                    setAudioVol(val);
-                    strikeAudio.setVolume(val / 100);
-                  }}
-                  style={{ width: '130px', cursor: 'pointer' }}
-                />
-              </div>
-            </div>
 
             <button
               class="btn-start-strike"
@@ -1448,11 +1386,47 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                 'font-weight': 'bold',
                 'font-size': '1.1rem',
                 cursor: 'pointer',
-                'margin-top': '14px'
+                'margin-top': '6px'
               }}
               onClick={handleStartPlay}
             >
               🎮 {t('strike.dropInBtn') || 'Drop In & Play'}
+            </button>
+          </div>
+        </div>
+      </Show>
+
+      {/* Focus Lost Resume Overlay */}
+      <Show when={focusLost() && !showControlsOverlay()}>
+        <div class="strike-lock-overlay">
+          <div class="strike-lock-modal" style={{ 'text-align': 'center' }}>
+            <h2>⏸️ Game Paused</h2>
+            <p style={{ color: '#a4b0be', 'margin-bottom': '18px' }}>
+              The window lost focus. Press Esc or click below to drop back in.
+            </p>
+            <button
+              class="btn-start-strike"
+              style={{
+                background: 'linear-gradient(135deg, #00cec9, #0984e3)',
+                color: '#fff',
+                border: 'none',
+                padding: '12px 32px',
+                'border-radius': '12px',
+                'font-weight': 'bold',
+                'font-size': '1.05rem',
+                cursor: 'pointer'
+              }}
+              onClick={() => {
+                setFocusLost(false);
+                const eng = engine();
+                if (eng) {
+                  eng.setPaused(false);
+                  eng.startPlaying();
+                  eng.requestPointerLock();
+                }
+              }}
+            >
+              ▶ Resume Match [Esc]
             </button>
           </div>
         </div>
