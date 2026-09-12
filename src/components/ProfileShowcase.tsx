@@ -23,6 +23,7 @@ import {
 } from '../lib/i18n';
 import { compressImage } from '../lib/image-compress';
 import { WaifuAvatar } from './WaifuAvatar';
+import { AvatarFrameOverlay } from './AvatarFrame';
 
 interface PublicProfileData {
   id: string;
@@ -87,7 +88,7 @@ export function ProfileShowcase() {
   };
 
   // Filters for Wardrobe & Inventory
-  const [filterCategory, setFilterCategory] = createSignal<'all' | 'outfit' | 'accessory' | 'hairstyle'>('all');
+  const [filterCategory, setFilterCategory] = createSignal<'all' | 'outfit' | 'accessory' | 'hairstyle' | 'avatar_frame'>('all');
   const [inventoryRarityFilter, setInventoryRarityFilter] = createSignal<'all' | 'common' | 'rare' | 'epic' | 'legendary' | 'mystical'>('all');
 
   // Public Profile Viewer state
@@ -180,8 +181,9 @@ export function ProfileShowcase() {
   };
 
   const filteredCatalog = () => {
-    if (filterCategory() === 'all') return COSMETIC_CATALOG;
-    return COSMETIC_CATALOG.filter(item => item.category === filterCategory());
+    const owned = COSMETIC_CATALOG.filter(item => item.id !== 'none' && isCosmeticUnlocked(item.id));
+    if (filterCategory() === 'all') return owned;
+    return owned.filter(item => item.category === filterCategory());
   };
 
   const ownedItems = () => {
@@ -209,6 +211,9 @@ export function ProfileShowcase() {
     } else if (item.category === 'hairstyle') {
       setState('waifu', 'appearance', 'hairstyle', item.id);
       showToast(t('rpg.toasts.equippedHairstyle', { name: getCosmeticName(item.id, item.name) }));
+    } else if (item.category === 'avatar_frame') {
+      setState('waifu', 'appearance', 'avatarFrame', item.id);
+      showToast(t('rpg.toasts.equippedFrame', { name: getCosmeticName(item.id, item.name) }));
     }
     saveState();
   };
@@ -370,6 +375,10 @@ export function ProfileShowcase() {
                   }}
                 />
               </Show>
+              <AvatarFrameOverlay
+                frameId={isViewingPublic() ? waifuInfo().appearance?.avatarFrame : state.waifu?.appearance?.avatarFrame}
+                class="profile-avatar-frame"
+              />
             </div>
             <div class="profile-badge-tier">
               <span>Lv. {statsInfo().bondLevel}</span>
@@ -528,6 +537,7 @@ export function ProfileShowcase() {
                 <p><strong>{t('profile.currentOutfit')}:</strong> {getCosmeticName(waifuInfo().appearance?.outfit || 'seifuku')}</p>
                 <p><strong>{t('profile.currentAccessory')}:</strong> {getCosmeticName(waifuInfo().appearance?.accessory || 'none')}</p>
                 <p><strong>{t('profile.currentHairstyle')}:</strong> {getCosmeticName(waifuInfo().appearance?.hairstyle || 'twintails')}</p>
+                <p><strong>{t('profile.currentFrame')}:</strong> {getCosmeticName(waifuInfo().appearance?.avatarFrame || 'none')}</p>
               </div>
             </div>
           </div>
@@ -564,6 +574,12 @@ export function ProfileShowcase() {
                   >
                     {t('rpg.wardrobe.hairstyles')}
                   </button>
+                  <button
+                    class={`filter-btn ${filterCategory() === 'avatar_frame' ? 'active' : ''}`}
+                    onClick={() => setFilterCategory('avatar_frame')}
+                  >
+                    {t('rpg.wardrobe.avatarFrames')}
+                  </button>
                 </div>
 
                 <div class="cosmetics-grid">
@@ -573,7 +589,8 @@ export function ProfileShowcase() {
                       const isEquipped = () =>
                         (item.category === 'outfit' && state.waifu?.appearance?.outfit === item.id) ||
                         (item.category === 'accessory' && state.waifu?.appearance?.accessory === item.id) ||
-                        (item.category === 'hairstyle' && state.waifu?.appearance?.hairstyle === item.id);
+                        (item.category === 'hairstyle' && state.waifu?.appearance?.hairstyle === item.id) ||
+                        (item.category === 'avatar_frame' && state.waifu?.appearance?.avatarFrame === item.id);
 
                       return (
                         <div class={`cosmetic-card ${getRarityClass(item.rarity)} ${unlocked() ? 'unlocked' : 'locked'}`}>
@@ -621,6 +638,7 @@ export function ProfileShowcase() {
                   <div><strong>{t('rpg.wardrobe.outfitLabel')}:</strong> {getCosmeticName(state.waifu?.appearance?.outfit || 'seifuku')}</div>
                   <div><strong>{t('rpg.wardrobe.accessoryLabel')}:</strong> {getCosmeticName(state.waifu?.appearance?.accessory || 'none')}</div>
                   <div><strong>{t('rpg.wardrobe.hairstyleLabel')}:</strong> {getCosmeticName(state.waifu?.appearance?.hairstyle || 'twintails')}</div>
+                  <div><strong>{t('rpg.wardrobe.avatarFrameLabel')}:</strong> {getCosmeticName(state.waifu?.appearance?.avatarFrame || 'none')}</div>
                 </div>
               </div>
             </div>
@@ -717,6 +735,12 @@ export function ProfileShowcase() {
                 >
                   {t('rpg.wardrobe.hairstyles')}
                 </button>
+                <button
+                  class={`filter-btn ${filterCategory() === 'avatar_frame' ? 'active' : ''}`}
+                  onClick={() => setFilterCategory('avatar_frame')}
+                >
+                  {t('rpg.wardrobe.avatarFrames')}
+                </button>
               </div>
 
               <div class="rarity-filter-group">
@@ -747,7 +771,8 @@ export function ProfileShowcase() {
                   const isEquipped = () =>
                     (item.category === 'outfit' && state.waifu?.appearance?.outfit === item.id) ||
                     (item.category === 'accessory' && state.waifu?.appearance?.accessory === item.id) ||
-                    (item.category === 'hairstyle' && state.waifu?.appearance?.hairstyle === item.id);
+                    (item.category === 'hairstyle' && state.waifu?.appearance?.hairstyle === item.id) ||
+                    (item.category === 'avatar_frame' && state.waifu?.appearance?.avatarFrame === item.id);
 
                   return (
                     <div class={`inventory-item-card ${getRarityClass(item.rarity)}`}>

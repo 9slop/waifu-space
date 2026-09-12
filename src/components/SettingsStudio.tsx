@@ -6,7 +6,8 @@ import {
   updateSettings,
   showToast,
   speakText,
-  isCosmeticUnlocked
+  isCosmeticUnlocked,
+  COSMETIC_CATALOG
 } from '../lib/store';
 import { onActivateKey } from '../lib/accessibility';
 import { PERSONALITIES } from '../lib/personality';
@@ -479,13 +480,11 @@ export function SettingsStudio() {
                           saveState();
                         }}
                       >
-                        <option value="twintails">{isCosmeticUnlocked('hairstyles', 'twintails') ? `👧 ${getCosmeticName('twintails')}` : `🔒 👧 ${getCosmeticName('twintails')}`}</option>
-                        <option value="long">{isCosmeticUnlocked('hairstyles', 'long') ? `💇‍♀️ ${getCosmeticName('long')}` : `🔒 💇‍♀️ ${getCosmeticName('long')}`}</option>
-                        <option value="short_bob">{isCosmeticUnlocked('hairstyles', 'short_bob') ? `💁‍♀️ ${getCosmeticName('short_bob')}` : `🔒 💁‍♀️ ${getCosmeticName('short_bob')}`}</option>
-                        <option value="ponytail">{isCosmeticUnlocked('hairstyles', 'ponytail') ? `👱‍♀️ ${getCosmeticName('ponytail')}` : `🔒 🤦‍♀️ ${getCosmeticName('ponytail')}`}</option>
-                        <option value="wavy">{isCosmeticUnlocked('hairstyles', 'wavy') ? `👩‍🦱 ${getCosmeticName('wavy')}` : `🔒 👩‍🦱 ${getCosmeticName('wavy')}`}</option>
-                        <option value="space_bun">{isCosmeticUnlocked('hairstyles', 'space_bun') ? `🪐 ${getCosmeticName('space_bun')}` : `🔒 🪐 ${getCosmeticName('space_bun')}`}</option>
-                        <option value="celestial_wave">{isCosmeticUnlocked('hairstyles', 'celestial_wave') ? `🌌 ${getCosmeticName('celestial_wave')}` : `🔒 🌌 ${getCosmeticName('celestial_wave')}`}</option>
+                        <For each={COSMETIC_CATALOG.filter(c => c.category === 'hairstyle' && isCosmeticUnlocked(c.id))}>
+                          {h => (
+                            <option value={h.id}>{h.icon} {getCosmeticName(h.id, h.name)}</option>
+                          )}
+                        </For>
                       </select>
                     </div>
 
@@ -510,15 +509,11 @@ export function SettingsStudio() {
                           saveState();
                         }}
                       >
-                        <option value="seifuku">{isCosmeticUnlocked('outfits', 'seifuku') ? `🏫 ${getCosmeticName('seifuku')}` : `🔒 🏫 ${getCosmeticName('seifuku')}`}</option>
-                        <option value="casual">{isCosmeticUnlocked('outfits', 'casual') ? `🛋️ ${getCosmeticName('casual')}` : `🔒 🛋️ ${getCosmeticName('casual')}`}</option>
-                        <option value="maid">{isCosmeticUnlocked('outfits', 'maid') ? `☕ ${getCosmeticName('maid')}` : `🔒 ☕ ${getCosmeticName('maid')}`}</option>
-                        <option value="kimono">{isCosmeticUnlocked('outfits', 'kimono') ? `👘 ${getCosmeticName('kimono')}` : `🔒 👘 ${getCosmeticName('kimono')}`}</option>
-                        <option value="gothic">{isCosmeticUnlocked('outfits', 'gothic') ? `🥀 ${getCosmeticName('gothic')}` : `🔒 🥀 ${getCosmeticName('gothic')}`}</option>
-                        <option value="miko">{isCosmeticUnlocked('outfits', 'miko') ? `⛩️ ${getCosmeticName('miko')}` : `🔒 ⛩️ ${getCosmeticName('miko')}`}</option>
-                        <option value="magical">{isCosmeticUnlocked('outfits', 'magical') ? `✨ ${getCosmeticName('magical')}` : `🔒 ✨ ${getCosmeticName('magical')}`}</option>
-                        <option value="armor">{isCosmeticUnlocked('outfits', 'armor') ? `🛡️ ${getCosmeticName('armor')}` : `🔒 🛡️ ${getCosmeticName('armor')}`}</option>
-                        <option value="celestial_dress">{isCosmeticUnlocked('outfits', 'celestial_dress') ? `🌌 ${getCosmeticName('celestial_dress')}` : `🔒 🌌 ${getCosmeticName('celestial_dress')}`}</option>
+                        <For each={COSMETIC_CATALOG.filter(c => c.category === 'outfit' && isCosmeticUnlocked(c.id))}>
+                          {o => (
+                            <option value={o.id}>{o.icon} {getCosmeticName(o.id, o.name)}</option>
+                          )}
+                        </For>
                       </select>
                     </div>
 
@@ -544,14 +539,41 @@ export function SettingsStudio() {
                         }}
                       >
                         <option value="none">{getCosmeticName('none', t('common.none'))}</option>
-                        <option value="ribbon">{isCosmeticUnlocked('accessories', 'ribbon') ? `🎀 ${getCosmeticName('ribbon')}` : `🔒 🎀 ${getCosmeticName('ribbon')}`}</option>
-                        <option value="glasses">{isCosmeticUnlocked('accessories', 'glasses') ? `👓 ${getCosmeticName('glasses')}` : `🔒 👓 ${getCosmeticName('glasses')}`}</option>
-                        <option value="flower_pin">{isCosmeticUnlocked('accessories', 'flower_pin') ? `🌸 ${getCosmeticName('flower_pin')}` : `🔒 🌸 ${getCosmeticName('flower_pin')}`}</option>
-                        <option value="headphones">{isCosmeticUnlocked('accessories', 'headphones') ? `🎧 ${getCosmeticName('headphones')}` : `🔒 🎧 ${getCosmeticName('headphones')}`}</option>
-                        <option value="cat_ears">{isCosmeticUnlocked('accessories', 'cat_ears') ? `🐱 ${getCosmeticName('cat_ears')}` : `🔒 🐱 ${getCosmeticName('cat_ears')}`}</option>
-                        <option value="bunny_ears">{isCosmeticUnlocked('accessories', 'bunny_ears') ? `🐰 ${getCosmeticName('bunny_ears')}` : `🔒 🐰 ${getCosmeticName('bunny_ears')}`}</option>
-                        <option value="kitsune_mask">{isCosmeticUnlocked('accessories', 'kitsune_mask') ? `🦊 ${getCosmeticName('kitsune_mask')}` : `🔒 🦊 ${getCosmeticName('kitsune_mask')}`}</option>
-                        <option value="halo">{isCosmeticUnlocked('accessories', 'halo') ? `😇 ${getCosmeticName('halo')}` : `🔒 😇 ${getCosmeticName('halo')}`}</option>
+                        <For each={COSMETIC_CATALOG.filter(c => c.category === 'accessory' && c.id !== 'none' && isCosmeticUnlocked(c.id))}>
+                          {a => (
+                            <option value={a.id}>{a.icon} {getCosmeticName(a.id, a.name)}</option>
+                          )}
+                        </For>
+                      </select>
+                    </div>
+
+                    {/* Avatar Frame */}
+                    <div class="setting-row">
+                      <div>
+                        <strong>{t('settings.appearance.avatarFrame')}</strong>
+                        <p class="setting-desc">{t('settings.appearance.avatarFrameDesc')}</p>
+                      </div>
+                      <select
+                        class="modal-select"
+                        style={{ width: '220px' }}
+                        value={state.waifu.appearance.avatarFrame}
+                        onChange={e => {
+                          const val = e.currentTarget.value;
+                          if (!isCosmeticUnlocked('avatar_frames', val)) {
+                            showToast(t('settings.appearance.lockedFrameToast'));
+                            e.currentTarget.value = state.waifu.appearance.avatarFrame;
+                            return;
+                          }
+                          setState('waifu', 'appearance', 'avatarFrame', val);
+                          saveState();
+                        }}
+                      >
+                        <option value="none">{t('common.none')}</option>
+                        <For each={COSMETIC_CATALOG.filter(c => c.category === 'avatar_frame' && isCosmeticUnlocked(c.id))}>
+                          {f => (
+                            <option value={f.id}>{f.icon} {getCosmeticName(f.id, f.name)}</option>
+                          )}
+                        </For>
                       </select>
                     </div>
 

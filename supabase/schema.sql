@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.user_progress (
   worn_outfit TEXT DEFAULT 'seifuku' NOT NULL,
   worn_accessory TEXT DEFAULT 'none' NOT NULL,
   worn_hairstyle TEXT DEFAULT 'twintails' NOT NULL,
+  worn_avatar_frame TEXT DEFAULT 'none' NOT NULL,
   appearance_data JSONB DEFAULT '{}'::jsonb NOT NULL,
   settings_data JSONB DEFAULT '{}'::jsonb NOT NULL,
   claimed_milestones INT[] DEFAULT '{}' NOT NULL,
@@ -48,7 +49,7 @@ CREATE TABLE IF NOT EXISTS public.user_inventory (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   item_id TEXT NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('outfit', 'accessory', 'hairstyle')),
+  category TEXT NOT NULL CHECK (category IN ('outfit', 'accessory', 'hairstyle', 'avatar_frame')),
   rarity TEXT NOT NULL CHECK (rarity IN ('common', 'rare', 'epic', 'legendary', 'mystical')),
   unlocked_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   CONSTRAINT uq_user_item UNIQUE(user_id, item_id)
@@ -199,7 +200,21 @@ SELECT
   up.coins,
   up.worn_outfit,
   up.worn_accessory,
+  up.worn_avatar_frame,
   up.updated_at
 FROM public.profiles p
 JOIN public.user_progress up ON p.id = up.user_id
 ORDER BY up.defense_high_wave DESC, up.bond_level DESC, up.coins DESC;
+
+-- ==========================================================
+-- In-place migration for pre-existing databases (idempotent)
+-- ==========================================================
+ALTER TABLE public.user_progress ADD COLUMN IF NOT EXISTS worn_avatar_frame TEXT DEFAULT 'none' NOT NULL;
+DO $$
+BEGIN
+  ALTER TABLE public.user_inventory DROP CONSTRAINT IF EXISTS user_inventory_category_check;
+EXCEPTION WHEN others THEN
+  NULL;
+END $$;
+ALTER TABLE public.user_inventory ADD CONSTRAINT user_inventory_category_check
+  CHECK (category IN ('outfit', 'accessory', 'hairstyle', 'avatar_frame'));

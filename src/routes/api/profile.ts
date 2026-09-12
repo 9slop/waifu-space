@@ -54,10 +54,12 @@ export async function GET(event: { request: Request }) {
         waifu: {
           name: progress?.waifu_name || 'Akari',
           personality: progress?.waifu_personality || 'tsundere',
-          appearance: progress?.appearance_data || {
+          appearance: {
+            ...(progress?.appearance_data && typeof progress.appearance_data === 'object' ? progress.appearance_data : {}),
             outfit: progress?.worn_outfit || 'seifuku',
             accessory: progress?.worn_accessory || 'ribbon',
-            hairstyle: progress?.worn_hairstyle || 'twintails'
+            hairstyle: progress?.worn_hairstyle || 'twintails',
+            avatarFrame: progress?.worn_avatar_frame || progress?.appearance_data?.avatarFrame || 'none'
           }
         },
         showcaseItems: showcase.map(s => s.item_id)

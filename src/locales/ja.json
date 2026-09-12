@@ -44,6 +44,7 @@
     "currentOutfit": "現在の衣装",
     "currentAccessory": "現在のアクセサリー",
     "currentHairstyle": "現在の髪型",
+    "currentFrame": "アバターフレーム",
     "emptyShowcaseSlot": "空のショーケーススロット",
     "shareToast": "プロフィールリンクをクリップボードにコピーしました！",
     "openSettings": "設定を開く",
@@ -315,6 +316,7 @@
       "outfits": "衣装",
       "accessories": "アクセサリー",
       "hairstyles": "ヘアスタイル",
+      "avatarFrames": "アバターフレーム",
       "equipped": "装備中 ✨",
       "equip": "装備",
       "locked": "ロック中",
@@ -322,11 +324,12 @@
       "outfitLabel": "衣装:",
       "accessoryLabel": "アクセサリー:",
       "hairstyleLabel": "ヘアスタイル:",
+      "avatarFrameLabel": "アバターフレーム:",
       "unlockHint": "解放条件: {desc}"
     },
     "inventory": {
       "title": "所持品・衣装インベントリ ({count})",
-      "subtitle": "獲得した衣装、ヘアスタイル、アクセサリーの全コレクションです。",
+      "subtitle": "獲得した衣装、ヘアスタイル、アクセサリー、アバターフレームの全コレクションです。",
       "showcaseSlots": "ショーケース",
       "featuredShowcase": "プロフィール ショーケース（公開）",
       "showcaseHint": "最大6つの自慢のアイテムを選んで、公開プロフィールに展示できます！",
@@ -342,6 +345,7 @@
       "equippedOutfit": "衣装「{name}」を装備しました！✨",
       "equippedAccessory": "アクセ「{name}」を装備しました！✨",
       "equippedHairstyle": "ヘア「{name}」を装備しました！✨",
+      "equippedFrame": "アバターフレーム「{name}」を装備しました！✨",
       "claimedReward": "親密度Lv. {level}達成！{label}を受け取りました！",
       "unlockedReward": "親密度Lv. {level}達成！{label}を解放しました！"
     }
@@ -478,7 +482,10 @@
       "customSpriteUpdated": "カスタム画像を更新しました！",
       "lockedOutfitToast": "🔒 この衣装はロックされています！宝箱や親密度で解放してください。",
       "lockedAccessoryToast": "🔒 このアクセサリーはロックされています！宝箱や親密度で解放してください。",
-      "lockedHairstyleToast": "🔒 このヘアスタイルはロックされています！宝箱や親密度で解放してください。"
+      "lockedHairstyleToast": "🔒 このヘアスタイルはロックされています！宝箱や親密度で解放してください。",
+      "lockedFrameToast": "🔒 このアバターフレームはロックされています！宝箱や親密度で解放してください。",
+      "avatarFrame": "アバターフレーム",
+      "avatarFrameDesc": "プロフィールやランキングのアバターを飾るレアな装飾フレーム"
     },
     "wallpapers": {
       "title": "和風・アニメ壁紙",
@@ -564,7 +571,8 @@
     "all": "すべてのアイテム",
     "outfit": "衣装",
     "accessory": "アクセサリー",
-    "hairstyle": "髪型"
+    "hairstyle": "髪型",
+    "avatar_frame": "アバターフレーム"
   },
   "rarities": {
     "all": "すべてのレア度",
@@ -694,6 +702,22 @@
     "celestial_wave": {
       "name": "コズミックウェーブ",
       "desc": "星雲と星屑の輝きから紡ぎ出された無限のコズミックヘア。"
+    },
+    "frame_sakura": {
+      "name": "桜華永遠フレーム",
+      "desc": "生きた桜の花びらと金のフィリグリーで織りなす、花びらが舞う高貴な花飾りのフレーム。"
+    },
+    "frame_royal": {
+      "name": "ロイヤルアズールフレーム",
+      "desc": "金の鋲とサファイア、三弁の王冠花をあしらった、高貴な蒼の紋章フレーム。"
+    },
+    "frame_demon": {
+      "name": "獄炎フレーム",
+      "desc": "紅蓮の炎の舌と角を持つ影、漂う残り火に彩られた黒曜の魔紋フレーム。"
+    },
+    "frame_galaxy": {
+      "name": "星雲エーテルフレーム",
+      "desc": "渦巻く銀河と瞬く星々、ネオンの星雲のオーラをまとう、永遠に触れる者のための生きた宇宙。"
     }
   },
   "milestones": {
@@ -737,10 +761,25 @@
       "desc": "伝説の魔法少女コズミックドレスを獲得します！",
       "reward": "魔法少女ドレス"
     },
+    "18": {
+      "title": "愛される女王",
+      "desc": "伝説のロイヤルアズールアバターフレームを獲得します！",
+      "reward": "ロイヤルアズールフレーム"
+    },
     "20": {
       "title": "天上の絆",
       "desc": "神聖に輝く天使の光輪アクセサリーを獲得します。",
       "reward": "天使の光輪"
+    },
+    "25": {
+      "title": "獄炎の誓い",
+      "desc": "紅蓮の炎が燃え盛る獄炎アバターフレームを獲得します！",
+      "reward": "獄炎フレーム"
+    },
+    "30": {
+      "title": "星々の永遠の絆",
+      "desc": "至高の星雲エーテルアバターフレームを獲得します！",
+      "reward": "星雲エーテルフレーム"
     }
   },
   "strike": {

@@ -58,6 +58,8 @@ export async function POST(event: { request: Request }) {
       payload.rpg?.unlockedAccessories !== undefined ||
       payload.unlockedHairstyles !== undefined ||
       payload.rpg?.unlockedHairstyles !== undefined ||
+      payload.unlockedAvatarFrames !== undefined ||
+      payload.rpg?.unlockedAvatarFrames !== undefined ||
       payload.bondExp !== undefined ||
       payload.waifu?.bondExp !== undefined ||
       payload.bondLevel !== undefined ||
@@ -110,6 +112,7 @@ export async function POST(event: { request: Request }) {
         worn_outfit: typeof waifu?.appearance?.outfit === 'string' ? waifu.appearance.outfit : 'seifuku',
         worn_accessory: typeof waifu?.appearance?.accessory === 'string' ? waifu.appearance.accessory : 'none',
         worn_hairstyle: typeof waifu?.appearance?.hairstyle === 'string' ? waifu.appearance.hairstyle : 'twintails',
+        worn_avatar_frame: typeof waifu?.appearance?.avatarFrame === 'string' ? waifu.appearance.avatarFrame : 'none',
         appearance_data: waifu?.appearance && typeof waifu.appearance === 'object' ? waifu.appearance : {},
         settings_data: settings && typeof settings === 'object' ? settings : {},
         claimed_milestones: incomingMilestones,
