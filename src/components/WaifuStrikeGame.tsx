@@ -2,7 +2,7 @@ import { createSignal, onMount, onCleanup, For, Show } from 'solid-js';
 import { StrikeBabylonEngine } from '../lib/strike/strike-babylon-engine';
 import { StrikeP2PManager } from '../lib/strike/strike-p2p';
 import { StrikeWeatherManager, WeatherType } from '../lib/strike/strike-weather';
-import { WeaponDef, ScoreboardPlayer, KillfeedEntry, StrikeMatchStats } from '../lib/strike/strike-types';
+import { WeaponDef, ScoreboardPlayer, KillfeedEntry, StrikeMatchStats, StrikeChatMessage } from '../lib/strike/strike-types';
 import { WEAPON_CATALOG, strikeAudio } from '../lib/strike/strike-weapons';
 import { t } from '../lib/i18n';
 import { state, addCoins, gainBondExp } from '../lib/store';
@@ -15,6 +15,8 @@ interface WaifuStrikeGameProps {
 export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   let containerRef!: HTMLDivElement;
   let canvasRef!: HTMLCanvasElement;
+  let chatInputRef: HTMLInputElement | undefined;
+  let chatScrollRef: HTMLDivElement | undefined;
 
   const [engine, setEngine] = createSignal<StrikeBabylonEngine | null>(null);
   const [network, setNetwork] = createSignal<StrikeP2PManager | null>(null);
@@ -34,6 +36,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
   const [killfeed, setKillfeed] = createSignal<KillfeedEntry[]>([]);
   const [medal, setMedal] = createSignal<{ title: string; sub: string } | null>(null);
+  const [chatMessages, setChatMessages] = createSignal<StrikeChatMessage[]>([]);
+  const [isChatOpen, setIsChatOpen] = createSignal(false);
+  const [chatInputText, setChatInputText] = createSignal('');
   const [scoreboard, setScoreboard] = createSignal<ScoreboardPlayer[]>([]);
   const [connected, setConnected] = createSignal(false);
   const [peerCount, setPeerCount] = createSignal(0);
@@ -119,11 +124,19 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         setKillfeed((prev) => [entry, ...prev.slice(0, 4)]);
         setTimeout(() => {
           setKillfeed((prev) => prev.filter((e) => e.id !== entry.id));
-        }, 5000);
+        }, 3000);
       },
       onMedalAnnouncement: (title, sub) => {
         setMedal({ title, sub });
-        setTimeout(() => setMedal(null), 2000);
+        setTimeout(() => setMedal(null), 3000);
+      },
+      onChatMessage: (msg) => {
+        setChatMessages((prev) => [...prev.slice(-49), msg]);
+        setTimeout(() => {
+          if (chatScrollRef) {
+            chatScrollRef.scrollTop = chatScrollRef.scrollHeight;
+          }
+        }, 20);
       },
       onConnectionStatus: (conn, peers) => {
         setConnected(conn);
@@ -149,17 +162,50 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       setIsFullscreen(!!document.fullscreenElement);
     };
 
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (showControlsOverlay() || showSummaryModal()) return;
+
+      if ((e.code === 'Enter' || e.code === 'KeyT') && !isChatOpen()) {
+        e.preventDefault();
+        if (typeof document !== 'undefined' && document.pointerLockElement) {
+          document.exitPointerLock?.();
+        }
+        setIsChatOpen(true);
+        setTimeout(() => {
+          chatInputRef?.focus();
+        }, 30);
+      } else if (e.code === 'Escape' && isChatOpen()) {
+        e.preventDefault();
+        setIsChatOpen(false);
+        setChatInputText('');
+        engine()?.requestPointerLock();
+      }
+    };
+
     window.addEventListener('resize', handleResize);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    window.addEventListener('keydown', handleGlobalKeyDown);
 
     onCleanup(() => {
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleGlobalKeyDown);
       weatherManager.dispose();
       eng.dispose();
       net?.stop();
     });
   });
+
+  const handleSendChat = (e: Event) => {
+    e.preventDefault();
+    const text = chatInputText().trim();
+    if (text) {
+      network()?.sendChatMessage(text);
+      setChatInputText('');
+    }
+    setIsChatOpen(false);
+    engine()?.requestPointerLock();
+  };
 
   const handleStartPlay = () => {
     setShowControlsOverlay(false);
@@ -365,6 +411,51 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         </button>
       </div>
 
+      {/* Tactical Chat Box */}
+      <div class="strike-chat-container" onPointerDown={(e) => e.stopPropagation()}>
+        <Show when={chatMessages().length > 0 || isChatOpen()}>
+          <div ref={chatScrollRef} class={`strike-chat-messages ${isChatOpen() ? 'active' : ''}`}>
+            <For each={chatMessages()}>
+              {(msg) => (
+                <div class={`strike-chat-msg ${msg.isSystem ? 'is-system' : ''}`} style={{ color: msg.color || undefined }}>
+                  <Show when={!msg.isSystem}>
+                    <span class="strike-chat-sender" style={{ color: '#00cec9' }}>{msg.sender}:</span>
+                  </Show>
+                  <Show when={msg.isSystem}>
+                    <span class="strike-chat-sender" style={{ color: msg.color || '#ffd32a' }}>[{msg.sender}]</span>
+                  </Show>
+                  <span>{msg.text}</span>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
+
+        <Show when={isChatOpen()}>
+          <form class="strike-chat-input-bar" onSubmit={handleSendChat}>
+            <input
+              ref={chatInputRef}
+              type="text"
+              class="strike-chat-input"
+              placeholder="Type message... (Enter to send, Esc to cancel)"
+              maxlength="180"
+              value={chatInputText()}
+              onInput={(e) => setChatInputText(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setIsChatOpen(false);
+                  setChatInputText('');
+                  engine()?.requestPointerLock();
+                }
+              }}
+            />
+            <button type="submit" class="strike-chat-submit">Send</button>
+          </form>
+        </Show>
+      </div>
+
       {/* Killfeed Ticker */}
       <div class="strike-killfeed">
         <For each={killfeed()}>
@@ -503,6 +594,10 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
               <div class="strike-ctrl-pill">
                 <span>Fullscreen</span>
                 <span class="strike-ctrl-key">F</span>
+              </div>
+              <div class="strike-ctrl-pill">
+                <span>Chat</span>
+                <span class="strike-ctrl-key">Enter / T</span>
               </div>
             </div>
 

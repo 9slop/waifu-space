@@ -94,6 +94,15 @@ export interface KillfeedEntry {
   timestamp: number;
 }
 
+export interface StrikeChatMessage {
+  id: string;
+  sender: string;
+  text: string;
+  isSystem?: boolean;
+  color?: string;
+  timestamp: number;
+}
+
 export interface StrikeMatchStats {
   kills: number;
   deaths: number;

@@ -7,7 +7,8 @@ import {
   HitscanRay,
   P2PSignalPayload,
   P2PPlayerState,
-  P2PShootEvent
+  P2PShootEvent,
+  StrikeChatMessage
 } from './strike-types';
 import { StrikeBabylonEngine } from './strike-babylon-engine';
 import { BabylonAvatarModel } from './strike-babylon-avatars';
@@ -18,6 +19,7 @@ export interface P2PNetworkCallbacks {
   onKillfeedEntry: (entry: KillfeedEntry) => void;
   onMedalAnnouncement: (title: string, sub: string) => void;
   onConnectionStatus: (connected: boolean, peerCount: number) => void;
+  onChatMessage?: (msg: StrikeChatMessage) => void;
 }
 
 interface PeerConnectionWrapper {
@@ -82,6 +84,7 @@ export class StrikeP2PManager {
   public localDamageDealt = 0;
   public localShotsFired = 0;
   public localShotsHit = 0;
+  private seenChatIds: Set<string> = new Set();
 
   constructor(engine: StrikeBabylonEngine, callbacks: P2PNetworkCallbacks) {
     this.engine = engine;
@@ -97,6 +100,14 @@ export class StrikeP2PManager {
       this.initSupabaseRealtime(supabaseUrl, supabaseKey);
     } else {
       this.callbacks.onConnectionStatus(true, 0);
+      this.callbacks.onChatMessage?.({
+        id: `sys_welcome_${Date.now()}`,
+        sender: 'Server',
+        text: 'Local match active. Press [Enter] or [T] to chat.',
+        isSystem: true,
+        color: '#ffd32a',
+        timestamp: Date.now()
+      });
     }
 
     // Start 25 Hz P2P sync tick
@@ -189,6 +200,10 @@ export class StrikeP2PManager {
         }
       });
 
+      this.channel.on('broadcast', { event: 'p2p-chat' }, ({ payload }) => {
+        this.handleIncomingChat(payload);
+      });
+
       this.channel.subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           await this.channel?.track({
@@ -197,6 +212,14 @@ export class StrikeP2PManager {
             joinedAt: Date.now()
           });
           this.updateActivePeerCount();
+          this.callbacks.onChatMessage?.({
+            id: `sys_welcome_${Date.now()}`,
+            sender: 'Server',
+            text: 'Connected to Kyoto match. Press [Enter] or [T] to chat.',
+            isSystem: true,
+            color: '#ffd32a',
+            timestamp: Date.now()
+          });
         }
       });
     } catch {
@@ -251,6 +274,15 @@ export class StrikeP2PManager {
   private handlePeerJoin(newPresences: any[]) {
     for (const p of newPresences) {
       if (p.peerId && p.peerId !== this.myPeerId) {
+        const name = p.name || `Player_${p.peerId.slice(0, 4)}`;
+        this.callbacks.onChatMessage?.({
+          id: `sys_join_${Date.now()}_${p.peerId}`,
+          sender: 'Server',
+          text: `${name} joined the battle.`,
+          isSystem: true,
+          color: '#55efc4',
+          timestamp: Date.now()
+        });
         this.getOrCreatePeerWrapper(p.peerId, p.name);
         if (this.myPeerId < p.peerId && (!this.peers.get(p.peerId)?.pc)) {
           this.initiatePeerConnection(p.peerId);
@@ -263,6 +295,16 @@ export class StrikeP2PManager {
   private handlePeerLeave(leftPresences: any[]) {
     for (const p of leftPresences) {
       if (p.peerId) {
+        const wrapper = this.peers.get(p.peerId);
+        const name = wrapper?.name || p.name || 'A player';
+        this.callbacks.onChatMessage?.({
+          id: `sys_leave_${Date.now()}_${p.peerId}`,
+          sender: 'Server',
+          text: `${name} left the match.`,
+          isSystem: true,
+          color: '#fab1a0',
+          timestamp: Date.now()
+        });
         this.removePeer(p.peerId);
       }
     }
@@ -476,6 +518,8 @@ export class StrikeP2PManager {
           this.handleRemoteState(wrapper, data.state);
         } else if (data.type === 'shoot') {
           this.handleRemoteShoot(wrapper, data.shoot);
+        } else if (data.type === 'chat') {
+          this.handleIncomingChat(data.chat);
         } else if (data.type === 'tracer') {
           if (data.weaponId && data.weaponId !== 'knife') {
             const camPos = this.engine.camera.position;
@@ -560,8 +604,18 @@ export class StrikeP2PManager {
     const playerName = String(rawState.name || wrapper.name || 'Player').slice(0, 24);
     wrapper.name = playerName;
 
-    const hp = Math.max(0, Math.min(200, Number(rawState.health) || 150));
-    const weaponId = (rawState.weaponId in WEAPON_CATALOG ? rawState.weaponId : 'rifle') as WeaponId;
+    const newStreak = Math.max(0, Number(rawState.streak) || 0);
+    const prevStreak = wrapper.state?.streak || 0;
+    if (newStreak >= 5 && newStreak % 5 === 0 && newStreak > prevStreak) {
+      this.callbacks.onChatMessage?.({
+        id: `sys_streak_${now}_${wrapper.peerId}_${newStreak}`,
+        sender: 'Server',
+        text: `⚡ ${playerName} is on a ${newStreak} KILL STREAK!`,
+        isSystem: true,
+        color: '#ff7675',
+        timestamp: now
+      });
+    }
 
     wrapper.state = {
       peerId: wrapper.peerId,
@@ -577,7 +631,7 @@ export class StrikeP2PManager {
       kills: Math.max(0, Number(rawState.kills) || 0),
       deaths: Math.max(0, Number(rawState.deaths) || 0),
       headshots: Math.max(0, Number(rawState.headshots) || 0),
-      streak: Math.max(0, Number(rawState.streak) || 0),
+      streak: newStreak,
       avatarOutfit: rawState.avatarOutfit || '#00cec9',
       seq,
       timestamp: now
@@ -843,6 +897,10 @@ export class StrikeP2PManager {
             this.callbacks.onMedalAnnouncement('UNSTOPPABLE!', '10 FRAG STREAK ⚡');
           }
 
+          if (this.localCurrentStreak >= 5 && this.localCurrentStreak % 5 === 0) {
+            this.broadcastSystemMessage(`🔥 ${this.myName} is on a ${this.localCurrentStreak} KILL STREAK!`, '#ff7675');
+          }
+
           this.publishScoreboard();
         }
       }
@@ -930,5 +988,81 @@ export class StrikeP2PManager {
 
     players.sort((a, b) => b.score - a.score);
     this.callbacks.onScoreboardUpdate(players);
+  }
+
+  public sendChatMessage(text: string) {
+    const trimmed = text.trim().slice(0, 180);
+    if (!trimmed) return;
+    const msg: StrikeChatMessage = {
+      id: `chat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      sender: this.myName,
+      text: trimmed,
+      timestamp: Date.now()
+    };
+    this.seenChatIds.add(msg.id);
+    if (this.channel) {
+      this.channel.send({
+        type: 'broadcast',
+        event: 'p2p-chat',
+        payload: msg
+      });
+    }
+    const packet = JSON.stringify({ type: 'chat', chat: msg });
+    this.peers.forEach((p) => {
+      if (p.dc && p.dc.readyState === 'open') {
+        try {
+          p.dc.send(packet);
+        } catch {}
+      }
+    });
+    this.callbacks.onChatMessage?.(msg);
+  }
+
+  public broadcastSystemMessage(text: string, color = '#ffd32a') {
+    const msg: StrikeChatMessage = {
+      id: `sys_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      sender: 'Server',
+      text,
+      isSystem: true,
+      color,
+      timestamp: Date.now()
+    };
+    this.seenChatIds.add(msg.id);
+    if (this.channel) {
+      this.channel.send({
+        type: 'broadcast',
+        event: 'p2p-chat',
+        payload: msg
+      });
+    }
+    const packet = JSON.stringify({ type: 'chat', chat: msg });
+    this.peers.forEach((p) => {
+      if (p.dc && p.dc.readyState === 'open') {
+        try {
+          p.dc.send(packet);
+        } catch {}
+      }
+    });
+    this.callbacks.onChatMessage?.(msg);
+  }
+
+  private handleIncomingChat(payload: any) {
+    if (!payload || !payload.id || !payload.text) return;
+    const id = String(payload.id);
+    if (this.seenChatIds.has(id)) return;
+    this.seenChatIds.add(id);
+    if (this.seenChatIds.size > 200) {
+      const first = this.seenChatIds.values().next().value;
+      if (first) this.seenChatIds.delete(first);
+    }
+    const chatMsg: StrikeChatMessage = {
+      id,
+      sender: String(payload.sender || 'Player').slice(0, 24),
+      text: String(payload.text).slice(0, 180),
+      isSystem: !!payload.isSystem,
+      color: payload.color ? String(payload.color) : undefined,
+      timestamp: Number(payload.timestamp) || Date.now()
+    };
+    this.callbacks.onChatMessage?.(chatMsg);
   }
 }

@@ -202,6 +202,9 @@ export class StrikeBabylonEngine {
 
     this.boundKeyDown = (e) => {
       if (!this.isPlaying) return;
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
       this.keysDown[e.code] = true;
       if (e.code === 'KeyR') this.reload();
       if (e.code === 'Digit1') this.switchWeapon('rifle');
@@ -220,6 +223,9 @@ export class StrikeBabylonEngine {
     window.addEventListener('keydown', this.boundKeyDown);
 
     this.boundKeyUp = (e) => {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+        return;
+      }
       if (this.keysDown[e.code]) {
         this.keysDown[e.code] = false;
       }
