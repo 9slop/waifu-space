@@ -154,7 +154,6 @@ export class StrikeBabylonEngine {
   public isDead = false;
   public isPaused = false;
   private screenShakeTrauma = 0;
-  private shakeRoll = 0;
   private shakePitch = 0;
   private currentShakePitch = 0;
   private elapsedGameTime = 0;
@@ -398,7 +397,6 @@ export class StrikeBabylonEngine {
       this.currentShakePitch = 0;
       this.currentScopePitch = 0;
       this.currentWalkBob = 0;
-      this.shakeRoll = 0;
       this.shakePitch = 0;
       this.screenShakeTrauma = 0;
     }
@@ -1463,23 +1461,22 @@ export class StrikeBabylonEngine {
       this.callbacks.onInvulnerableChange?.(false);
     }
 
-    // Trauma screen shake that ALWAYS decays smoothly back to neutral so the
-    // screen never stays tilted after a hit.
+    // Trauma screen shake that decays smoothly back to neutral (pitch only, zero camera roll).
+    // Roll/tilt is strictly zeroed to prevent disorienting screen tilt after damage or pausing.
     if (this.screenShakeTrauma > 0.001) {
       const traumaSq = this.screenShakeTrauma * this.screenShakeTrauma;
-      this.shakeRoll += ((Math.random() - 0.5) * 0.045 * traumaSq - this.shakeRoll) * Math.min(1, dt * 14);
-      this.shakePitch += ((Math.random() - 0.5) * 0.026 * traumaSq - this.shakePitch) * Math.min(1, dt * 14);
-      this.screenShakeTrauma = Math.max(0, this.screenShakeTrauma - dt * 3.4);
+      this.shakePitch += ((Math.random() - 0.5) * 0.038 * traumaSq - this.shakePitch) * Math.min(1, dt * 16);
+      this.screenShakeTrauma = Math.max(0, this.screenShakeTrauma - dt * 3.6);
     } else {
       this.screenShakeTrauma = 0;
-      this.shakeRoll *= Math.max(0, 1 - dt * 12);
-      this.shakePitch *= Math.max(0, 1 - dt * 12);
+      this.shakePitch *= Math.max(0, 1 - dt * 14);
     }
 
-    // Apply as a delta so pitch/roll always return to the mouse-control baseline
+    // Apply as a delta so pitch always returns to the mouse-control baseline
     this.camera.rotation.x += (this.shakePitch - this.currentShakePitch);
     this.currentShakePitch = this.shakePitch;
-    this.camera.rotation.z = this.shakeRoll;
+    // Strict zero roll: keep camera horizon level at all times
+    this.camera.rotation.z = 0;
 
     // Reload timer check
     if (this.isReloading && performance.now() >= this.reloadEndTime) {
@@ -1496,11 +1493,10 @@ export class StrikeBabylonEngine {
     // Removed additively when unscoped so the view returns to exact neutral.
     if (this.isScoped) {
       const t = this.elapsedGameTime;
-      // Multi-frequency Lissajous breathing pattern (pitch + roll)
+      // Multi-frequency Lissajous breathing pattern (pitch)
       const swayPitch = Math.sin(t * 1.15) * 0.004 + Math.sin(t * 0.6 + 1.7) * 0.002;
       this.camera.rotation.x += (swayPitch - this.currentScopePitch);
       this.currentScopePitch = swayPitch;
-      this.camera.rotation.z += Math.sin(t * 1.5 + 0.8) * 0.003;
     } else if (this.currentScopePitch !== 0) {
       this.camera.rotation.x -= this.currentScopePitch;
       this.currentScopePitch = 0;
