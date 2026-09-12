@@ -28,6 +28,7 @@ export function EventModal(props: {
   const colors = ['#ff6584', '#6c5ce7', '#00cec9', '#fdcb6e', '#e84393', '#0984e3'];
 
   const [fieldErrors, setFieldErrors] = createSignal<Record<string, string>>({});
+  const [confirmDelete, setConfirmDelete] = createSignal(false);
 
   const issueField: Record<string, 'title' | 'start' | 'end' | 'type' | 'recurrence' | 'color'> = {
     'calendar.validation.titleRequired': 'title',
@@ -57,7 +58,11 @@ export function EventModal(props: {
   };
 
   createEffect(() => {
-    if (!props.isOpen) return;
+    if (!props.isOpen) {
+      setConfirmDelete(false);
+      setFieldErrors({});
+      return;
+    }
 
     if (props.event) {
       const ev = props.event;
@@ -163,14 +168,18 @@ export function EventModal(props: {
   };
 
   const handleDelete = () => {
-    if (props.event) {
-      deleteCalendarEvent(
-        props.event.parentId || props.event.id,
-        props.event.dateKey
-      );
-      showToast(t('calendar.toasts.eventDeleted', { title: props.event.title }));
-      props.onClose();
+    if (!props.event) return;
+    // Two-step confirmation so a stray click cannot destroy calendar data.
+    if (!confirmDelete()) {
+      setConfirmDelete(true);
+      return;
     }
+    deleteCalendarEvent(
+      props.event.parentId || props.event.id,
+      props.event.dateKey
+    );
+    showToast(t('calendar.toasts.eventDeleted', { title: props.event.title }));
+    props.onClose();
   };
 
   return (
@@ -392,10 +401,12 @@ export function EventModal(props: {
             {props.event && (
               <button
                 type="button"
-                class="gcal-btn gcal-btn-danger"
+                class={`gcal-btn gcal-btn-danger ${confirmDelete() ? 'danger-armed' : ''}`}
                 onClick={handleDelete}
               >
-                🗑️ {t('calendar.modal.delete')}
+                {confirmDelete()
+                  ? t('calendar.modal.confirmDeleteAction')
+                  : `🗑️ ${t('calendar.modal.delete')}`}
               </button>
             )}
             <div style={{ flex: 1 }} />

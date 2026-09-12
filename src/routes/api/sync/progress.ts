@@ -5,6 +5,7 @@ import { COSMETIC_CATALOG, AFFECTION_MILESTONES } from '../../../lib/store';
 import { MAX_COINS } from '../../../lib/economy';
 import { EVENT_TYPES, RECURRENCE_RULES, isHexColor } from '../../../lib/validation';
 import { sanitizeOccurrenceOverride, type CalendarOccurrenceOverride } from '../../../lib/validate';
+import { checkRateLimit } from '../../../lib/server/rate-limit';
 
 const itemRarity = (itemId: string): string =>
   COSMETIC_CATALOG.find(c => c.id === itemId)?.rarity || 'common';
@@ -39,6 +40,17 @@ export async function POST(event: { request: Request }) {
 
   if (!session) {
     return json({ success: false, error: 'Unauthorized session' }, { status: 401 });
+  }
+
+  // Rate limit sync pushes (defense in depth against sync-loop flood from a
+  // misbehaving or hijacked client). The client debounces naturally, so the
+  // normal push rate is well under this ceiling.
+  const rateCheck = checkRateLimit(`sync_${session.userId}`, 60, 60_000);
+  if (!rateCheck.allowed) {
+    return json(
+      { success: false, error: 'Too many sync requests. Please wait a moment and try again.' },
+      { status: 429 }
+    );
   }
 
   try {
@@ -156,10 +168,13 @@ export async function POST(event: { request: Request }) {
       }
 
       // Sync calendar events/tasks. The client's calendar list is private and
-      // authoritative on push, so replace all rows for this user (delete-all +
-      // insert) with the sanitized, validated copies.
+      // authoritative on push. This runs through the sync_calendar_items RPC,
+      // which upserts incoming rows and deletes absent rows inside ONE
+      // transaction — so a partial/malformed push can never leave the user's
+      // calendar half-wiped. Setting calendar_synced_at marks the cloud list
+      // as authoritative (even when empty after a full delete).
       if (Array.isArray(payload.calendar)) {
-        await supabase.from('calendar_items').delete().eq('user_id', session.userId);
+        const nowIso = new Date().toISOString();
         const rows = payload.calendar
           .filter(
             (e: any) =>
@@ -171,7 +186,6 @@ export async function POST(event: { request: Request }) {
             const start = new Date(e.start).toISOString();
             const end = e.end && !Number.isNaN(new Date(e.end).getTime()) ? new Date(e.end).toISOString() : start;
             return {
-              user_id: session.userId,
               item_id: typeof e.id === 'string' && e.id.trim() ? e.id.slice(0, 100) : `${session.userId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
               title: e.title.trim().slice(0, 200),
               start_at: start,
@@ -179,16 +193,27 @@ export async function POST(event: { request: Request }) {
               all_day: e.allDay === true,
               type: (EVENT_TYPES as readonly string[]).includes(e.type) ? e.type : 'event',
               completed: e.completed === true,
+              rewarded: e._rewarded === true,
               color: isHexColor(e.color) ? e.color : '#ff6584',
               description: typeof e.description === 'string' ? e.description.slice(0, 2000) : '',
               location: typeof e.location === 'string' ? e.location.slice(0, 500) : '',
-              recurrence: (RECURRENCE_RULES as readonly string[]).includes(e.recurrence) ? e.recurrence : 'none',
-              updated_at: new Date().toISOString()
+              recurrence: (RECURRENCE_RULES as readonly string[]).includes(e.recurrence) ? e.recurrence : 'none'
             };
           });
-        if (rows.length > 0) {
-          await supabase.from('calendar_items').insert(rows);
+
+        const { error: syncCalErr } = await supabase.rpc('sync_calendar_items', {
+          p_user_id: session.userId,
+          p_items: rows,
+          p_updated_at: nowIso
+        });
+        if (syncCalErr) {
+          throw new Error(`Calendar sync failed: ${syncCalErr.message}`);
         }
+
+        await supabase.from('user_progress').upsert({
+          user_id: session.userId,
+          calendar_synced_at: nowIso
+        });
       }
 
       // Persist occurrence overrides (per-occurrence edits / deletions for
@@ -238,7 +263,7 @@ export async function GET(event: { request: Request }) {
     if (scope === 'calendar') {
       const [{ data: cal }, { data: p }] = await Promise.all([
         supabase.from('calendar_items').select('*').eq('user_id', session.userId).order('start_at'),
-        supabase.from('user_progress').select('calendar_overrides').eq('user_id', session.userId).maybeSingle()
+        supabase.from('user_progress').select('calendar_overrides, calendar_synced_at').eq('user_id', session.userId).maybeSingle()
       ]);
       calendarItems = (cal || []).map((r: any) => ({
         id: r.item_id,
@@ -248,6 +273,7 @@ export async function GET(event: { request: Request }) {
         allDay: r.all_day,
         type: r.type,
         completed: r.completed,
+        _rewarded: r.rewarded === true,
         color: r.color,
         description: r.description || undefined,
         location: r.location || undefined,
@@ -261,7 +287,8 @@ export async function GET(event: { request: Request }) {
         showcaseItems: [],
         inventory: [],
         calendarItems,
-        calendarOverrides
+        calendarOverrides,
+        calendarSyncedAt: p?.calendar_synced_at ?? null
       });
     }
 
@@ -303,6 +330,7 @@ export async function GET(event: { request: Request }) {
       allDay: r.all_day,
       type: r.type,
       completed: r.completed,
+      _rewarded: r.rewarded === true,
       color: r.color,
       description: r.description || undefined,
       location: r.location || undefined,

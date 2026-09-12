@@ -575,26 +575,35 @@ export async function loadCloudProgress(token?: string, scope?: 'all' | 'profile
 
     setCloudSyncStatus('synced');
 
-    // The server calendar is authoritative when it holds items (a brand-new
-    // account has none, in which case the local - equally empty - list stays).
+    // The cloud calendar is authoritative once it has EVER been synced,
+    // including when the list is now empty (e.g. the user deleted everything).
+    // A push records calendar_synced_at exactly for that reason. Before the
+    // first calendar sync the server has no way to know our list, so we keep
+    // the local list and schedule a push instead of wiping it.
     const serverCalendarItems: unknown[] = Array.isArray(data.calendarItems) ? data.calendarItems : [];
-    if (serverCalendarItems.length > 0) {
+    const serverCalendarOverrides: unknown[] = Array.isArray(data.calendarOverrides) ? data.calendarOverrides : [];
+    const serverCalendarSyncedAt: string | null =
+      typeof data.calendarSyncedAt === 'string' ? data.calendarSyncedAt : null;
+    const neverSyncedCalendar =
+      serverCalendarSyncedAt === null &&
+      serverCalendarItems.length === 0 &&
+      serverCalendarOverrides.length === 0;
+
+    if (!neverSyncedCalendar) {
       const sanitized = serverCalendarItems
         .map(sanitizeEvent)
         .filter((e): e is CalendarEventItem => e !== null);
-      if (sanitized.length > 0) {
-        setState('calendar', 'events', sanitized);
-      }
-    }
-
-    const serverCalendarOverrides: unknown[] = Array.isArray(data.calendarOverrides) ? data.calendarOverrides : [];
-    if (serverCalendarOverrides.length > 0) {
-      const sanitized = serverCalendarOverrides
+      const sanitizedOverrides = serverCalendarOverrides
         .map(sanitizeOccurrenceOverride)
         .filter((o): o is CalendarOccurrenceOverride => o !== null && o.parentId !== '');
-      if (sanitized.length > 0) {
-        setState('calendar', 'occurrenceOverrides', sanitized);
-      }
+      setState('calendar', 'events', sanitized);
+      setState('calendar', 'occurrenceOverrides', sanitizedOverrides);
+      saveState();
+    } else if (!scope || scope === 'all') {
+      // Brand-new account, no cloud calendar yet: never drop local events.
+      // Make sure the (fresh or restored) list is pushed so the cloud copy
+      // is created on the first successful sync.
+      scheduleCloudSync();
     }
 
     const p = data.progress;
@@ -1372,7 +1381,18 @@ export function updateCalendarEvent(id: string, updates: Partial<CalendarEventIt
     if ('description' in updates) delta.description = updates.description;
     if ('completed' in updates) delta.completed = updates.completed;
     if ('_rewarded' in updates) delta.rewarded = updates._rewarded;
-    upsertOccurrenceOverride(id, dateKey, delta);
+
+    // If a single-occurrence edit moves the start to a different calendar day,
+    // the override must follow the new date. Keep the old occurrence deleted so
+    // the event cannot appear on BOTH days (a stale dateKey previously caused
+    // a duplicated occurrence stuck on the original date).
+    const newDateKey = delta.start ? dateKeyOf(new Date(delta.start)) : dateKey;
+    if (newDateKey !== dateKey) {
+      upsertOccurrenceOverride(id, dateKey, { deleted: true });
+      upsertOccurrenceOverride(id, newDateKey, delta);
+    } else {
+      upsertOccurrenceOverride(id, dateKey, delta);
+    }
     return true;
   }
 
