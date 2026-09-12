@@ -109,6 +109,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       onScoreboardUpdate: (players) => setScoreboard(players),
       onKillfeedEntry: (entry) => {
         setKillfeed((prev) => [entry, ...prev.slice(0, 4)]);
+        setTimeout(() => {
+          setKillfeed((prev) => prev.filter((e) => e.id !== entry.id));
+        }, 5000);
       },
       onMedalAnnouncement: (title, sub) => {
         setMedal({ title, sub });
@@ -277,7 +280,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       </Show>
 
       {/* Top Info Banner */}
-      <div class="strike-top-banner">
+      <div class="strike-top-banner" onPointerDown={(e) => e.stopPropagation()}>
         <span class="strike-room-tag">⚡ {t('strike.modeTitle') || 'Waifu Strike DM'}</span>
         <span>⛩️ {t('strike.mapName') || 'Cyber Shrine'}</span>
         <span class="strike-weather-tag" style={{
@@ -294,6 +297,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         </Show>
         <button
           class="btn-fullscreen-toggle"
+          onPointerDown={(e) => e.stopPropagation()}
           style={{
             background: isFullscreen() ? 'rgba(0, 206, 201, 0.25)' : 'rgba(255, 255, 255, 0.1)',
             border: isFullscreen() ? '1px solid #00cec9' : '1px solid rgba(255, 255, 255, 0.2)',
@@ -309,6 +313,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         </button>
         <button
           class="btn-controls-toggle"
+          onPointerDown={(e) => e.stopPropagation()}
           style={{
             background: 'rgba(255, 255, 255, 0.1)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -329,6 +334,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         </button>
         <button
           class="btn-leave-match"
+          onPointerDown={(e) => e.stopPropagation()}
           style={{
             background: 'rgba(255, 71, 87, 0.3)',
             border: '1px solid #ff4757',

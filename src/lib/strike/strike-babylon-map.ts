@@ -39,10 +39,10 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
   }
 
   // Ground stone (clean flagged stone)
-  const groundMat = createMat('matGround', new Color3(0.24, 0.27, 0.32), new Color3(0.08, 0.08, 0.08));
+  const groundMat = createMat('matGround', new Color3(0.38, 0.41, 0.45), new Color3(0.08, 0.08, 0.08));
 
   // Perimeter & Building Walls (Slate stone)
-  const wallMat = createMat('matWall', new Color3(0.18, 0.22, 0.28), new Color3(0.1, 0.1, 0.1));
+  const wallMat = createMat('matWall', new Color3(0.28, 0.32, 0.38), new Color3(0.1, 0.1, 0.1));
 
   // Shrine Vermilion Red Wood
   const shrineRedMat = createMat('matShrineRed', new Color3(0.85, 0.22, 0.22), new Color3(0.18, 0.18, 0.18));
@@ -316,19 +316,80 @@ export function createCyberShrineMap(scene: Scene): BabylonMapData {
     pLight.range = 28;
   }
 
-  // ==================== 10. BRIGHT AMBIENT & MULTI-DIRECTIONAL SUNLIGHT ====================
+  // ==================== 10. DAYTIME JAPAN SKY, MT. FUJI & DISTANT HORIZONS ====================
+  // 10A. Sky Dome (bright sunny anime sky blue)
+  const skyMat = new StandardMaterial('matJapanSky', scene);
+  skyMat.backFaceCulling = false;
+  skyMat.disableLighting = true;
+  skyMat.emissiveColor = new Color3(0.53, 0.77, 0.98);
+  const skyDome = MeshBuilder.CreateSphere('japanSkyDome', { diameter: 480, segments: 16 }, scene);
+  skyDome.material = skyMat;
+  skyDome.isPickable = false;
+  skyDome.checkCollisions = false;
+
+  // 10B. Distant Mount Fuji on North-West horizon
+  const fujiBaseMat = createMat('matFujiBase', new Color3(0.26, 0.33, 0.48), new Color3(0.05, 0.05, 0.05));
+  const fujiBase = MeshBuilder.CreateCylinder('mtFujiBase', { height: 85, diameterBottom: 170, diameterTop: 24, tessellation: 28 }, scene);
+  fujiBase.position = new Vector3(-85, 38, -135);
+  fujiBase.material = fujiBaseMat;
+  fujiBase.isPickable = false;
+  fujiBase.checkCollisions = false;
+
+  const fujiCapMat = createMat('matFujiCap', new Color3(0.96, 0.98, 1.0), new Color3(0.3, 0.3, 0.3), new Color3(0.35, 0.38, 0.42));
+  const fujiCap = MeshBuilder.CreateCylinder('mtFujiCap', { height: 28, diameterBottom: 58, diameterTop: 22, tessellation: 28 }, scene);
+  fujiCap.position = new Vector3(-85, 68, -135);
+  fujiCap.material = fujiCapMat;
+  fujiCap.isPickable = false;
+  fujiCap.checkCollisions = false;
+
+  // 10C. Distant rolling green hills/mountains framing the perimeter
+  const mountainMat = createMat('matDistantRidge', new Color3(0.24, 0.38, 0.32), new Color3(0.04, 0.04, 0.04));
+  const ridgePositions = [
+    { x: 0, y: 15, z: -100, w: 180, h: 42, d: 24 },    // North ridge
+    { x: 0, y: 14, z: 100, w: 180, h: 38, d: 24 },     // South ridge
+    { x: -100, y: 16, z: 0, w: 24, h: 44, d: 180 },    // West ridge
+    { x: 100, y: 15, z: 0, w: 24, h: 40, d: 180 }      // East ridge
+  ];
+  for (let r = 0; r < ridgePositions.length; r++) {
+    const rd = ridgePositions[r];
+    const ridge = MeshBuilder.CreateBox(`distantRidge_${r}`, { width: rd.w, height: rd.h, depth: rd.d }, scene);
+    ridge.position = new Vector3(rd.x, rd.y, rd.z);
+    ridge.material = mountainMat;
+    ridge.isPickable = false;
+    ridge.checkCollisions = false;
+  }
+
+  // 10D. Stylized low-poly daytime clouds
+  const cloudMat = createMat('matCloud', new Color3(0.96, 0.98, 1.0), new Color3(0.1, 0.1, 0.1), new Color3(0.4, 0.45, 0.5));
+  const cloudLocs = [
+    new Vector3(-40, 52, -60),
+    new Vector3(45, 58, -40),
+    new Vector3(60, 48, 50),
+    new Vector3(-55, 54, 45),
+    new Vector3(0, 62, -20)
+  ];
+  for (let c = 0; c < cloudLocs.length; c++) {
+    const cl = cloudLocs[c];
+    const cloud = MeshBuilder.CreateSphere(`cloud_${c}`, { diameterX: 32, diameterY: 10, diameterZ: 18, segments: 8 }, scene);
+    cloud.position = cl;
+    cloud.material = cloudMat;
+    cloud.isPickable = false;
+    cloud.checkCollisions = false;
+  }
+
+  // ==================== 11. BRIGHT DAYTIME JAPAN SUNLIGHT & HEMISPHERIC FILL ====================
   // Bright Hemispheric Light - Sky and ground fill
   const hemiLight = new HemisphericLight('hemiLight', new Vector3(0, 1, 0), scene);
-  hemiLight.diffuse = new Color3(1.4, 1.45, 1.6);
-  hemiLight.groundColor = new Color3(0.9, 0.92, 0.98);
+  hemiLight.diffuse = new Color3(1.35, 1.40, 1.50);
+  hemiLight.groundColor = new Color3(0.85, 0.88, 0.82);
   hemiLight.intensity = 1.95;
 
   // Primary warm sunlight from southwest
   const sunLight = new DirectionalLight('sunLight', new Vector3(0.45, -1, 0.45), scene);
   sunLight.position = new Vector3(-25, 45, -25);
-  sunLight.diffuse = new Color3(1.15, 1.1, 1.05);
-  sunLight.specular = new Color3(0.45, 0.45, 0.45);
-  sunLight.intensity = 1.7;
+  sunLight.diffuse = new Color3(1.30, 1.25, 1.15);
+  sunLight.specular = new Color3(0.5, 0.5, 0.5);
+  sunLight.intensity = 1.85;
 
   // Secondary cool sky fill light from opposite angle to prevent dark black shadow pockets
   const fillLight = new DirectionalLight('fillLight', new Vector3(-0.45, -0.85, -0.45), scene);

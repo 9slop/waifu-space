@@ -598,11 +598,12 @@ export class StrikeP2PManager {
     }
 
     if (av) {
-      if (hp <= 0 || wrapper.isDead) {
+      if (hp <= 0) {
+        wrapper.isDead = true;
         av.root.setEnabled(false);
       } else {
-        av.root.setEnabled(true);
         wrapper.isDead = false;
+        av.root.setEnabled(true);
         const targetPos = new Vector3(x, y - 1.62, z);
         const dist = Vector3.Distance(av.root.position, targetPos);
         if (dist > 12) {

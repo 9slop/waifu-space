@@ -126,8 +126,8 @@ export class StrikeBabylonEngine {
     });
 
     this.scene = new Scene(this.engine);
-    // Vibrant twilight anime sky clear color (bright and atmospheric)
-    this.scene.clearColor = new Color4(0.24, 0.28, 0.38, 1.0);
+    // Vibrant daytime Japanese sunny blue sky clear color
+    this.scene.clearColor = new Color4(0.53, 0.77, 0.98, 1.0);
     this.scene.collisionsEnabled = true;
 
     // 2. Setup FPS Universal Camera & Physics Collider
@@ -266,10 +266,20 @@ export class StrikeBabylonEngine {
       if (!this.isPlaying || this.isDead) return;
 
       const target = e.target as HTMLElement | null;
+      // Do not intercept clicks on buttons or UI overlays (top banner, controls modal, summary modal, etc.)
+      if (
+        target?.closest('button') ||
+        target?.closest('.strike-top-banner') ||
+        target?.closest('.strike-controls-modal') ||
+        target?.closest('.strike-summary-modal') ||
+        target?.closest('.strike-weapon-card')
+      ) {
+        return;
+      }
+
       const isGameTarget =
         this.isPointerLocked ||
-        target === this.canvas ||
-        (target && (this.canvas.parentElement?.contains(target) || target.closest('.strike-viewport-container')));
+        target === this.canvas;
 
       if (!isGameTarget) return;
 
@@ -387,6 +397,7 @@ export class StrikeBabylonEngine {
   }
 
   public toggleScope() {
+    if (this.isReloading) return;
     const def = WEAPON_CATALOG[this.activeWeaponId];
     if (!def.hasScope) return;
     this.isScoped = !this.isScoped;
@@ -418,14 +429,15 @@ export class StrikeBabylonEngine {
     if (!this.isPlaying || this.isDead || this.isReloading) return;
     const now = performance.now();
     const def = WEAPON_CATALOG[this.activeWeaponId];
-    const shotCooldown = (60 / def.fireRateRpm) * 1000;
 
-    if (now - this.lastShotTime < shotCooldown) return;
-
+    // If weapon is out of ammo, clicking triggers reload immediately even during fire cooldown
     if (this.activeWeaponId !== 'knife' && this.ammoMag[this.activeWeaponId] <= 0) {
       this.reload();
       return;
     }
+
+    const shotCooldown = (60 / def.fireRateRpm) * 1000;
+    if (now - this.lastShotTime < shotCooldown) return;
 
     this.lastShotTime = now;
     if (this.activeWeaponId !== 'knife') {
@@ -433,27 +445,29 @@ export class StrikeBabylonEngine {
       this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
     }
 
+    // Raycast shooting via Babylon.js scene picking (BEFORE applying recoil so aim hits true crosshair center)
+    // Knife is strictly capped at close melee combat range (2.2m), firearms at 300m
+    const maxRayDist = this.activeWeaponId === 'knife' ? (def.range || 2.2) : 300;
+    const forwardRay = this.camera.getForwardRay(maxRayDist);
+
     // Audio & Viewmodel attack animation (knife slash or gun recoil)
     strikeAudio.playGunfire(this.activeWeaponId);
     this.viewmodel.triggerAttack(this.activeWeaponId, def.recoilVertical, def.recoilHorizontal);
 
-    // Apply slight pitch recoil to camera (guns only)
+    // Apply slight pitch recoil to camera AFTER forward ray is computed (guns only)
     if (this.activeWeaponId !== 'knife') {
       this.camera.rotation.x -= def.recoilVertical * 0.35;
       this.camera.rotation.y += (Math.random() - 0.5) * def.recoilHorizontal;
     }
 
-    // Raycast shooting via Babylon.js scene picking (excluding viewmodel & local player collider)
-    // Knife is strictly capped at close melee combat range (2.2m), firearms at 300m
-    const maxRayDist = this.activeWeaponId === 'knife' ? (def.range || 2.2) : 300;
-    const forwardRay = this.camera.getForwardRay(maxRayDist);
     const hit = this.scene.pickWithRay(forwardRay, (mesh) => {
       return (
         mesh.isPickable &&
         mesh !== this.playerCollider &&
         !mesh.name.startsWith('playerCollider') &&
         !mesh.name.startsWith('Viewmodel') &&
-        !mesh.name.startsWith('FirstPerson')
+        !mesh.name.startsWith('FirstPerson') &&
+        (!this.viewmodel || !mesh.isDescendantOf(this.viewmodel.root))
       );
     });
 
