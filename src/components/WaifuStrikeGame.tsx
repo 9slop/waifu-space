@@ -70,8 +70,10 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [engine, setEngine] = createSignal<StrikeBabylonEngine | null>(null);
   const [network, setNetwork] = createSignal<StrikeP2PManager | null>(null);
 
-  const [health, setHealth] = createSignal(150);
-  const [maxHealth] = createSignal(150);
+  const [health, setHealth] = createSignal(100);
+  const [maxHealth] = createSignal(100);
+  const [armor, setArmor] = createSignal(100);
+  const [maxArmor] = createSignal(100);
   const [ammo, setAmmo] = createSignal({ mag: 30, reserve: 90 });
   const [activeWeapon, setActiveWeapon] = createSignal<WeaponDef>(WEAPON_CATALOG.rifle);
 
@@ -242,7 +244,10 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     let net: StrikeP2PManager | null = null;
 
     const eng = new StrikeBabylonEngine(canvasRef, {
-      onHealthChange: (hp) => setHealth(hp),
+      onHealthChange: (hp, _maxHp, arm) => {
+        setHealth(hp);
+        if (arm !== undefined) setArmor(arm);
+      },
       onAmmoChange: (mag, reserve) => setAmmo({ mag, reserve }),
       onWeaponChange: (w) => {
         setActiveWeapon(w);
@@ -1417,16 +1422,32 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
       {/* Bottom HUD */}
       <div class="strike-hud-bottom">
-        {/* Health */}
-        <div class="hud-health-card">
-          <div class={`hud-health-val ${health() <= 25 ? 'low' : ''}`}>
-            + {health()}
+        {/* Health & Armor Group */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {/* Health */}
+          <div class="hud-health-card">
+            <div class={`hud-health-val ${health() <= 25 ? 'low' : ''}`}>
+              + {health()}
+            </div>
+            <div class="hud-health-bar">
+              <div
+                class="hud-health-fill"
+                style={{ width: `${Math.max(0, Math.min(100, (health() / maxHealth()) * 100))}%` }}
+              />
+            </div>
           </div>
-          <div class="hud-health-bar">
-            <div
-              class="hud-health-fill"
-              style={{ width: `${Math.max(0, Math.min(100, (health() / maxHealth()) * 100))}%` }}
-            />
+
+          {/* Armor */}
+          <div class="hud-armor-card">
+            <div class="hud-armor-val">
+              🛡️ {armor()}
+            </div>
+            <div class="hud-armor-bar">
+              <div
+                class="hud-armor-fill"
+                style={{ width: `${Math.max(0, Math.min(100, (armor() / maxArmor()) * 100))}%` }}
+              />
+            </div>
           </div>
         </div>
 

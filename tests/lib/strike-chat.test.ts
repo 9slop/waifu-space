@@ -17,7 +17,8 @@ describe('Strike P2P Chat and Announcements', () => {
       remoteAvatars: new Map(),
       camera: { position: { x: 0, y: 1.62, z: 0 }, rotation: { x: 0, y: 0 } },
       velocity: { length: () => 0 },
-      health: 150,
+      health: 100,
+      armor: 100,
       activeWeaponId: 'rifle',
       applyDamage: vi.fn()
     };

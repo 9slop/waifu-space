@@ -762,7 +762,7 @@ export class StrikeP2PManager {
       const sourcePos = atk?.root?.position
         ? { x: atk.root.position.x, y: atk.root.position.y, z: atk.root.position.z }
         : (shoot.origin ? { x: shoot.origin.x, y: shoot.origin.y, z: shoot.origin.z } : undefined);
-      this.engine.applyDamage(damage, attackerName, sourcePos);
+      this.engine.applyDamage(damage, attackerName, sourcePos, shoot.part);
     }
   }
 

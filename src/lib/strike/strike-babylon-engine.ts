@@ -73,7 +73,7 @@ function resolveAvatarPlayerId(mesh: AbstractMesh): string | null {
 }
 
 export interface StrikeBabylonCallbacks {
-  onHealthChange: (hp: number, maxHp: number) => void;
+  onHealthChange: (hp: number, maxHp: number, armor?: number, maxArmor?: number) => void;
   onAmmoChange: (mag: number, reserve: number) => void;
   onWeaponChange: (weapon: WeaponDef) => void;
   onHitmarker: (isHeadshot: boolean, damage: number) => void;
@@ -150,9 +150,11 @@ export class StrikeBabylonEngine {
   public lastShotTime = 0;
   public reloadEndTime = 0;
 
-  // Local Stats (150 HP base)
-  public health = 150;
-  public maxHealth = 150;
+  // Local Stats (100 HP base + 100 Armor base)
+  public health = 100;
+  public maxHealth = 100;
+  public armor = 100;
+  public maxArmor = 100;
   public isDead = false;
   public isPaused = false;
   private screenShakeTrauma = 0;
@@ -335,7 +337,7 @@ export class StrikeBabylonEngine {
     this.setGraphicsSettings(DEFAULT_GRAPHICS_SETTINGS);
 
     // Notify initial state
-    this.callbacks.onHealthChange(this.health, this.maxHealth);
+    this.callbacks.onHealthChange(this.health, this.maxHealth, this.armor, this.maxArmor);
     this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
     this.callbacks.onWeaponChange(WEAPON_CATALOG[this.activeWeaponId]);
   }
@@ -657,6 +659,7 @@ export class StrikeBabylonEngine {
     this.camera.rotation = new Vector3(0, sp.yaw, 0);
     this.velocity = Vector3.Zero();
     this.health = this.maxHealth;
+    this.armor = this.maxArmor;
     this.isDead = false;
     this.isScoped = false;
     this.isReloading = false;
@@ -677,7 +680,7 @@ export class StrikeBabylonEngine {
     this.grenadeCount = 1;
     this.callbacks.onGrenadeCountChange?.(this.grenadeCount, this.loadout.grenade);
 
-    this.callbacks.onHealthChange(this.health, this.maxHealth);
+    this.callbacks.onHealthChange(this.health, this.maxHealth, this.armor, this.maxArmor);
     this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
   }
 
@@ -1410,9 +1413,14 @@ export class StrikeBabylonEngine {
     }
   }
 
-  public applyDamage(dmg: number, attackerName: string, sourcePos?: { x: number; y: number; z: number }) {
+  public applyDamage(
+    dmg: number,
+    attackerName: string,
+    sourcePos?: { x: number; y: number; z: number },
+    part?: 'head' | 'torso' | 'limb'
+  ) {
     if (!this.isPlaying || this.isDead) return;
-    // 1-second god mode check on spawn
+    // 2-second god mode check on spawn
     if (this.isInvulnerable && performance.now() < this.invulnerableUntil) {
       return;
     }
@@ -1432,12 +1440,25 @@ export class StrikeBabylonEngine {
       }
     }
 
-    this.health = Math.max(0, this.health - dmg);
-    this.callbacks.onHealthChange(this.health, this.maxHealth);
+    // Localized Hitbox Armor System (CS2 style):
+    // - Head & Torso: Armor absorbs 30-35% of damage if armor points remain.
+    // - Limbs (Arms/Legs): Unarmored hitbox area, direct damage straight to HP.
+    let effectiveDmg = dmg;
+    const isArmoredPart = !part || part === 'torso' || part === 'head';
+
+    if (isArmoredPart && this.armor > 0) {
+      const armorAbsorbedDmg = Math.round(dmg * 0.32);
+      const actualAbsorbed = Math.min(armorAbsorbedDmg, this.armor);
+      this.armor = Math.max(0, this.armor - Math.round(actualAbsorbed * 0.75));
+      effectiveDmg = Math.max(1, dmg - actualAbsorbed);
+    }
+
+    this.health = Math.max(0, this.health - effectiveDmg);
+    this.callbacks.onHealthChange(this.health, this.maxHealth, this.armor, this.maxArmor);
 
     // Screen shake / trauma proportional to damage
-    this.screenShakeTrauma = Math.min(1.0, this.screenShakeTrauma + Math.max(0.3, dmg / 45));
-    this.callbacks.onDamageReceived?.(dmg, this.health);
+    this.screenShakeTrauma = Math.min(1.0, this.screenShakeTrauma + Math.max(0.3, effectiveDmg / 45));
+    this.callbacks.onDamageReceived?.(effectiveDmg, this.health);
 
     // Blood spray on the local player's chest + a splatter on the floor beneath
     if (this.scene) {
