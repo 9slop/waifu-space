@@ -618,7 +618,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           width: '100%',
           height: '100%',
           display: 'block',
-          outline: 'none'
+          outline: 'none',
+          filter: isSpawnProtected() ? 'grayscale(85%) contrast(92%)' : 'none',
+          transition: 'filter 0.4s ease'
         }}
         onClick={() => {
           if (!showControlsOverlay() && !showSummaryModal()) {
@@ -756,8 +758,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
             inset: 0,
             'z-index': 17,
             'pointer-events': 'none',
-            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,0.35) 100%)',
-            filter: 'grayscale(75%)',
+            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.05) 30%, rgba(20,20,30,0.45) 100%)',
+            'backdrop-filter': 'grayscale(85%) contrast(92%)',
+            '-webkit-backdrop-filter': 'grayscale(85%) contrast(92%)',
             transition: 'opacity 0.4s ease'
           }}
         >
