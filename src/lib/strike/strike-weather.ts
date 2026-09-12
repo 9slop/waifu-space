@@ -248,9 +248,12 @@ export class StrikeWeatherManager {
   /** Rain: falls fast from the sky straight down to ground, recycling high in the clouds */
   private updateRainParticles(particles: Particle[]) {
     const cam = this.camera.position;
+    const dt = this.scene.getEngine().getDeltaTime() / 1000;
     for (const p of particles) {
       p.direction.x += (Math.random() - 0.5) * 0.04;
       p.direction.z += (Math.random() - 0.5) * 0.04;
+      // Integrate motion so particles actually fall and move over time
+      p.position.addInPlace(p.direction.scale(dt));
       // When rain hits ground level or drops below camera
       if (p.position.y < 0.15 || p.position.y < cam.y - 4) {
         p.position.y = cam.y + 22 + Math.random() * 14;
@@ -264,6 +267,7 @@ export class StrikeWeatherManager {
   /** Snow & petals: gentle sinusoidal sway while drifting down from the sky to the ground */
   private updateFallingParticles(particles: Particle[], swayFreq: number, swayAmp: number) {
     const cam = this.camera.position;
+    const dt = this.scene.getEngine().getDeltaTime() / 1000;
     const nowSec = performance.now() / 1000;
     for (const p of particles) {
       let phase = p.metadata as number | undefined;
@@ -271,8 +275,10 @@ export class StrikeWeatherManager {
         phase = Math.random() * Math.PI * 2;
         p.metadata = phase;
       }
-      p.direction.x += Math.sin(nowSec * swayFreq + phase) * swayAmp * this.scene.getEngine().getDeltaTime() / 1000;
-      p.direction.z += Math.cos(nowSec * (swayFreq * 0.8) + phase) * swayAmp * this.scene.getEngine().getDeltaTime() / 1000;
+      p.direction.x += Math.sin(nowSec * swayFreq + phase) * swayAmp * dt;
+      p.direction.z += Math.cos(nowSec * (swayFreq * 0.8) + phase) * swayAmp * dt;
+      // Integrate motion so snow and sakura petals drift and fall continuously
+      p.position.addInPlace(p.direction.scale(dt));
       // When particle reaches ground level or drops below view
       if (p.position.y < 0.15 || p.position.y < cam.y - 3.5) {
         p.position.y = cam.y + 20 + Math.random() * 15;
