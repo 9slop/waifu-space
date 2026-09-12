@@ -169,7 +169,7 @@ export class StrikeWeatherManager {
     emitter.position.copyFrom(this.camera.position);
     this.emitterMesh = emitter;
 
-    const ps = new ParticleSystem(`${weather}_particles`, 1500, this.scene);
+    const ps = new ParticleSystem(`${weather}_particles`, 2200, this.scene);
     ps.emitter = emitter;
     ps.isBillboardBased = true;
     ps.billboardMode = ParticleSystem.BILLBOARDMODE_ALL;
@@ -178,60 +178,63 @@ export class StrikeWeatherManager {
 
     if (weather === 'rain') {
       ps.particleTexture = this.rainTex;
-      ps.minLifeTime = 6;
-      ps.maxLifeTime = 9;
-      ps.emitRate = 240;
-      ps.minEmitBox = new Vector3(-17, -0.5, -17);
-      ps.maxEmitBox = new Vector3(17, 18, 17);
-      ps.direction1 = new Vector3(-0.3, -14, -0.3);
-      ps.direction2 = new Vector3(0.3, -20, 0.3);
-      ps.minSize = 0.5;
-      ps.maxSize = 0.85;
-      ps.minInitialRotation = -0.06;
-      ps.maxInitialRotation = 0.06;
+      ps.minLifeTime = 1.4;
+      ps.maxLifeTime = 2.2;
+      ps.emitRate = 420;
+      // Spawn high in the sky across wide map coverage
+      ps.minEmitBox = new Vector3(-55, 20, -55);
+      ps.maxEmitBox = new Vector3(55, 36, 55);
+      ps.direction1 = new Vector3(-0.4, -24, -0.4);
+      ps.direction2 = new Vector3(0.4, -28, 0.4);
+      ps.minSize = 0.55;
+      ps.maxSize = 0.95;
+      ps.minInitialRotation = -0.05;
+      ps.maxInitialRotation = 0.05;
       ps.minAngularSpeed = 0;
       ps.maxAngularSpeed = 0;
-      ps.color1 = new Color4(0.75, 0.87, 1.0, 0.55);
-      ps.color2 = new Color4(0.55, 0.7, 0.9, 0.3);
+      ps.color1 = new Color4(0.75, 0.87, 1.0, 0.45);
+      ps.color2 = new Color4(0.55, 0.7, 0.9, 0.25);
       ps.colorDead = new Color4(0.5, 0.65, 0.85, 0);
       ps.updateFunction = (particles: Particle[]) => {
         this.updateRainParticles(particles);
       };
     } else if (weather === 'snow') {
       ps.particleTexture = this.snowTex;
-      ps.minLifeTime = 11;
-      ps.maxLifeTime = 14;
-      ps.emitRate = 110;
-      ps.minEmitBox = new Vector3(-18, -0.5, -18);
-      ps.maxEmitBox = new Vector3(18, 20, 18);
-      ps.direction1 = new Vector3(-0.4, -1.6, -0.4);
-      ps.direction2 = new Vector3(0.4, -3.2, 0.4);
-      ps.minSize = 0.16;
-      ps.maxSize = 0.34;
+      ps.minLifeTime = 7;
+      ps.maxLifeTime = 11;
+      ps.emitRate = 220;
+      // Spawn high in the sky across wide map coverage
+      ps.minEmitBox = new Vector3(-55, 20, -55);
+      ps.maxEmitBox = new Vector3(55, 36, 55);
+      ps.direction1 = new Vector3(-0.5, -2.2, -0.5);
+      ps.direction2 = new Vector3(0.5, -3.8, 0.5);
+      ps.minSize = 0.18;
+      ps.maxSize = 0.38;
       ps.minAngularSpeed = -1.6;
       ps.maxAngularSpeed = 1.6;
-      ps.color1 = new Color4(1.0, 1.0, 1.0, 0.95);
-      ps.color2 = new Color4(0.86, 0.9, 0.98, 0.75);
+      ps.color1 = new Color4(0.98, 0.98, 1.0, 0.85);
+      ps.color2 = new Color4(0.86, 0.9, 0.98, 0.65);
       ps.colorDead = new Color4(1.0, 1.0, 1.0, 0);
       ps.updateFunction = (particles: Particle[]) => {
         this.updateFallingParticles(particles, 1.1, 1.7);
       };
     } else {
-      // Normal: Gentle falling cherry blossom petals
+      // Normal: Gentle cherry blossom petals fluttering down from the sky and trees
       ps.particleTexture = this.sakuraTex;
-      ps.minLifeTime = 12;
-      ps.maxLifeTime = 15;
-      ps.emitRate = 80;
-      ps.minEmitBox = new Vector3(-19, -0.5, -19);
-      ps.maxEmitBox = new Vector3(19, 20, 19);
-      ps.direction1 = new Vector3(-0.3, -0.9, -0.3);
-      ps.direction2 = new Vector3(0.3, -1.7, 0.3);
-      ps.minSize = 0.14;
-      ps.maxSize = 0.36;
+      ps.minLifeTime = 9;
+      ps.maxLifeTime = 13;
+      ps.emitRate = 160;
+      // Spawn high in the sky across wide map coverage
+      ps.minEmitBox = new Vector3(-55, 18, -55);
+      ps.maxEmitBox = new Vector3(55, 34, 55);
+      ps.direction1 = new Vector3(-0.6, -1.6, -0.6);
+      ps.direction2 = new Vector3(0.6, -2.6, 0.6);
+      ps.minSize = 0.16;
+      ps.maxSize = 0.38;
       ps.minAngularSpeed = -2.2;
       ps.maxAngularSpeed = 2.2;
-      ps.color1 = new Color4(1.0, 0.78, 0.87, 0.95);
-      ps.color2 = new Color4(0.98, 0.6, 0.76, 0.8);
+      ps.color1 = new Color4(1.0, 0.78, 0.87, 0.85);
+      ps.color2 = new Color4(0.98, 0.6, 0.76, 0.7);
       ps.colorDead = new Color4(1.0, 0.75, 0.85, 0);
       ps.updateFunction = (particles: Particle[]) => {
         this.updateFallingParticles(particles, 2.1, 1.6);
@@ -242,22 +245,23 @@ export class StrikeWeatherManager {
     this.particleSystem = ps;
   }
 
-  /** Rain: fast streaks with a tiny wind tilt, recycled above the camera */
+  /** Rain: falls fast from the sky straight down to ground, recycling high in the clouds */
   private updateRainParticles(particles: Particle[]) {
     const cam = this.camera.position;
     for (const p of particles) {
       p.direction.x += (Math.random() - 0.5) * 0.04;
       p.direction.z += (Math.random() - 0.5) * 0.04;
-      if (p.position.y < cam.y - 4) {
-        p.position.y = cam.y + 14 + Math.random() * 4;
-        p.position.x = cam.x + (Math.random() - 0.5) * 34;
-        p.position.z = cam.z + (Math.random() - 0.5) * 34;
+      // When rain hits ground level or drops below camera
+      if (p.position.y < 0.15 || p.position.y < cam.y - 4) {
+        p.position.y = cam.y + 22 + Math.random() * 14;
+        p.position.x = cam.x + (Math.random() - 0.5) * 110;
+        p.position.z = cam.z + (Math.random() - 0.5) * 110;
       }
       this.wrapHorizontal(p, cam);
     }
   }
 
-  /** Snow & petals: gentle sinusoidal sway while drifting down */
+  /** Snow & petals: gentle sinusoidal sway while drifting down from the sky to the ground */
   private updateFallingParticles(particles: Particle[], swayFreq: number, swayAmp: number) {
     const cam = this.camera.position;
     const nowSec = performance.now() / 1000;
@@ -269,20 +273,22 @@ export class StrikeWeatherManager {
       }
       p.direction.x += Math.sin(nowSec * swayFreq + phase) * swayAmp * this.scene.getEngine().getDeltaTime() / 1000;
       p.direction.z += Math.cos(nowSec * (swayFreq * 0.8) + phase) * swayAmp * this.scene.getEngine().getDeltaTime() / 1000;
-      if (p.position.y < cam.y - 3.5) {
-        p.position.y = cam.y + 13 + p.metadata * 5;
-        p.position.x = cam.x + (Math.random() - 0.5) * 34;
-        p.position.z = cam.z + (Math.random() - 0.5) * 34;
+      // When particle reaches ground level or drops below view
+      if (p.position.y < 0.15 || p.position.y < cam.y - 3.5) {
+        p.position.y = cam.y + 20 + Math.random() * 15;
+        p.position.x = cam.x + (Math.random() - 0.5) * 110;
+        p.position.z = cam.z + (Math.random() - 0.5) * 110;
       }
       this.wrapHorizontal(p, cam);
     }
   }
 
+  /** Wraps particles across a generous 120m horizontal bounds */
   private wrapHorizontal(p: Particle, cam: Vector3) {
     const dx = p.position.x - cam.x;
     const dz = p.position.z - cam.z;
-    if (Math.abs(dx) > 21) p.position.x = cam.x - Math.sign(dx) * 19;
-    if (Math.abs(dz) > 21) p.position.z = cam.z - Math.sign(dz) * 19;
+    if (Math.abs(dx) > 60) p.position.x = cam.x - Math.sign(dx) * 58;
+    if (Math.abs(dz) > 60) p.position.z = cam.z - Math.sign(dz) * 58;
   }
 
   public dispose() {

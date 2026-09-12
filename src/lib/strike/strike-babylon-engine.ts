@@ -289,6 +289,43 @@ export class StrikeBabylonEngine {
       });
       this.glowLayer.intensity = 0.85;
       this.glowLayer.isEnabled = this.graphicsSettings.postProcessing;
+
+      // Ensure particle systems (weather rain, snow, sakura, smoke, grenade sparks) NEVER bloom
+      try {
+        (this.glowLayer as any)._createMainTexture();
+        if ((this.glowLayer as any)._mainTexture) {
+          (this.glowLayer as any)._mainTexture.renderParticles = false;
+        }
+      } catch {}
+
+      // Selective emissive filter: only true luminous lanterns, lit windows, and fire zones bloom
+      this.glowLayer.customEmissiveColorSelector = (mesh, _subMesh, material, result) => {
+        if (!material) {
+          result.set(0, 0, 0, 0);
+          return;
+        }
+        const name = mesh.name;
+        if (
+          name.startsWith('weather') ||
+          name.startsWith('puddle') ||
+          name.startsWith('Sky') ||
+          name.startsWith('cloud') ||
+          name.startsWith('Viewmodel') ||
+          name.startsWith('FirstPerson') ||
+          name.startsWith('playerCollider') ||
+          name.startsWith('hitbox')
+        ) {
+          result.set(0, 0, 0, 0);
+          return;
+        }
+        const std = material as StandardMaterial;
+        if (std.emissiveColor && (std.emissiveColor.r > 0.45 || std.emissiveColor.g > 0.45 || std.emissiveColor.b > 0.45)) {
+          result.set(std.emissiveColor.r, std.emissiveColor.g, std.emissiveColor.b, 1.0);
+        } else {
+          result.set(0, 0, 0, 0);
+        }
+      };
+
       this.refreshGlowExclusions();
     } catch (err) {
       console.warn('[StrikeEngine] GlowLayer initialization failed:', err);
