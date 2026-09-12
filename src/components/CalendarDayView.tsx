@@ -3,6 +3,7 @@ import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
 import { layoutTimedEvents } from '../lib/calendar-layout';
 import { t, getLocale } from '../lib/i18n';
+import { countryFlagEmoji } from '../lib/countries';
 import { onActivateKey } from '../lib/accessibility';
 
 export function CalendarDayView(props: {
@@ -36,6 +37,10 @@ export function CalendarDayView(props: {
 
 const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
     if (!e.dataTransfer) return;
+    if (ev._holiday) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'calendar-event', id: ev.id, dateKey: ev.dateKey }));
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -50,6 +55,8 @@ const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
       const data = JSON.parse(raw);
       const ev = props.events.find(x => x.id === data.id);
       if (!ev) return;
+      // Country holidays are read-only and must never be moved by a drop.
+      if (ev._holiday) return;
 
       const oldStart = new Date(ev.start);
       const oldEnd = new Date(ev.end || ev.start);
@@ -197,12 +204,13 @@ const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
           <For each={allDayEvents()}>
             {ev => (
               <div
-                class="allday-pill"
+                class={`allday-pill ${ev._holiday ? 'holiday' : ''}`}
                 style={{ background: ev.color || '#ff6584' }}
                 role="button"
                 tabindex="0"
                 aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
-                draggable={true}
+                title={ev._holiday ? `${ev._holiday.countryCode} · ${t('calendar.holidays.badge')}` : undefined}
+                draggable={!ev._holiday}
                 onDragStart={e => handleDragStart(e, ev)}
                 onClick={e => {
                   e.stopPropagation();
@@ -221,6 +229,7 @@ const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
                     }}
                   />
                 )}
+                {ev._holiday && <span class="pill-holiday-flag">{countryFlagEmoji(ev._holiday.countryCode)}</span>}
                 <span class="allday-pill-title">{ev.title}</span>
               </div>
             )}

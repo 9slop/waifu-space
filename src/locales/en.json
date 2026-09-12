@@ -154,6 +154,7 @@
       "prev": "Previous",
       "next": "Next",
       "searchPlaceholder": "Search events & tasks...",
+      "countryHolidaysTooltip": "Country Holidays",
       "waifuBriefing": "Waifu Briefing",
       "waifuBriefingTooltip": "Ask Waifu to review today's agenda",
       "exportIcs": "Export .ics Calendar",
@@ -226,6 +227,17 @@
       "cancel": "Cancel",
       "confirm": "Delete",
       "deleteSeries": "Delete Series"
+    },
+    "holidays": {
+      "title": "Country Holidays",
+      "subtitle": "Show public holidays of the selected countries as all-day events in your calendar.",
+      "searchPlaceholder": "Search countries...",
+      "loading": "Loading countries…",
+      "loadError": "Could not load the country list. Please try again later.",
+      "noResults": "No countries match your search.",
+      "clear": "Clear all",
+      "sourceNote": "Data: Nager.Date · Read-only",
+      "badge": "Holiday"
     },
     "weekdays": {
       "sun": "SUN",

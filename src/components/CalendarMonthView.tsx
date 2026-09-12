@@ -2,6 +2,7 @@ import { For } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
 import { t, formatDate } from '../lib/i18n';
+import { countryFlagEmoji } from '../lib/countries';
 import { onActivateKey } from '../lib/accessibility';
 
 export function CalendarMonthView(props: {
@@ -55,6 +56,10 @@ export function CalendarMonthView(props: {
 
   const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
     if (!e.dataTransfer) return;
+    if (ev._holiday) {
+      e.preventDefault();
+      return;
+    }
     e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'calendar-event', id: ev.id, dateKey: ev.dateKey }));
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -70,6 +75,8 @@ export function CalendarMonthView(props: {
       if (data.type === 'calendar-event' || data.type === 'sidebar-task') {
         const ev = props.events.find(x => x.id === data.id);
         if (!ev) return;
+        // Country holidays are read-only and must never be moved by a drop.
+        if (ev._holiday) return;
 
         const oldStart = new Date(ev.start);
         const oldEnd = new Date(ev.end || ev.start);
@@ -144,12 +151,13 @@ export function CalendarMonthView(props: {
 
                       return (
                         <div
-                          class={`event-pill ${ev.type === 'task' && ev.completed ? 'completed' : ''}`}
+                          class={`event-pill ${ev._holiday ? 'holiday' : ''} ${ev.type === 'task' && ev.completed ? 'completed' : ''}`}
                           style={{ background: ev.color || '#ff6584' }}
                           role="button"
                           tabindex="0"
                           aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
-                          draggable={true}
+                          title={ev._holiday ? `${ev._holiday.countryCode} · ${t('calendar.holidays.badge')}` : undefined}
+                          draggable={!ev._holiday}
                           onDragStart={e => handleDragStart(e, ev)}
                           onClick={e => {
                             e.stopPropagation();
@@ -169,6 +177,7 @@ export function CalendarMonthView(props: {
                             />
                           )}
                           {ev.type === 'birthday' && <span class="pill-icon">🎂</span>}
+                          {ev._holiday && <span class="pill-holiday-flag">{countryFlagEmoji(ev._holiday.countryCode)}</span>}
                           <span class="pill-title">
                             {startTime && <small>{startTime} </small>}
                             {ev.title}

@@ -1,4 +1,4 @@
-import { createSignal, createMemo, onMount, onCleanup, For, Show } from 'solid-js';
+import { createSignal, createMemo, createEffect, onMount, onCleanup, For, Show } from 'solid-js';
 import {
   state,
   setState,
@@ -12,12 +12,16 @@ import {
   isEventOnDate,
   dateKeyOf,
   showToast,
+  holidayEvents,
+  holidayLoading,
+  refreshHolidayEvents,
 } from '../lib/store';
 import { CalendarEventItem } from '../lib/ical';
 import { MiniCalendar } from './MiniCalendar';
 import { EventModal } from './EventModal';
 import { CalendarPopover } from './CalendarPopover';
 import { RepeatScopeDialog, RepeatScopeRequest } from './RepeatScopeDialog';
+import { CountryHolidaysModal } from './CountryHolidaysModal';
 import { CalendarMonthView } from './CalendarMonthView';
 import { CalendarWeekView } from './CalendarWeekView';
 import { CalendarDayView } from './CalendarDayView';
@@ -44,6 +48,8 @@ export function CalendarPlanner() {
 
   const [repeatScopeRequest, setRepeatScopeRequest] = createSignal<RepeatScopeRequest | null>(null);
 
+  const [holidaysModalOpen, setHolidaysModalOpen] = createSignal(false);
+
   // Pending single-event delete confirmation (protects against accidental data loss)
   const [pendingDelete, setPendingDelete] = createSignal<CalendarEventItem | null>(null);
 
@@ -55,6 +61,25 @@ export function CalendarPlanner() {
       if (e.type === 'birthday' && !state.calendar.filterBirthdays) return false;
       return true;
     });
+  });
+
+  // Read-only country-holiday events are merged into the visible view on top of
+  // the user's own calendar entries. They are kept out of state.calendar.events
+  // (so they never touch cloud sync, localStorage, or edit flows) and are
+  // read-only everywhere.
+  const viewEvents = createMemo(() => {
+    const holidays = holidayEvents();
+    if (holidays.length === 0) return filteredEvents();
+    return [...filteredEvents(), ...holidays];
+  });
+
+  // Refresh holiday data (with the store's in-memory cache) whenever the
+  // selected countries or the visible date change. Browsing to December/January
+  // can reach into the neighboring year, so fetch the surrounding years too.
+  createEffect(() => {
+    const codes = state.settings.countryHolidays;
+    const base = currentDate().getFullYear();
+    void refreshHolidayEvents(codes.length > 0 ? [base - 1, base, base + 1] : []);
   });
 
   // Tasks sidebar: ONLY tasks occurring today — everything from earlier days is
@@ -142,6 +167,8 @@ const sidebarTasks = createMemo(() => {
 
   const openEditModal = (ev: CalendarEventItem) => {
     closePopover();
+    // Country holidays are read-only: never open the edit flow for them.
+    if (ev._holiday) return;
     if (ev.parentId && ev.dateKey && ev.recurrence && ev.recurrence !== 'none') {
       setRepeatScopeRequest({ action: 'edit', event: ev, dateKey: ev.dateKey });
       return;
@@ -151,6 +178,8 @@ const sidebarTasks = createMemo(() => {
   };
 
   const handleDeleteEvent = (ev: CalendarEventItem) => {
+    // Country holidays are read-only: there is nothing to delete.
+    if (ev._holiday) return;
     if (ev.parentId && ev.dateKey && ev.recurrence && ev.recurrence !== 'none') {
       setRepeatScopeRequest({ action: 'delete', event: ev, dateKey: ev.dateKey });
       return;
@@ -179,6 +208,8 @@ const sidebarTasks = createMemo(() => {
     end: Date,
     dateKey?: string
   ) => {
+    // Country holidays are read-only: ignore drag-drop attempts.
+    if (ev._holiday) return;
     if (dateKey && ev.recurrence && ev.recurrence !== 'none') {
       setRepeatScopeRequest({ action: 'move', event: ev, dateKey, moveRange: { start, end } });
       return;
@@ -381,6 +412,21 @@ const sidebarTasks = createMemo(() => {
         </div>
 
         <div class="gcal-toolbar-right">
+          <button
+            type="button"
+            class="gcal-icon-btn holiday-toggle-btn"
+            onClick={() => setHolidaysModalOpen(true)}
+            title={t('calendar.toolbar.countryHolidaysTooltip')}
+            aria-label={t('calendar.toolbar.countryHolidaysTooltip')}
+          >
+            🌍
+            <Show when={((state.settings.countryHolidays || []) as string[]).length > 0}>
+              <span class="holiday-count-badge">{(state.settings.countryHolidays || []).length}</span>
+            </Show>
+            <Show when={holidayLoading()}>
+              <span class="holiday-loading-dot" aria-hidden="true" />
+            </Show>
+          </button>
           <div class="gcal-view-selector">
             <button
               type="button"
@@ -549,7 +595,7 @@ const sidebarTasks = createMemo(() => {
           <Show when={state.calendar.view === 'month'}>
             <CalendarMonthView
               currentDate={currentDate()}
-              events={filteredEvents()}
+              events={viewEvents()}
               onSelectDay={d => openCreateModal(d, 'event')}
               onOpenEvent={(ev, rect) => openPopover(ev, rect)}
               onRequestMove={handleRequestMove}
@@ -559,7 +605,7 @@ const sidebarTasks = createMemo(() => {
           <Show when={state.calendar.view === 'week'}>
             <CalendarWeekView
               currentDate={currentDate()}
-              events={filteredEvents()}
+              events={viewEvents()}
               onSelectSlot={d => openCreateModal(d, 'event')}
               onSelectRange={range => openCreateModal(range.start, 'event', range)}
               onOpenEvent={(ev, rect) => openPopover(ev, rect)}
@@ -570,7 +616,7 @@ const sidebarTasks = createMemo(() => {
           <Show when={state.calendar.view === 'day'}>
             <CalendarDayView
               currentDate={currentDate()}
-              events={filteredEvents()}
+              events={viewEvents()}
               onSelectSlot={d => openCreateModal(d, 'event')}
               onSelectRange={range => openCreateModal(range.start, 'event', range)}
               onOpenEvent={(ev, rect) => openPopover(ev, rect)}
@@ -604,6 +650,12 @@ const sidebarTasks = createMemo(() => {
         request={repeatScopeRequest()}
         onSelect={resolveRepeatScope}
         onClose={() => setRepeatScopeRequest(null)}
+      />
+
+      {/* COUNTRY HOLIDAYS PICKER */}
+      <CountryHolidaysModal
+        isOpen={holidaysModalOpen()}
+        onClose={() => setHolidaysModalOpen(false)}
       />
 
       {/* DELETE CONFIRMATION (guards against accidental data loss) */}
