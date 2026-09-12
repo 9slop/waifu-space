@@ -99,6 +99,7 @@ export class StrikeBabylonEngine {
   // Viewmodel & Remote Avatars
   public viewmodel: BabylonViewmodel;
   public remoteAvatars: Map<string | number, BabylonAvatarModel> = new Map();
+  public localShadowCaster: AbstractMesh | null = null;
 
   // Event listener references for leak-free disposal
   private boundPointerLockChange: (() => void) | null = null;
@@ -150,6 +151,18 @@ export class StrikeBabylonEngine {
 
     // 3. Build Kyoto Tactical Map (104x104m)
     this.mapData = createKyotoMap(this.scene);
+
+    // 3b. Local Player Shadow Caster
+    // Invisible to FPS camera via layerMask separation, but casts real-time shadow from the sun
+    const shadowProxy = MeshBuilder.CreateCapsule('localPlayerShadowProxy', { radius: 0.38, height: 1.72, subdivisions: 6 }, this.scene);
+    shadowProxy.isPickable = false;
+    shadowProxy.checkCollisions = false;
+    shadowProxy.layerMask = 0x20000000;
+    this.localShadowCaster = shadowProxy;
+
+    if (this.mapData?.shadowGenerator) {
+      this.mapData.shadowGenerator.addShadowCaster(shadowProxy);
+    }
 
     // 4. Viewmodel
     this.viewmodel = new BabylonViewmodel(this.scene, this.camera);
@@ -736,6 +749,17 @@ export class StrikeBabylonEngine {
     this.camera.position.y = this.playerCollider.position.y + (this.currentEyeHeight - 0.85);
     this.camera.position.z = this.playerCollider.position.z;
 
+    // Synchronize local player shadow caster position and crouching scale
+    if (this.localShadowCaster && this.playerCollider) {
+      this.localShadowCaster.position.x = this.playerCollider.position.x;
+      this.localShadowCaster.position.y = this.playerCollider.position.y;
+      this.localShadowCaster.position.z = this.playerCollider.position.z;
+      this.localShadowCaster.rotation.y = this.camera.rotation.y;
+      const targetScaleY = this.isCrouching ? 0.7 : 1.0;
+      this.localShadowCaster.scaling.y += (targetScaleY - this.localShadowCaster.scaling.y) * Math.min(1, dt * 14);
+      this.localShadowCaster.setEnabled(!this.isDead);
+    }
+
     // Viewmodel update
     const curSpeed = Math.hypot(this.velocity.x, this.velocity.z);
     this.viewmodel.update(dt, curSpeed > 0.5, curSpeed / maxSpeed);
@@ -793,6 +817,8 @@ export class StrikeBabylonEngine {
 
     // Dispose collider, viewmodel & avatars
     this.playerCollider?.dispose();
+    this.localShadowCaster?.dispose();
+    this.localShadowCaster = null;
     this.viewmodel.dispose();
     this.remoteAvatars.forEach((av) => av.dispose());
     this.remoteAvatars.clear();
