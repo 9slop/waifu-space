@@ -11,10 +11,13 @@ import {
   StrikeKeybindings,
   DEFAULT_KEYBINDINGS,
   StrikeGraphicsSettings,
-  DEFAULT_GRAPHICS_SETTINGS,
   GRAPHICS_PRESETS,
   GraphicsPreset,
-  ShadowQuality
+  ShadowQuality,
+  GrenadeType,
+  PlayerLoadout,
+  DEFAULT_LOADOUT,
+  GRENADE_CATALOG
 } from '../lib/strike/strike-types';
 import { WEAPON_CATALOG, strikeAudio } from '../lib/strike/strike-weapons';
 import { t } from '../lib/i18n';
@@ -31,10 +34,12 @@ const ACTION_LABELS: Record<keyof StrikeKeybindings, string> = {
   walk: 'Walk / Sneak',
   reload: 'Reload Weapon',
   quickswitch: 'Quickswitch Weapon',
-  weapon1: 'Primary (Rifle)',
-  weapon2: 'Secondary (Sniper)',
+  weapon1: 'Primary Weapon',
+  weapon2: 'Alternate Weapon',
   weapon3: 'Sidearm (Deagle)',
-  weapon4: 'Melee (Knife)',
+  weapon4: 'Melee (Knife / Katana)',
+  grenade: 'Throw Grenade',
+  loadout: 'Loadout Menu',
   scoreboard: 'Hold Scoreboard',
   fullscreen: 'Fullscreen'
 };
@@ -126,11 +131,11 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     }
   };
 
-  // Synchronize pause state: halt local player movement and shooting when in ESC menu
+  // Synchronize pause state: halt local player movement and shooting when in ESC or Loadout menu
   createEffect(() => {
     const eng = engine();
     if (eng) {
-      eng.setPaused(showEscMenu());
+      eng.setPaused(showEscMenu() || isLoadoutOpen());
     }
   });
 
@@ -142,6 +147,29 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [scoreboard, setScoreboard] = createSignal<ScoreboardPlayer[]>([]);
   const [connected, setConnected] = createSignal(false);
   const [peerCount, setPeerCount] = createSignal(0);
+
+  // Tactical Loadout & Grenades
+  const loadSavedLoadout = (): PlayerLoadout => {
+    try {
+      const saved = localStorage.getItem('waifu_strike_loadout');
+      if (saved) return { ...DEFAULT_LOADOUT, ...JSON.parse(saved) };
+    } catch {}
+    return { ...DEFAULT_LOADOUT };
+  };
+  const [loadout, setLoadout] = createSignal<PlayerLoadout>(loadSavedLoadout());
+  const [grenadeCount, setGrenadeCount] = createSignal(1);
+  const [grenadeType, setGrenadeType] = createSignal<GrenadeType>(loadout().grenade);
+  const [isInSmoke, setIsInSmoke] = createSignal(false);
+  const [isLoadoutOpen, setIsLoadoutOpen] = createSignal(false);
+
+  const updateLoadout = (partial: Partial<PlayerLoadout>) => {
+    const updated = { ...loadout(), ...partial };
+    setLoadout(updated);
+    try {
+      localStorage.setItem('waifu_strike_loadout', JSON.stringify(updated));
+    } catch {}
+    engine()?.setLoadout(updated);
+  };
 
   // Match Summary Data
   const [matchSummary, setMatchSummary] = createSignal<StrikeMatchStats | null>(null);
@@ -208,12 +236,32 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       },
       onToggleFullscreen: () => {
         toggleFullscreen();
+      },
+      onGrenadeCountChange: (count, type) => {
+        setGrenadeCount(count);
+        setGrenadeType(type);
+      },
+      onSmokeChange: (inSmoke) => {
+        setIsInSmoke(inSmoke);
+      },
+      onLocalGrenadeThrow: (type, origin, velocity) => {
+        net?.broadcastGrenadeThrow(type, origin, velocity);
+      },
+      onLoadoutToggle: (visible) => {
+        if (showControlsOverlay() || showSummaryModal()) return;
+        if (visible) {
+          if (typeof document !== 'undefined' && document.pointerLockElement) {
+            document.exitPointerLock?.();
+          }
+        }
+        setIsLoadoutOpen(visible);
       }
     });
 
     eng.setSensitivity(mouseSens());
     eng.setKeybindings(keybindings());
     eng.setGraphicsSettings(graphicsSettings());
+    eng.setLoadout(loadout());
 
     const weatherManager = new StrikeWeatherManager(eng.scene, eng.camera, (w) => {
       setWeather(w);
@@ -267,7 +315,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
     const handlePointerLockChange = () => {
       if (isClosingEscMenu) return;
       const plEl = document.pointerLockElement || (document as any).mozPointerLockElement;
-      if (!plEl && !showControlsOverlay() && !showSummaryModal() && !isChatOpen()) {
+      if (!plEl && !showControlsOverlay() && !showSummaryModal() && !isChatOpen() && !isLoadoutOpen()) {
         setShowEscMenu(true);
       }
     };
@@ -293,7 +341,18 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
 
       if (showControlsOverlay() || showSummaryModal()) return;
 
-      if ((e.code === 'Enter' || e.code === 'KeyT') && !isChatOpen() && !showEscMenu()) {
+      if ((e.code === (keybindings().loadout || 'KeyB')) && !isChatOpen() && !showEscMenu()) {
+        e.preventDefault();
+        if (isLoadoutOpen()) {
+          setIsLoadoutOpen(false);
+          engine()?.requestPointerLock();
+        } else {
+          if (typeof document !== 'undefined' && document.pointerLockElement) {
+            document.exitPointerLock?.();
+          }
+          setIsLoadoutOpen(true);
+        }
+      } else if ((e.code === 'Enter' || e.code === 'KeyT') && !isChatOpen() && !showEscMenu() && !isLoadoutOpen()) {
         e.preventDefault();
         if (typeof document !== 'undefined' && document.pointerLockElement) {
           document.exitPointerLock?.();
@@ -307,6 +366,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         if (isChatOpen()) {
           setIsChatOpen(false);
           setChatInputText('');
+          engine()?.requestPointerLock();
+        } else if (isLoadoutOpen()) {
+          setIsLoadoutOpen(false);
           engine()?.requestPointerLock();
         } else if (showEscMenu()) {
           closeEscMenu();
@@ -523,6 +585,38 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           class="strike-damage-vignette"
           style={{ opacity: damageVignette().toFixed(2) }}
         />
+      </Show>
+
+      {/* Dense Tactical Smoke View Obstruction */}
+      <Show when={isInSmoke()}>
+        <div
+          class="strike-smoke-overlay"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            'z-index': 18,
+            'pointer-events': 'none',
+            background: 'radial-gradient(circle, rgba(215, 222, 232, 0.94) 0%, rgba(170, 180, 195, 0.97) 100%)',
+            'backdrop-filter': 'blur(14px)',
+            transition: 'opacity 0.25s ease'
+          }}
+        >
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            'align-items': 'center',
+            'justify-content': 'center',
+            opacity: 0.35,
+            color: '#334155',
+            'font-family': 'monospace',
+            'font-size': '11px',
+            'font-weight': 'bold',
+            'letter-spacing': '0.25em'
+          }}>
+            [ VISION OBSTRUCTED - SMOKE SCREEN ]
+          </div>
+        </div>
       </Show>
 
       {/* ESC Pause & Settings Menu */}
@@ -937,18 +1031,18 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         {/* Weapons Selector Bar */}
         <div class="hud-weapons-bar">
           <div
-            class={`hud-weapon-slot ${activeWeapon().id === 'rifle' ? 'active' : ''}`}
-            onClick={() => engine()?.switchWeapon('rifle')}
+            class={`hud-weapon-slot ${activeWeapon().id === loadout().primary ? 'active' : ''}`}
+            onClick={() => engine()?.switchWeapon(loadout().primary)}
           >
             <span class="hud-slot-key">[1]</span>
-            <span>Rifle</span>
+            <span>{loadout().primary === 'rifle' ? 'Rifle' : 'Railgun'}</span>
           </div>
           <div
-            class={`hud-weapon-slot ${activeWeapon().id === 'sniper' ? 'active' : ''}`}
-            onClick={() => engine()?.switchWeapon('sniper')}
+            class={`hud-weapon-slot ${(loadout().primary === 'rifle' ? activeWeapon().id === 'sniper' : activeWeapon().id === 'rifle') ? 'active' : ''}`}
+            onClick={() => engine()?.switchWeapon(loadout().primary === 'rifle' ? 'sniper' : 'rifle')}
           >
             <span class="hud-slot-key">[2]</span>
-            <span>Sniper</span>
+            <span>{loadout().primary === 'rifle' ? 'Railgun' : 'Rifle'}</span>
           </div>
           <div
             class={`hud-weapon-slot ${activeWeapon().id === 'pistol' ? 'active' : ''}`}
@@ -958,11 +1052,27 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
             <span>Deagle</span>
           </div>
           <div
-            class={`hud-weapon-slot ${activeWeapon().id === 'knife' ? 'active' : ''}`}
-            onClick={() => engine()?.switchWeapon('knife')}
+            class={`hud-weapon-slot ${activeWeapon().id === loadout().melee ? 'active' : ''}`}
+            onClick={() => engine()?.switchWeapon(loadout().melee)}
           >
             <span class="hud-slot-key">[4]</span>
-            <span>Knife</span>
+            <span>{loadout().melee === 'katana' ? 'Katana' : 'Knife'}</span>
+          </div>
+          <div
+            class={`hud-weapon-slot ${grenadeCount() > 0 ? '' : 'disabled'}`}
+            title="Press G to throw grenade"
+            onClick={() => engine()?.throwGrenade()}
+          >
+            <span class="hud-slot-key">[G]</span>
+            <span>{GRENADE_CATALOG[loadout().grenade]?.icon || '💣'} x{grenadeCount()}</span>
+          </div>
+          <div
+            class="hud-weapon-slot"
+            title="Press B to customize loadout"
+            onClick={() => setIsLoadoutOpen(true)}
+          >
+            <span class="hud-slot-key">[B]</span>
+            <span>Loadout</span>
           </div>
         </div>
 
@@ -970,9 +1080,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         <div class="hud-ammo-card">
           <div>
             <span class="hud-ammo-mag">
-              {activeWeapon().id === 'knife' ? '∞' : ammo().mag}
+              {activeWeapon().id === 'knife' || activeWeapon().id === 'katana' ? '∞' : ammo().mag}
             </span>
-            <Show when={activeWeapon().id !== 'knife'}>
+            <Show when={activeWeapon().id !== 'knife' && activeWeapon().id !== 'katana'}>
               <span class="hud-ammo-reserve">/ {ammo().reserve}</span>
             </Show>
           </div>

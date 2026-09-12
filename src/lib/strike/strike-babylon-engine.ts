@@ -20,11 +20,15 @@ import {
   StrikeKeybindings,
   DEFAULT_KEYBINDINGS,
   StrikeGraphicsSettings,
-  DEFAULT_GRAPHICS_SETTINGS
+  DEFAULT_GRAPHICS_SETTINGS,
+  GrenadeType,
+  PlayerLoadout,
+  DEFAULT_LOADOUT
 } from './strike-types';
 import { WEAPON_CATALOG, strikeAudio } from './strike-weapons';
 import { createKyotoMap, BabylonMapData } from './strike-babylon-map';
 import { BabylonViewmodel, BabylonAvatarModel } from './strike-babylon-avatars';
+import { StrikeGrenadeManager } from './strike-grenades';
 
 export interface StrikeBabylonCallbacks {
   onHealthChange: (hp: number, maxHp: number) => void;
@@ -39,6 +43,10 @@ export interface StrikeBabylonCallbacks {
   onToggleFullscreen?: () => void;
   onDamageReceived?: (damage: number, currentHp: number) => void;
   onEscapeMenuToggle?: (visible: boolean) => void;
+  onGrenadeCountChange?: (count: number, type: GrenadeType) => void;
+  onLocalGrenadeThrow?: (type: GrenadeType, origin: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }) => void;
+  onLoadoutToggle?: (visible: boolean) => void;
+  onSmokeChange?: (inSmoke: boolean) => void;
 }
 
 export class StrikeBabylonEngine {
@@ -115,6 +123,10 @@ export class StrikeBabylonEngine {
   public bulletMarks: AbstractMesh[] = [];
   private bulletMarkMaterial: StandardMaterial | null = null;
   public glowLayer: GlowLayer | null = null;
+  public grenadeManager: StrikeGrenadeManager;
+  public grenadeCount: number = 1;
+  public loadout: PlayerLoadout = { ...DEFAULT_LOADOUT };
+  private lastInSmoke: boolean = false;
 
   // Event listener references for leak-free disposal
   private boundPointerLockChange: (() => void) | null = null;
@@ -181,6 +193,16 @@ export class StrikeBabylonEngine {
 
     // 4. Viewmodel
     this.viewmodel = new BabylonViewmodel(this.scene, this.camera);
+
+    // 4.5 Tactical Grenade Manager (Molotov, Smoke, HE Explosive)
+    this.grenadeManager = new StrikeGrenadeManager(this.scene, {
+      onDamageLocalPlayer: (dmg, source) => {
+        this.applyDamage(dmg, source);
+      },
+      onExplosionShake: (trauma) => {
+        this.screenShakeTrauma = Math.min(1.0, this.screenShakeTrauma + trauma);
+      }
+    });
 
     // 5. Setup Input & Resize Listeners
     this.setupInputs();
@@ -305,10 +327,14 @@ export class StrikeBabylonEngine {
       }
       this.keysDown[e.code] = true;
       if (e.code === this.keybindings.reload) this.reload();
-      if (e.code === this.keybindings.weapon1) this.switchWeapon('rifle');
-      if (e.code === this.keybindings.weapon2) this.switchWeapon('sniper');
-      if (e.code === this.keybindings.weapon3) this.switchWeapon('pistol');
-      if (e.code === this.keybindings.weapon4) this.switchWeapon('knife');
+      if (e.code === this.keybindings.weapon1) this.switchWeapon(this.loadout.primary);
+      if (e.code === this.keybindings.weapon2) this.switchWeapon(this.loadout.primary === 'rifle' ? 'sniper' : 'rifle');
+      if (e.code === this.keybindings.weapon3) this.switchWeapon(this.loadout.secondary);
+      if (e.code === this.keybindings.weapon4) this.switchWeapon(this.loadout.melee);
+      if (e.code === this.keybindings.grenade) this.throwGrenade();
+      if (e.code === this.keybindings.loadout) {
+        this.callbacks.onLoadoutToggle?.(true);
+      }
       if (e.code === this.keybindings.quickswitch) this.switchWeapon(this.lastWeaponId);
       if (e.code === this.keybindings.fullscreen) {
         this.callbacks.onToggleFullscreen?.();
@@ -489,8 +515,36 @@ export class StrikeBabylonEngine {
     this.ammoMag = { rifle: 30, sniper: 5, pistol: 7, knife: 1, katana: 1 };
     this.ammoReserve = { rifle: 90, sniper: 25, pistol: 35, knife: 1, katana: 1 };
 
+    // Replenish tactical grenade according to loadout
+    this.grenadeCount = 1;
+    this.callbacks.onGrenadeCountChange?.(this.grenadeCount, this.loadout.grenade);
+
     this.callbacks.onHealthChange(this.health, this.maxHealth);
     this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
+  }
+
+  public setLoadout(loadout: Partial<PlayerLoadout>) {
+    this.loadout = { ...this.loadout, ...loadout };
+    this.callbacks.onGrenadeCountChange?.(this.grenadeCount, this.loadout.grenade);
+  }
+
+  public throwGrenade() {
+    if (!this.isPlaying || this.isDead || this.isPaused || this.grenadeCount <= 0) return;
+    this.grenadeCount--;
+    this.callbacks.onGrenadeCountChange?.(this.grenadeCount, this.loadout.grenade);
+
+    const fwdRay = this.camera.getForwardRay(1.0);
+    const origin = this.camera.position.add(fwdRay.direction.scale(0.35)).add(new Vector3(0, -0.1, 0));
+    // Lofted throwing arc: 15.5 m/s forward + 2.8 m/s upward
+    const velocity = fwdRay.direction.scale(15.5).add(new Vector3(0, 2.8, 0));
+
+    this.grenadeManager.throwGrenade(this.loadout.grenade, origin, velocity, 'local');
+
+    this.callbacks.onLocalGrenadeThrow?.(
+      this.loadout.grenade,
+      { x: origin.x, y: origin.y, z: origin.z },
+      { x: velocity.x, y: velocity.y, z: velocity.z }
+    );
   }
 
   public switchWeapon(id: WeaponId) {
@@ -876,6 +930,13 @@ export class StrikeBabylonEngine {
   private update(dt: number) {
     this.elapsedGameTime += dt;
     this.mapData?.updateDayNightCycle?.(this.elapsedGameTime);
+    this.grenadeManager.update(dt, this.playerCollider ? this.playerCollider.position : this.camera.position);
+
+    const inSmoke = this.grenadeManager.isPositionInSmoke(this.camera.position);
+    if (inSmoke !== this.lastInSmoke) {
+      this.lastInSmoke = inSmoke;
+      this.callbacks.onSmokeChange?.(inSmoke);
+    }
 
     if (!this.isPlaying || this.isDead) return;
 
@@ -1204,6 +1265,7 @@ export class StrikeBabylonEngine {
       this.glowLayer.dispose();
       this.glowLayer = null;
     }
+    this.grenadeManager.dispose();
     this.viewmodel.dispose();
     this.remoteAvatars.forEach((av) => av.dispose());
     this.remoteAvatars.clear();

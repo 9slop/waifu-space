@@ -98,7 +98,7 @@ if (typeof window !== 'undefined') {
     createGain() {
       return {
         connect: () => {},
-        gain: { setValueAtTime: () => {}, linearRampToValueAtTime: () => {} }
+        gain: { setValueAtTime: () => {}, linearRampToValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }
       };
     }
     destination = {};

@@ -8,7 +8,9 @@ import {
   P2PSignalPayload,
   P2PPlayerState,
   P2PShootEvent,
-  StrikeChatMessage
+  StrikeChatMessage,
+  GrenadeType,
+  P2PGrenadeThrowEvent
 } from './strike-types';
 import { StrikeBabylonEngine } from './strike-babylon-engine';
 import { BabylonAvatarModel } from './strike-babylon-avatars';
@@ -207,6 +209,10 @@ export class StrikeP2PManager {
 
       this.channel.on('broadcast', { event: 'p2p-chat' }, ({ payload }) => {
         this.handleIncomingChat(payload);
+      });
+
+      this.channel.on('broadcast', { event: 'p2p-grenade-throw' }, ({ payload }) => {
+        this.handleRemoteGrenadeThrow(payload);
       });
 
       this.channel.subscribe(async (status) => {
@@ -525,6 +531,8 @@ export class StrikeP2PManager {
           this.handleRemoteShoot(wrapper, data.shoot);
         } else if (data.type === 'chat') {
           this.handleIncomingChat(data.chat);
+        } else if (data.type === 'grenade_throw') {
+          this.handleRemoteGrenadeThrow(data.grenade);
         } else if (data.type === 'tracer') {
           if (data.weaponId && data.weaponId !== 'knife') {
             const camPos = this.engine.camera.position;
@@ -1090,5 +1098,58 @@ export class StrikeP2PManager {
       timestamp: Number(payload.timestamp) || Date.now()
     };
     this.callbacks.onChatMessage?.(chatMsg);
+  }
+
+  public broadcastGrenadeThrow(
+    type: GrenadeType,
+    origin: { x: number; y: number; z: number },
+    velocity: { x: number; y: number; z: number }
+  ) {
+    const payload: P2PGrenadeThrowEvent = {
+      throwerId: this.myPeerId,
+      type,
+      origin,
+      velocity,
+      timestamp: Date.now()
+    };
+
+    // 1. Supabase Realtime broadcast
+    if (this.channel) {
+      this.channel.send({
+        type: 'broadcast',
+        event: 'p2p-grenade-throw',
+        payload
+      });
+    }
+
+    // 2. Direct WebRTC DataChannel send
+    const packet = JSON.stringify({ type: 'grenade_throw', grenade: payload });
+    this.peers.forEach((p) => {
+      if (p.dc && p.dc.readyState === 'open') {
+        try {
+          p.dc.send(packet);
+        } catch {}
+      }
+    });
+  }
+
+  public handleRemoteGrenadeThrow(payload: any) {
+    if (!payload || typeof payload !== 'object') return;
+    if (payload.throwerId === this.myPeerId) return;
+    if (this.engine.isDisposed || !this.engine.scene) return;
+
+    const type: GrenadeType = payload.type === 'molotov' || payload.type === 'smoke' || payload.type === 'he' ? payload.type : 'he';
+    const origin = new Vector3(
+      Number(payload.origin?.x) || 0,
+      Number(payload.origin?.y) || 1.6,
+      Number(payload.origin?.z) || 0
+    );
+    const velocity = new Vector3(
+      Number(payload.velocity?.x) || 0,
+      Number(payload.velocity?.y) || 0,
+      Number(payload.velocity?.z) || 0
+    );
+
+    this.engine.grenadeManager.throwGrenade(type, origin, velocity, payload.throwerId || 'remote');
   }
 }

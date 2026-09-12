@@ -386,6 +386,160 @@ class ProceduralAudioEngine {
     click2.stop(t + 0.47);
   }
 
+  public playGrenadePin() {
+    const ctx = this.getContext();
+    if (!ctx || !this.masterGain) return;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1400, t);
+    osc.frequency.exponentialRampToValueAtTime(3200, t + 0.04);
+    g.gain.setValueAtTime(0.3, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    osc.connect(g);
+    g.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.04);
+  }
+
+  public playGrenadeBounce(spatial?: SpatialAudioParams) {
+    const ctx = this.getContext();
+    if (!ctx || !this.masterGain) return;
+    const dest = this.createSpatialNode(ctx, spatial);
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(520, t);
+    osc.frequency.exponentialRampToValueAtTime(180, t + 0.05);
+    g.gain.setValueAtTime(0.25, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    osc.connect(g);
+    g.connect(dest.input);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+
+  public playExplosion(spatial?: SpatialAudioParams) {
+    const ctx = this.getContext();
+    if (!ctx || !this.masterGain) return;
+    const dest = this.createSpatialNode(ctx, spatial);
+    const t = ctx.currentTime;
+
+    // Sub-bass detonation thump
+    const bass = ctx.createOscillator();
+    const bg = ctx.createGain();
+    bass.type = 'triangle';
+    bass.frequency.setValueAtTime(160, t);
+    bass.frequency.exponentialRampToValueAtTime(35, t + 0.65);
+    bg.gain.setValueAtTime(0.9, t);
+    bg.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+    bass.connect(bg);
+    bg.connect(dest.input);
+    bass.start(t);
+    bass.stop(t + 0.65);
+
+    // Shockwave crack
+    if (typeof ctx.createBuffer === 'function') {
+      const bufferSize = ctx.sampleRate * 0.4;
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(850, t);
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.85, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      noise.connect(filter);
+      filter.connect(ng);
+      ng.connect(dest.input);
+      noise.start(t);
+      noise.stop(t + 0.4);
+    }
+  }
+
+  public playFireIgnite(spatial?: SpatialAudioParams) {
+    const ctx = this.getContext();
+    if (!ctx || !this.masterGain) return;
+    const dest = this.createSpatialNode(ctx, spatial);
+    const t = ctx.currentTime;
+
+    // Glass shatter clink
+    const clink = ctx.createOscillator();
+    const cg = ctx.createGain();
+    clink.type = 'sine';
+    clink.frequency.setValueAtTime(2400, t);
+    clink.frequency.exponentialRampToValueAtTime(800, t + 0.08);
+    cg.gain.setValueAtTime(0.35, t);
+    cg.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    clink.connect(cg);
+    cg.connect(dest.input);
+    clink.start(t);
+    clink.stop(t + 0.08);
+
+    // Fire whoosh
+    const whoosh = ctx.createOscillator();
+    const wg = ctx.createGain();
+    whoosh.type = 'triangle';
+    whoosh.frequency.setValueAtTime(320, t + 0.04);
+    whoosh.frequency.exponentialRampToValueAtTime(90, t + 0.55);
+    wg.gain.setValueAtTime(0.5, t + 0.04);
+    wg.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+    whoosh.connect(wg);
+    wg.connect(dest.input);
+    whoosh.start(t + 0.04);
+    whoosh.stop(t + 0.55);
+  }
+
+  public playSmokePop(spatial?: SpatialAudioParams) {
+    const ctx = this.getContext();
+    if (!ctx || !this.masterGain) return;
+    const dest = this.createSpatialNode(ctx, spatial);
+    const t = ctx.currentTime;
+
+    // Canister pop
+    const pop = ctx.createOscillator();
+    const pg = ctx.createGain();
+    pop.type = 'sine';
+    pop.frequency.setValueAtTime(380, t);
+    pop.frequency.exponentialRampToValueAtTime(110, t + 0.07);
+    pg.gain.setValueAtTime(0.4, t);
+    pg.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+    pop.connect(pg);
+    pg.connect(dest.input);
+    pop.start(t);
+    pop.stop(t + 0.07);
+
+    // Sustained gas hiss
+    if (typeof ctx.createBuffer === 'function') {
+      const bufferSize = ctx.sampleRate * 0.8;
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(1400, t);
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.35, t + 0.05);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+      noise.connect(filter);
+      filter.connect(ng);
+      ng.connect(dest.input);
+      noise.start(t + 0.05);
+      noise.stop(t + 0.8);
+    }
+  }
+
 }
 
 export const strikeAudio = new ProceduralAudioEngine();

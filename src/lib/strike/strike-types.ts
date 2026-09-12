@@ -121,6 +121,8 @@ export interface StrikeKeybindings {
   weapon2: string;
   weapon3: string;
   weapon4: string;
+  grenade: string;
+  loadout: string;
   scoreboard: string;
   fullscreen: string;
 }
@@ -139,6 +141,8 @@ export const DEFAULT_KEYBINDINGS: StrikeKeybindings = {
   weapon2: 'Digit2',
   weapon3: 'Digit3',
   weapon4: 'Digit4',
+  grenade: 'KeyG',
+  loadout: 'KeyB',
   scoreboard: 'Tab',
   fullscreen: 'KeyF'
 };
@@ -273,6 +277,85 @@ export interface P2PShootEvent {
   part?: 'head' | 'torso' | 'limb';
   damage: number;
   seq?: number;
+  timestamp?: number;
+}
+
+export type GrenadeType = 'molotov' | 'smoke' | 'he';
+
+export interface GrenadeDef {
+  type: GrenadeType;
+  name: string;
+  icon: string;
+  description: string;
+  fuseTimeMs: number;
+  radius: number;
+  duration: number;
+  damagePerSecond?: number;
+  damagePerTick?: number;
+  tickIntervalMs?: number;
+  centerDamage?: number;
+  blastRadius?: number;
+  color: string;
+}
+
+export const GRENADE_CATALOG: Record<GrenadeType, GrenadeDef> = {
+  molotov: {
+    type: 'molotov',
+    name: 'Kitsune Molotov',
+    icon: '🍾',
+    description: 'Ground fire zone dealing 20 dmg/s (5 dmg per 0.25s) for 6 seconds',
+    fuseTimeMs: 0,
+    radius: 4.5,
+    duration: 6.0,
+    damagePerSecond: 20,
+    damagePerTick: 5,
+    tickIntervalMs: 250,
+    color: '#ff7675'
+  },
+  smoke: {
+    type: 'smoke',
+    name: 'Mist Veil Smoke',
+    icon: '💨',
+    description: 'Expanding smoke screen obstructing view for 16 seconds',
+    fuseTimeMs: 1500,
+    radius: 5.5,
+    duration: 16.0,
+    damagePerSecond: 0,
+    color: '#dfe6e9'
+  },
+  he: {
+    type: 'he',
+    name: 'Type-97 HE Grenade',
+    icon: '💣',
+    description: 'High explosive frag dealing up to 100 damage at epicenter',
+    fuseTimeMs: 1800,
+    radius: 6.5,
+    duration: 0.4,
+    centerDamage: 100,
+    blastRadius: 6.5,
+    color: '#fdcb6e'
+  }
+};
+
+export interface PlayerLoadout {
+  primary: 'rifle' | 'sniper';
+  secondary: 'pistol';
+  melee: 'knife' | 'katana';
+  grenade: GrenadeType;
+}
+
+export const DEFAULT_LOADOUT: PlayerLoadout = {
+  primary: 'rifle',
+  secondary: 'pistol',
+  melee: 'knife',
+  grenade: 'molotov'
+};
+
+export interface P2PGrenadeThrowEvent {
+  shooterId: string;
+  type: GrenadeType;
+  origin: Vector3D;
+  velocity: Vector3D;
   timestamp?: number;
 }
 
