@@ -13,6 +13,7 @@ import {
   Texture,
   ShadowGenerator
 } from '@babylonjs/core';
+import { ShadowQuality } from './strike-types';
 
 export interface BabylonSpawnPoint {
   position: Vector3;
@@ -26,6 +27,7 @@ export interface BabylonMapData {
   sunLight?: DirectionalLight;
   hemiLight?: HemisphericLight;
   setRtxShadows?: (enabled: boolean) => void;
+  setShadowQuality?: (quality: ShadowQuality) => void;
   updateDayNightCycle?: (elapsedSeconds: number) => void;
 }
 
@@ -1755,6 +1757,40 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     }
   };
 
+  const setShadowQuality = (quality: ShadowQuality) => {
+    if (!shadowGen) return;
+    try {
+      const sm = shadowGen.getShadowMap();
+      if (quality === 'off') {
+        if (sm) sm.refreshRate = 0; // Completely skip shadow pass for maximum FPS on low-end hardware
+        shadowGen.darkness = 0;
+      } else if (quality === 'low') {
+        if (sm) sm.refreshRate = 1;
+        shadowGen.useContactHardeningShadow = false;
+        shadowGen.usePoissonSampling = true;
+        shadowGen.filteringQuality = ShadowGenerator.QUALITY_LOW;
+        shadowGen.darkness = 0.35;
+        shadowGen.bias = 0.0025;
+      } else if (quality === 'medium') {
+        if (sm) sm.refreshRate = 1;
+        shadowGen.useContactHardeningShadow = false;
+        shadowGen.usePoissonSampling = true;
+        shadowGen.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
+        shadowGen.darkness = 0.45;
+        shadowGen.bias = 0.0015;
+      } else if (quality === 'rtx') {
+        if (sm) sm.refreshRate = 1;
+        shadowGen.useContactHardeningShadow = true;
+        shadowGen.contactHardeningLightSizeUVRatio = 0.08;
+        shadowGen.filteringQuality = ShadowGenerator.QUALITY_HIGH;
+        shadowGen.darkness = 0.55;
+        shadowGen.bias = 0.0005;
+      }
+    } catch (err) {
+      console.warn('[KyotoMap] Error setting shadow quality:', err);
+    }
+  };
+
   const CYCLE_DURATION = 1440; // 24 minutes in seconds
 
   const updateDayNightCycle = (elapsedSeconds: number) => {
@@ -1834,6 +1870,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     sunLight,
     hemiLight,
     setRtxShadows,
+    setShadowQuality,
     updateDayNightCycle
   };
 }

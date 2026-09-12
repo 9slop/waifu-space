@@ -143,6 +143,57 @@ export const DEFAULT_KEYBINDINGS: StrikeKeybindings = {
   fullscreen: 'KeyF'
 };
 
+export type GraphicsPreset = 'low' | 'medium' | 'high' | 'ultra';
+export type ShadowQuality = 'off' | 'low' | 'medium' | 'rtx';
+
+export interface StrikeGraphicsSettings {
+  preset: GraphicsPreset;
+  shadows: ShadowQuality;
+  renderScale: number; // 0.75, 1.0, 1.25
+  anisotropicFiltering: number; // 1, 2, 4, 8
+  fov: number; // 65 - 105 degrees (horizontal)
+  postProcessing: boolean;
+}
+
+export const GRAPHICS_PRESETS: Record<GraphicsPreset, StrikeGraphicsSettings> = {
+  low: {
+    preset: 'low',
+    shadows: 'off',
+    renderScale: 1.0,
+    anisotropicFiltering: 1,
+    fov: 85,
+    postProcessing: false
+  },
+  medium: {
+    preset: 'medium',
+    shadows: 'low',
+    renderScale: 1.0,
+    anisotropicFiltering: 2,
+    fov: 85,
+    postProcessing: true
+  },
+  high: {
+    preset: 'high',
+    shadows: 'medium',
+    renderScale: 1.0,
+    anisotropicFiltering: 4,
+    fov: 85,
+    postProcessing: true
+  },
+  ultra: {
+    preset: 'ultra',
+    shadows: 'rtx',
+    renderScale: 1.25,
+    anisotropicFiltering: 8,
+    fov: 85,
+    postProcessing: true
+  }
+};
+
+export const DEFAULT_GRAPHICS_SETTINGS: StrikeGraphicsSettings = {
+  ...GRAPHICS_PRESETS.low
+};
+
 export interface StrikeMatchStats {
   kills: number;
   deaths: number;

@@ -39,4 +39,29 @@ describe('Strike Settings & Keybindings', () => {
     expect(DEFAULT_KEYBINDINGS.quickswitch).toBe('KeyQ');
     expect(DEFAULT_KEYBINDINGS.scoreboard).toBe('Tab');
   });
+
+  it('defaults graphics settings to low for universal hardware accessibility', async () => {
+    const { DEFAULT_GRAPHICS_SETTINGS, GRAPHICS_PRESETS } = await import('../../src/lib/strike/strike-types');
+    expect(DEFAULT_GRAPHICS_SETTINGS.preset).toBe('low');
+    expect(DEFAULT_GRAPHICS_SETTINGS.shadows).toBe('off');
+    expect(DEFAULT_GRAPHICS_SETTINGS.renderScale).toBe(1.0);
+    expect(DEFAULT_GRAPHICS_SETTINGS.anisotropicFiltering).toBe(1);
+
+    expect(GRAPHICS_PRESETS.low.shadows).toBe('off');
+    expect(GRAPHICS_PRESETS.medium.shadows).toBe('low');
+    expect(GRAPHICS_PRESETS.high.shadows).toBe('medium');
+    expect(GRAPHICS_PRESETS.ultra.shadows).toBe('rtx');
+  });
+
+  it('exposes setShadowQuality on Kyoto map data without throwing', () => {
+    const mapData = createKyotoMap(scene);
+    expect(mapData.setShadowQuality).toBeDefined();
+
+    expect(() => {
+      mapData.setShadowQuality?.('off');
+      mapData.setShadowQuality?.('low');
+      mapData.setShadowQuality?.('medium');
+      mapData.setShadowQuality?.('rtx');
+    }).not.toThrow();
+  });
 });

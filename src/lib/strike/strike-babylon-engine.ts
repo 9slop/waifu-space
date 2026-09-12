@@ -14,10 +14,11 @@ import {
   WeaponId,
   WeaponDef,
   HitscanRay,
-  HitscanHitResult,
   StrikeMatchStats,
   StrikeKeybindings,
-  DEFAULT_KEYBINDINGS
+  DEFAULT_KEYBINDINGS,
+  StrikeGraphicsSettings,
+  DEFAULT_GRAPHICS_SETTINGS
 } from './strike-types';
 import { WEAPON_CATALOG, strikeAudio } from './strike-weapons';
 import { createKyotoMap, BabylonMapData } from './strike-babylon-map';
@@ -101,6 +102,7 @@ export class StrikeBabylonEngine {
   private mouseButtons: Record<number, boolean> = {};
   public mouseSensitivity = 0.0012; // Default 1.2 sensitivity
   public defaultFov = 1.25; // ~72 deg vertical in radians (standard 85 deg horizontal)
+  public graphicsSettings: StrikeGraphicsSettings = { ...DEFAULT_GRAPHICS_SETTINGS };
 
   // Viewmodel & Remote Avatars
   public viewmodel: BabylonViewmodel;
@@ -187,10 +189,49 @@ export class StrikeBabylonEngine {
       this.scene.render();
     });
 
+    // Apply initial graphics settings (default: Low for smooth playability across all hardware)
+    this.setGraphicsSettings(DEFAULT_GRAPHICS_SETTINGS);
+
     // Notify initial state
     this.callbacks.onHealthChange(this.health, this.maxHealth);
     this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
     this.callbacks.onWeaponChange(WEAPON_CATALOG[this.activeWeaponId]);
+  }
+
+  public setGraphicsSettings(settings: Partial<StrikeGraphicsSettings>) {
+    this.graphicsSettings = { ...this.graphicsSettings, ...settings };
+
+    // 1. Shadow Quality
+    if (this.mapData?.setShadowQuality) {
+      this.mapData.setShadowQuality(this.graphicsSettings.shadows);
+    } else if (this.mapData?.setRtxShadows) {
+      this.mapData.setRtxShadows(this.graphicsSettings.shadows === 'rtx');
+    }
+
+    // 2. Hardware Render Scale (0.75, 1.0, 1.25)
+    if (this.engine) {
+      const scale = Math.max(0.5, Math.min(2.0, this.graphicsSettings.renderScale || 1.0));
+      this.engine.setHardwareScalingLevel(1.0 / scale);
+    }
+
+    // 3. Dynamic Field of View
+    if (this.camera) {
+      const hFov = Math.max(65, Math.min(105, this.graphicsSettings.fov || 85));
+      const hFovRad = (hFov * Math.PI) / 180;
+      const vFovRad = 2 * Math.atan(Math.tan(hFovRad / 2) * (9 / 16));
+      this.defaultFov = vFovRad;
+      if (!this.isScoped) {
+        this.camera.fov = vFovRad;
+      }
+    }
+
+    // 4. Anisotropic Texture Filtering
+    if (this.scene) {
+      const filterLevel = this.graphicsSettings.anisotropicFiltering || 1;
+      for (const tex of this.scene.textures) {
+        tex.anisotropicFilteringLevel = filterLevel;
+      }
+    }
   }
 
   public startPlaying() {
