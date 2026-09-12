@@ -2,11 +2,49 @@ import { createSignal, onMount, onCleanup, For, Show } from 'solid-js';
 import { StrikeBabylonEngine } from '../lib/strike/strike-babylon-engine';
 import { StrikeP2PManager } from '../lib/strike/strike-p2p';
 import { StrikeWeatherManager, WeatherType } from '../lib/strike/strike-weather';
-import { WeaponDef, ScoreboardPlayer, KillfeedEntry, StrikeMatchStats, StrikeChatMessage } from '../lib/strike/strike-types';
+import {
+  WeaponDef,
+  ScoreboardPlayer,
+  KillfeedEntry,
+  StrikeMatchStats,
+  StrikeChatMessage,
+  StrikeKeybindings,
+  DEFAULT_KEYBINDINGS
+} from '../lib/strike/strike-types';
 import { WEAPON_CATALOG, strikeAudio } from '../lib/strike/strike-weapons';
 import { t } from '../lib/i18n';
 import { state, addCoins, gainBondExp } from '../lib/store';
 import '../styles/strike.css';
+
+const ACTION_LABELS: Record<keyof StrikeKeybindings, string> = {
+  forward: 'Move Forward',
+  backward: 'Move Backward',
+  left: 'Strafe Left',
+  right: 'Strafe Right',
+  jump: 'Jump',
+  crouch: 'Crouch',
+  walk: 'Walk / Sneak',
+  reload: 'Reload Weapon',
+  quickswitch: 'Quickswitch Weapon',
+  weapon1: 'Primary (Rifle)',
+  weapon2: 'Secondary (Sniper)',
+  weapon3: 'Sidearm (Deagle)',
+  weapon4: 'Melee (Knife)',
+  scoreboard: 'Hold Scoreboard',
+  fullscreen: 'Fullscreen'
+};
+
+function formatKeyName(code: string): string {
+  if (!code) return '';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code === 'Space') return 'Space';
+  if (code === 'ControlLeft' || code === 'ControlRight') return 'Ctrl';
+  if (code === 'ShiftLeft' || code === 'ShiftRight') return 'Shift';
+  if (code === 'AltLeft' || code === 'AltRight') return 'Alt';
+  if (code === 'Tab') return 'Tab';
+  return code;
+}
 
 interface WaifuStrikeGameProps {
   onExit?: () => void;
@@ -33,6 +71,23 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [showScoreboard, setShowScoreboard] = createSignal(false);
   const [showSummaryModal, setShowSummaryModal] = createSignal(false);
   const [isFullscreen, setIsFullscreen] = createSignal(false);
+
+  // ESC Pause Menu & Key Rebinding
+  const loadSavedKeybindings = (): StrikeKeybindings => {
+    try {
+      const saved = localStorage.getItem('waifu_strike_keybindings');
+      if (saved) return { ...DEFAULT_KEYBINDINGS, ...JSON.parse(saved) };
+    } catch {}
+    return { ...DEFAULT_KEYBINDINGS };
+  };
+  const [keybindings, setKeybindings] = createSignal<StrikeKeybindings>(loadSavedKeybindings());
+  const [rebindingAction, setRebindingAction] = createSignal<keyof StrikeKeybindings | null>(null);
+  const [showEscMenu, setShowEscMenu] = createSignal(false);
+
+  // RTX Shadows
+  const [rtxShadows, setRtxShadows] = createSignal(
+    typeof localStorage !== 'undefined' ? localStorage.getItem('waifu_strike_rtx') === 'true' : false
+  );
 
   const [killfeed, setKillfeed] = createSignal<KillfeedEntry[]>([]);
   const [medal, setMedal] = createSignal<{ title: string; sub: string } | null>(null);
@@ -111,7 +166,11 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       }
     });
 
-    eng.setSensitivity(1.2);
+    eng.setSensitivity(mouseSens());
+    eng.setKeybindings(keybindings());
+    if (rtxShadows()) {
+      eng.setRtxShadows(true);
+    }
 
     const weatherManager = new StrikeWeatherManager(eng.scene, eng.camera, (w) => {
       setWeather(w);
@@ -162,10 +221,35 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       setIsFullscreen(!!document.fullscreenElement);
     };
 
+    const handlePointerLockChange = () => {
+      const plEl = document.pointerLockElement || (document as any).mozPointerLockElement;
+      if (!plEl && !showControlsOverlay() && !showSummaryModal() && !isChatOpen()) {
+        setShowEscMenu(true);
+      }
+    };
+
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const rebindTarget = rebindingAction();
+      if (rebindTarget) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.code === 'Escape') {
+          setRebindingAction(null);
+          return;
+        }
+        const updated = { ...keybindings(), [rebindTarget]: e.code };
+        setKeybindings(updated);
+        setRebindingAction(null);
+        try {
+          localStorage.setItem('waifu_strike_keybindings', JSON.stringify(updated));
+        } catch {}
+        engine()?.setKeybindings(updated);
+        return;
+      }
+
       if (showControlsOverlay() || showSummaryModal()) return;
 
-      if ((e.code === 'Enter' || e.code === 'KeyT') && !isChatOpen()) {
+      if ((e.code === 'Enter' || e.code === 'KeyT') && !isChatOpen() && !showEscMenu()) {
         e.preventDefault();
         if (typeof document !== 'undefined' && document.pointerLockElement) {
           document.exitPointerLock?.();
@@ -174,27 +258,62 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         setTimeout(() => {
           chatInputRef?.focus();
         }, 30);
-      } else if (e.code === 'Escape' && isChatOpen()) {
+      } else if (e.code === 'Escape') {
         e.preventDefault();
-        setIsChatOpen(false);
-        setChatInputText('');
-        engine()?.requestPointerLock();
+        if (isChatOpen()) {
+          setIsChatOpen(false);
+          setChatInputText('');
+          engine()?.requestPointerLock();
+        } else if (showEscMenu()) {
+          setShowEscMenu(false);
+          engine()?.requestPointerLock();
+        } else {
+          if (typeof document !== 'undefined' && document.pointerLockElement) {
+            document.exitPointerLock?.();
+          }
+          setShowEscMenu(true);
+        }
       }
     };
 
     window.addEventListener('resize', handleResize);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('pointerlockchange', handlePointerLockChange);
     window.addEventListener('keydown', handleGlobalKeyDown);
 
     onCleanup(() => {
       window.removeEventListener('resize', handleResize);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('pointerlockchange', handlePointerLockChange);
       window.removeEventListener('keydown', handleGlobalKeyDown);
       weatherManager.dispose();
       eng.dispose();
       net?.stop();
     });
   });
+
+  const handleResumeMatch = () => {
+    setShowEscMenu(false);
+    engine()?.requestPointerLock();
+  };
+
+  const handleResetKeybindings = () => {
+    const def = { ...DEFAULT_KEYBINDINGS };
+    setKeybindings(def);
+    setRebindingAction(null);
+    try {
+      localStorage.removeItem('waifu_strike_keybindings');
+    } catch {}
+    engine()?.setKeybindings(def);
+  };
+
+  const handleToggleRtx = (enabled: boolean) => {
+    setRtxShadows(enabled);
+    try {
+      localStorage.setItem('waifu_strike_rtx', enabled ? 'true' : 'false');
+    } catch {}
+    engine()?.setRtxShadows(enabled);
+  };
 
   const handleSendChat = (e: Event) => {
     e.preventDefault();
@@ -341,75 +460,158 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         />
       </Show>
 
-      {/* Top Info Banner */}
-      <div class="strike-top-banner" onPointerDown={(e) => e.stopPropagation()}>
-        <span class="strike-room-tag">⚡ {t('strike.modeTitle') || 'Waifu Strike DM'}</span>
-        <span>⛩️ {t('strike.mapName') || 'Kyoto'}</span>
-        <span class="strike-weather-tag" style={{
-          color: weather() === 'rain' ? '#70a1ff' : weather() === 'snow' ? '#ffffff' : '#ff9ff3',
-          background: 'rgba(255, 255, 255, 0.08)',
-          padding: '2px 8px',
-          'border-radius': '6px',
-          'font-size': '0.85rem'
-        }}>
-          {weather() === 'rain' ? '🌧️ Rain' : weather() === 'snow' ? '❄️ Snow' : '🌸 Sakura'}
-        </span>
-        <Show when={peerCount() > 0}>
-          <span style={{ color: '#2ed573' }}>👥 {peerCount()} P2P Peer{peerCount() > 1 ? 's' : ''}</span>
-        </Show>
-        <button
-          class="btn-fullscreen-toggle"
-          onPointerDown={(e) => e.stopPropagation()}
-          style={{
-            background: isFullscreen() ? 'rgba(0, 206, 201, 0.25)' : 'rgba(255, 255, 255, 0.1)',
-            border: isFullscreen() ? '1px solid #00cec9' : '1px solid rgba(255, 255, 255, 0.2)',
-            color: '#fff',
-            padding: '2px 10px',
-            'border-radius': '6px',
-            cursor: 'pointer'
-          }}
-          onClick={toggleFullscreen}
-          title="Toggle Fullscreen (F)"
-        >
-          {isFullscreen() ? '🗗 Exit Fullscreen [F]' : '⛶ Fullscreen [F]'}
-        </button>
-        <button
-          class="btn-controls-toggle"
-          onPointerDown={(e) => e.stopPropagation()}
-          style={{
-            background: 'rgba(255, 255, 255, 0.1)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            color: '#fff',
-            padding: '2px 10px',
-            'border-radius': '6px',
-            cursor: 'pointer'
-          }}
+      {/* ESC Pause & Settings Menu */}
+      <Show when={showEscMenu()}>
+        <div
+          class="strike-esc-overlay"
           onClick={() => {
-            if (typeof document !== 'undefined' && document.pointerLockElement) {
-              document.exitPointerLock?.();
+            if (!rebindingAction()) {
+              handleResumeMatch();
             }
-            engine()?.pausePlaying();
-            setShowControlsOverlay(true);
           }}
         >
-          ⚙️ Controls
-        </button>
-        <button
-          class="btn-leave-match"
-          onPointerDown={(e) => e.stopPropagation()}
-          style={{
-            background: 'rgba(255, 71, 87, 0.3)',
-            border: '1px solid #ff4757',
-            color: '#fff',
-            padding: '2px 10px',
-            'border-radius': '6px',
-            cursor: 'pointer'
-          }}
-          onClick={handleLeaveMatch}
-        >
-          🏃 {t('strike.leaveMatch') || 'Leave'}
-        </button>
-      </div>
+          <div class="strike-esc-modal" onClick={(e) => e.stopPropagation()}>
+            <div class="strike-esc-header">
+              <div class="strike-esc-title">
+                <h2>⛩️ {t('strike.mapName') || 'Kyoto'} (Tactical 3-Lane)</h2>
+                <div class="strike-esc-mode">⚡ {t('strike.modeTitle') || 'Waifu Strike DM'}</div>
+              </div>
+              <div class="strike-esc-player-count">
+                👥 {peerCount() + 1} Player{peerCount() > 0 ? 's' : ''} Online
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div class="strike-esc-actions-bar">
+              <button class="btn-esc-resume" onClick={handleResumeMatch}>
+                ▶ Resume Match [Esc]
+              </button>
+              <button class="btn-esc-leave" onClick={handleLeaveMatch}>
+                🏃 {t('strike.leaveMatch') || 'Leave Match'}
+              </button>
+            </div>
+
+            {/* Settings Sections */}
+            <div class="strike-esc-content">
+              {/* Controls Rebinding Section */}
+              <div class="strike-esc-section">
+                <h3>🎮 Controls & Key Rebinding</h3>
+                <p class="strike-esc-hint">Click any key button below to rebind. Press Esc to cancel.</p>
+
+                <div class="strike-rebind-grid">
+                  <For each={Object.entries(ACTION_LABELS) as [keyof StrikeKeybindings, string][]}>
+                    {([action, label]) => (
+                      <div class="strike-rebind-row">
+                        <span>{label}</span>
+                        <button
+                          class={`strike-rebind-btn ${rebindingAction() === action ? 'is-rebinding' : ''}`}
+                          onClick={() => setRebindingAction(rebindingAction() === action ? null : action)}
+                        >
+                          {rebindingAction() === action ? 'Press key...' : formatKeyName(keybindings()[action])}
+                        </button>
+                      </div>
+                    )}
+                  </For>
+                </div>
+
+                <button class="btn-esc-reset-keys" onClick={handleResetKeybindings}>
+                  ↺ Reset to Default Controls
+                </button>
+              </div>
+
+              {/* Gameplay & Video Settings */}
+              <div class="strike-esc-section">
+                <h3>⚙️ Gameplay & Visuals</h3>
+
+                {/* RTX Shadows Toggle */}
+                <div class="strike-setting-row">
+                  <div>
+                    <span class="strike-setting-label">RTX Contact Shadows (PCSS)</span>
+                    <div class="strike-setting-sub">
+                      Contact Hardening Soft Shadows with realistic penumbra falloff (Default: OFF)
+                    </div>
+                  </div>
+                  <label class="strike-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={rtxShadows()}
+                      onChange={(e) => handleToggleRtx(e.currentTarget.checked)}
+                    />
+                    <span class="strike-toggle-slider" />
+                  </label>
+                </div>
+
+                {/* Mouse Sensitivity */}
+                <div class="strike-setting-row">
+                  <div>
+                    <span class="strike-setting-label">Mouse Sensitivity ({mouseSens().toFixed(1)})</span>
+                    <div class="strike-setting-sub">Camera rotation look sensitivity</div>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="6.0"
+                    step="0.1"
+                    value={mouseSens()}
+                    onInput={(e) => {
+                      const val = parseFloat(e.currentTarget.value);
+                      setMouseSens(val);
+                      engine()?.setSensitivity(val);
+                    }}
+                    style={{ width: '140px', cursor: 'pointer' }}
+                  />
+                </div>
+
+                {/* SFX Volume */}
+                <div class="strike-setting-row">
+                  <div>
+                    <span class="strike-setting-label">SFX Volume ({audioVol()}%)</span>
+                    <div class="strike-setting-sub">Gunfire, footsteps, and tactical announcements</div>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={audioVol()}
+                    onInput={(e) => {
+                      const val = parseInt(e.currentTarget.value, 10);
+                      setAudioVol(val);
+                      strikeAudio.setVolume(val / 100);
+                    }}
+                    style={{ width: '140px', cursor: 'pointer' }}
+                  />
+                </div>
+
+                {/* Fullscreen Toggle */}
+                <div class="strike-setting-row">
+                  <div>
+                    <span class="strike-setting-label">Display Mode</span>
+                    <div class="strike-setting-sub">
+                      {isFullscreen() ? 'Currently in Fullscreen mode' : 'Currently in Windowed mode'}
+                    </div>
+                  </div>
+                  <button
+                    class="btn-fullscreen-toggle"
+                    style={{
+                      background: isFullscreen() ? 'rgba(0, 206, 201, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+                      border: isFullscreen() ? '1px solid #00cec9' : '1px solid rgba(255, 255, 255, 0.2)',
+                      color: '#fff',
+                      padding: '6px 14px',
+                      'border-radius': '6px',
+                      cursor: 'pointer',
+                      'font-size': '0.85rem'
+                    }}
+                    onClick={toggleFullscreen}
+                  >
+                    {isFullscreen() ? '🗗 Exit Fullscreen' : '⛶ Fullscreen'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Show>
 
       {/* Tactical Chat Box */}
       <div class="strike-chat-container" onPointerDown={(e) => e.stopPropagation()}>
@@ -665,7 +867,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           <div class="strike-scoreboard-modal">
             <div class="scoreboard-header">
               <h3>🏆 {t('strike.scoreboardTitle') || 'Deathmatch Leaderboard'}</h3>
-              <span style={{ color: '#00cec9' }}>Cyber Shrine Courtyard (P2P)</span>
+              <span style={{ color: '#00cec9' }}>Kyoto Tactical Map (P2P)</span>
             </div>
 
             <table class="scoreboard-table">

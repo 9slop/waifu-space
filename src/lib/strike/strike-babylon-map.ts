@@ -22,6 +22,9 @@ export interface BabylonMapData {
   spawnPoints: BabylonSpawnPoint[];
   colliders: AbstractMesh[];
   shadowGenerator?: ShadowGenerator;
+  sunLight?: DirectionalLight;
+  hemiLight?: HemisphericLight;
+  setRtxShadows?: (enabled: boolean) => void;
 }
 
 /**
@@ -1471,7 +1474,35 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     { position: new Vector3(2, 1.0, -43), yaw: Math.PI },
   ];
 
-  return { spawnPoints, colliders, shadowGenerator: shadowGen };
+  const setRtxShadows = (enabled: boolean) => {
+    if (!shadowGen) return;
+    try {
+      if (enabled) {
+        shadowGen.useContactHardeningShadow = true;
+        shadowGen.contactHardeningLightSizeUVRatio = 0.08;
+        shadowGen.filteringQuality = ShadowGenerator.QUALITY_HIGH;
+        shadowGen.bias = 0.0005;
+        shadowGen.normalBias = 0.015;
+      } else {
+        shadowGen.useContactHardeningShadow = false;
+        shadowGen.usePoissonSampling = true;
+        shadowGen.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
+        shadowGen.bias = 0.0015;
+        shadowGen.normalBias = 0.02;
+      }
+    } catch (err) {
+      console.warn('[KyotoMap] Error toggling RTX shadows:', err);
+    }
+  };
+
+  return {
+    spawnPoints,
+    colliders,
+    shadowGenerator: shadowGen,
+    sunLight,
+    hemiLight,
+    setRtxShadows
+  };
 }
 
 // Backwards-compatible alias for existing imports

@@ -103,6 +103,42 @@ export interface StrikeChatMessage {
   timestamp: number;
 }
 
+export interface StrikeKeybindings {
+  forward: string;
+  backward: string;
+  left: string;
+  right: string;
+  jump: string;
+  crouch: string;
+  walk: string;
+  reload: string;
+  quickswitch: string;
+  weapon1: string;
+  weapon2: string;
+  weapon3: string;
+  weapon4: string;
+  scoreboard: string;
+  fullscreen: string;
+}
+
+export const DEFAULT_KEYBINDINGS: StrikeKeybindings = {
+  forward: 'KeyW',
+  backward: 'KeyS',
+  left: 'KeyA',
+  right: 'KeyD',
+  jump: 'Space',
+  crouch: 'ControlLeft',
+  walk: 'ShiftLeft',
+  reload: 'KeyR',
+  quickswitch: 'KeyQ',
+  weapon1: 'Digit1',
+  weapon2: 'Digit2',
+  weapon3: 'Digit3',
+  weapon4: 'Digit4',
+  scoreboard: 'Tab',
+  fullscreen: 'KeyF'
+};
+
 export interface StrikeMatchStats {
   kills: number;
   deaths: number;

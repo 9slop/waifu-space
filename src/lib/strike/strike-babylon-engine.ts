@@ -15,7 +15,9 @@ import {
   WeaponDef,
   HitscanRay,
   HitscanHitResult,
-  StrikeMatchStats
+  StrikeMatchStats,
+  StrikeKeybindings,
+  DEFAULT_KEYBINDINGS
 } from './strike-types';
 import { WEAPON_CATALOG, strikeAudio } from './strike-weapons';
 import { createKyotoMap, BabylonMapData } from './strike-babylon-map';
@@ -91,6 +93,7 @@ export class StrikeBabylonEngine {
   private screenShakeTrauma = 0;
 
   // Input & Sensitivity
+  public keybindings: StrikeKeybindings = { ...DEFAULT_KEYBINDINGS };
   private keysDown: Record<string, boolean> = {};
   private mouseButtons: Record<number, boolean> = {};
   public mouseSensitivity = 0.0012; // Default 1.2 sensitivity
@@ -219,16 +222,16 @@ export class StrikeBabylonEngine {
         return;
       }
       this.keysDown[e.code] = true;
-      if (e.code === 'KeyR') this.reload();
-      if (e.code === 'Digit1') this.switchWeapon('rifle');
-      if (e.code === 'Digit2') this.switchWeapon('sniper');
-      if (e.code === 'Digit3') this.switchWeapon('pistol');
-      if (e.code === 'Digit4') this.switchWeapon('knife');
-      if (e.code === 'KeyQ') this.switchWeapon(this.lastWeaponId);
-      if (e.code === 'KeyF') {
+      if (e.code === this.keybindings.reload) this.reload();
+      if (e.code === this.keybindings.weapon1) this.switchWeapon('rifle');
+      if (e.code === this.keybindings.weapon2) this.switchWeapon('sniper');
+      if (e.code === this.keybindings.weapon3) this.switchWeapon('pistol');
+      if (e.code === this.keybindings.weapon4) this.switchWeapon('knife');
+      if (e.code === this.keybindings.quickswitch) this.switchWeapon(this.lastWeaponId);
+      if (e.code === this.keybindings.fullscreen) {
         this.callbacks.onToggleFullscreen?.();
       }
-      if (e.code === 'Tab') {
+      if (e.code === this.keybindings.scoreboard) {
         e.preventDefault();
         this.callbacks.onScoreboardToggle(true);
       }
@@ -242,7 +245,7 @@ export class StrikeBabylonEngine {
       if (this.keysDown[e.code]) {
         this.keysDown[e.code] = false;
       }
-      if (e.code === 'Tab') {
+      if (e.code === this.keybindings.scoreboard) {
         this.callbacks.onScoreboardToggle(false);
       }
     };
@@ -651,8 +654,8 @@ export class StrikeBabylonEngine {
     }
 
     // Crouch and Walk states
-    this.isCrouching = !!this.keysDown['KeyC'] || !!this.keysDown['ControlLeft'];
-    this.isWalking = !!this.keysDown['ShiftLeft'] || !!this.keysDown['ShiftRight'];
+    this.isCrouching = !!this.keysDown[this.keybindings.crouch] || !!this.keysDown['KeyC'] || !!this.keysDown['ControlLeft'];
+    this.isWalking = !!this.keysDown[this.keybindings.walk] || !!this.keysDown['ShiftLeft'] || !!this.keysDown['ShiftRight'];
 
     // Speeds in m/s
     const def = WEAPON_CATALOG[this.activeWeaponId];
@@ -665,10 +668,10 @@ export class StrikeBabylonEngine {
     // Movement direction
     let forward = 0;
     let strafe = 0;
-    if (this.keysDown['KeyW']) forward += 1;
-    if (this.keysDown['KeyS']) forward -= 1;
-    if (this.keysDown['KeyA']) strafe -= 1;
-    if (this.keysDown['KeyD']) strafe += 1;
+    if (this.keysDown[this.keybindings.forward]) forward += 1;
+    if (this.keysDown[this.keybindings.backward]) forward -= 1;
+    if (this.keysDown[this.keybindings.left]) strafe -= 1;
+    if (this.keysDown[this.keybindings.right]) strafe += 1;
 
     // Transform movement direction by camera yaw
     const yaw = this.camera.rotation.y;
@@ -707,7 +710,7 @@ export class StrikeBabylonEngine {
 
     // Gravity & Jump
     if (this.onGround) {
-      if (this.keysDown['Space']) {
+      if (this.keysDown[this.keybindings.jump] || this.keysDown['Space']) {
         this.velocity.y = 6.5;
         this.onGround = false;
       } else {
@@ -793,6 +796,14 @@ export class StrikeBabylonEngine {
     if (!this.isScoped) {
       this.camera.fov = this.defaultFov;
     }
+  }
+
+  public setKeybindings(bindings: StrikeKeybindings) {
+    this.keybindings = { ...bindings };
+  }
+
+  public setRtxShadows(enabled: boolean) {
+    this.mapData?.setRtxShadows?.(enabled);
   }
 
   public handleResize() {
