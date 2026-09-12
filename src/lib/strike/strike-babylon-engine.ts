@@ -84,7 +84,7 @@ export class StrikeBabylonEngine {
   // Input & Sensitivity
   private keysDown: Record<string, boolean> = {};
   private mouseButtons: Record<number, boolean> = {};
-  public mouseSensitivity = 0.0022;
+  public mouseSensitivity = 0.0012; // Default 1.2 sensitivity
   public defaultFov = 1.25; // ~72 deg vertical in radians (standard 85 deg horizontal)
 
   // Viewmodel & Remote Avatars
@@ -185,7 +185,7 @@ export class StrikeBabylonEngine {
     document.addEventListener('pointerlockchange', this.boundPointerLockChange);
 
     this.boundKeyDown = (e) => {
-      if (!this.isPointerLocked || !this.isPlaying) return;
+      if (!this.isPlaying) return;
       this.keysDown[e.code] = true;
       if (e.code === 'KeyR') this.reload();
       if (e.code === 'Digit1') this.switchWeapon('rifle');
@@ -223,19 +223,28 @@ export class StrikeBabylonEngine {
     window.addEventListener('mousemove', this.boundMouseMove);
 
     this.boundMouseDown = (e) => {
+      if (!this.isPlaying || this.isDead) return;
+
+      const target = e.target as HTMLElement | null;
+      const isGameTarget =
+        this.isPointerLocked ||
+        target === this.canvas ||
+        (target && (this.canvas.parentElement?.contains(target) || target.closest('.strike-viewport-container')));
+
+      if (!isGameTarget) return;
+
+      // Automatically request pointer lock on any game click if not locked
       if (!this.isPointerLocked) {
-        if (e.target === this.canvas && this.isPlaying) {
-          this.requestPointerLock();
-        }
-        return;
+        this.requestPointerLock();
       }
-      if (!this.isPlaying) return;
+
       this.mouseButtons[e.button] = true;
       if (e.button === 0) {
-        // Immediate shot execution for sniper/deagle single-clicks
+        // Immediate shot execution on left click
         this.shoot();
       } else if (e.button === 2) {
-        // Right click: Scope toggle
+        // Right click: Scope toggle (always prevent context menu)
+        e.preventDefault();
         this.toggleScope();
       }
     };
@@ -247,11 +256,12 @@ export class StrikeBabylonEngine {
     window.addEventListener('mouseup', this.boundMouseUp);
 
     this.boundContextMenu = (e) => {
-      if (this.isPointerLocked) {
+      if (this.isPlaying) {
         e.preventDefault();
       }
     };
     window.addEventListener('contextmenu', this.boundContextMenu);
+    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // Mouse wheel weapon cycling
     const weaponCycle: WeaponId[] = ['rifle', 'sniper', 'pistol', 'knife'];
@@ -286,6 +296,8 @@ export class StrikeBabylonEngine {
     this.isDead = false;
     this.isScoped = false;
     this.isReloading = false;
+    this.camera.fov = this.defaultFov;
+    this.viewmodel.root.setEnabled(true);
     this.callbacks.onScopeChange?.(false);
 
     // Replenish ammo
@@ -303,6 +315,7 @@ export class StrikeBabylonEngine {
     this.isReloading = false;
     this.isScoped = false;
     this.camera.fov = this.defaultFov;
+    this.viewmodel.root.setEnabled(true);
     this.callbacks.onScopeChange?.(false);
 
     this.viewmodel.setWeapon(id);
@@ -315,6 +328,7 @@ export class StrikeBabylonEngine {
     if (!def.hasScope) return;
     this.isScoped = !this.isScoped;
     this.camera.fov = this.isScoped ? this.defaultFov * def.scopeZoom : this.defaultFov;
+    this.viewmodel.root.setEnabled(!this.isScoped);
     this.callbacks.onScopeChange?.(this.isScoped);
   }
 
@@ -327,6 +341,7 @@ export class StrikeBabylonEngine {
     if (this.isScoped) {
       this.isScoped = false;
       this.camera.fov = this.defaultFov;
+      this.viewmodel.root.setEnabled(true);
       this.callbacks.onScopeChange?.(false);
     }
 
@@ -355,13 +370,15 @@ export class StrikeBabylonEngine {
       this.callbacks.onAmmoChange(this.ammoMag[this.activeWeaponId], this.ammoReserve[this.activeWeaponId]);
     }
 
-    // Audio & Viewmodel recoil
+    // Audio & Viewmodel attack animation (knife slash or gun recoil)
     strikeAudio.playGunfire(this.activeWeaponId);
-    this.viewmodel.triggerRecoil(def.recoilVertical, def.recoilHorizontal);
+    this.viewmodel.triggerAttack(this.activeWeaponId, def.recoilVertical, def.recoilHorizontal);
 
-    // Apply slight pitch recoil to camera
-    this.camera.rotation.x -= def.recoilVertical * 0.35;
-    this.camera.rotation.y += (Math.random() - 0.5) * def.recoilHorizontal;
+    // Apply slight pitch recoil to camera (guns only)
+    if (this.activeWeaponId !== 'knife') {
+      this.camera.rotation.x -= def.recoilVertical * 0.35;
+      this.camera.rotation.y += (Math.random() - 0.5) * def.recoilHorizontal;
+    }
 
     // Raycast shooting via Babylon.js scene picking (excluding viewmodel & local player collider)
     const forwardRay = this.camera.getForwardRay(300);
@@ -464,6 +481,7 @@ export class StrikeBabylonEngine {
       this.scene
     );
     tracer.color = Color3.FromHexString(colorHex);
+    tracer.isPickable = false;
 
     setTimeout(() => {
       tracer.dispose();
@@ -479,6 +497,7 @@ export class StrikeBabylonEngine {
       this.isDead = true;
       this.isScoped = false;
       this.camera.fov = this.defaultFov;
+      this.viewmodel.root.setEnabled(true);
       this.callbacks.onScopeChange?.(false);
       this.callbacks.onKillAnnouncement(`Killed by ${attackerName}!`);
       this.callbacks.onPlayerDeath?.(attackerName);

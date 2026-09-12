@@ -440,6 +440,12 @@ export class StrikeP2PManager {
 
     strikeAudio.playGunfire(weaponId);
 
+    // Trigger visual firing/slash animation on remote avatar
+    const av = this.engine.remoteAvatars.get(wrapper.peerId);
+    if (av) {
+      av.triggerAttack(weaponId);
+    }
+
     // If local player was targeted and hit
     if (shoot.targetId === this.myPeerId) {
       const damage = Math.max(1, Math.min(350, Math.round(Number(shoot.damage) || def.damage)));

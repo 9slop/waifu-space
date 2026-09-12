@@ -157,9 +157,26 @@ export class BabylonViewmodel {
   private scene: Scene;
   private camera: Camera;
 
+  // Recoil and animation states
   private recoilOffset = new Vector3(0, 0, 0);
   private recoilRot = new Vector3(0, 0, 0);
   private bobOffset = new Vector3(0, 0, 0);
+
+  // Smooth monotonic walk cycle (integrated over dt - immune to camera rotation spikes)
+  private walkCycle = 0;
+
+  // Melee knife slash animation
+  private isMeleeAttacking = false;
+  private meleeProgress = 0;
+  private meleeSlashSide = 1;
+
+  // Weapon equip / draw animation
+  private drawProgress = 0;
+
+  // Sniper bolt-action cycle animation
+  private boltActionProgress = 0;
+
+  // Reload animation
   private reloadProgress = 0;
   private isReloading = false;
 
@@ -189,13 +206,57 @@ export class BabylonViewmodel {
     const def = WEAPON_CATALOG[id];
     mesh.scaling = new Vector3(def.viewmodelScale, def.viewmodelScale, def.viewmodelScale);
     mesh.parent = this.weaponMeshGroup;
+
+    // Trigger weapon equip / draw animation
+    this.drawProgress = 1.0;
+    this.isMeleeAttacking = false;
+    this.meleeProgress = 0;
+    this.boltActionProgress = 0;
+    this.isReloading = false;
+    this.reloadProgress = 0;
+  }
+
+  /**
+   * Triggers visual weapon attack animation (knife slash or gun recoil).
+   */
+  public triggerAttack(weaponId: WeaponId, vertical = 0.03, horizontal = 0.015) {
+    if (weaponId === 'knife') {
+      // Dynamic anime knife slash/thrust animation
+      this.isMeleeAttacking = true;
+      this.meleeProgress = 1.0;
+      this.meleeSlashSide = -this.meleeSlashSide; // alternate left/right slashes
+      return;
+    }
+
+    if (weaponId === 'sniper') {
+      // Heavy AWP railgun kickback + bolt-action chambering
+      this.recoilOffset.z -= 0.16;
+      this.recoilOffset.y += 0.05;
+      this.recoilRot.x -= 0.32;
+      this.recoilRot.z -= 0.06;
+      this.boltActionProgress = 1.0;
+      return;
+    }
+
+    if (weaponId === 'pistol') {
+      // Snappy Deagle upward muzzle flip
+      this.recoilOffset.z -= 0.065;
+      this.recoilOffset.y += 0.038;
+      this.recoilRot.x -= 0.28;
+      this.recoilRot.z += (Math.random() - 0.5) * 0.05;
+      return;
+    }
+
+    // Rifle: Punchy automatic recoil kick
+    this.recoilOffset.z -= 0.07;
+    this.recoilOffset.y += Math.max(0.015, vertical * 0.5);
+    this.recoilRot.x -= Math.max(0.14, vertical * 2.2);
+    this.recoilRot.y += (Math.random() - 0.5) * Math.max(0.02, horizontal * 2);
+    this.recoilRot.z += (Math.random() - 0.5) * 0.03;
   }
 
   public triggerRecoil(vertical = 0.03, horizontal = 0.015) {
-    this.recoilOffset.z -= 0.06;
-    this.recoilOffset.y += vertical * 0.4;
-    this.recoilRot.x -= vertical * 1.6;
-    this.recoilRot.y += (Math.random() - 0.5) * horizontal * 2;
+    this.triggerAttack('rifle', vertical, horizontal);
   }
 
   public triggerReload(reloadTimeMs: number) {
@@ -204,21 +265,69 @@ export class BabylonViewmodel {
   }
 
   public update(dt: number, isMoving: boolean, speedNorm: number) {
-    // 1. Recoil spring recovery
-    this.recoilOffset = Vector3.Lerp(this.recoilOffset, Vector3.Zero(), dt * 15);
-    this.recoilRot.x = this.lerp(this.recoilRot.x, 0, dt * 15);
-    this.recoilRot.y = this.lerp(this.recoilRot.y, 0, dt * 15);
+    // 1. Recoil spring recovery (rapid snappy return)
+    this.recoilOffset = Vector3.Lerp(this.recoilOffset, Vector3.Zero(), Math.min(1, dt * 16));
+    this.recoilRot.x = this.lerp(this.recoilRot.x, 0, Math.min(1, dt * 16));
+    this.recoilRot.y = this.lerp(this.recoilRot.y, 0, Math.min(1, dt * 16));
+    this.recoilRot.z = this.lerp(this.recoilRot.z, 0, Math.min(1, dt * 16));
 
-    // 2. Weapon bobbing while moving
+    // 2. Smooth monotonic weapon bobbing while moving
+    // Integrating over dt prevents violent speed/direction camera rotation phase jumping
     if (isMoving && speedNorm > 0.1) {
-      const time = performance.now() * 0.008 * speedNorm;
-      this.bobOffset.x = Math.sin(time) * 0.014;
-      this.bobOffset.y = Math.cos(time * 2) * 0.009;
+      const walkRate = 7.5 * Math.min(1.2, Math.max(0.35, speedNorm));
+      this.walkCycle += dt * walkRate;
+      this.bobOffset.x = Math.sin(this.walkCycle) * 0.012;
+      this.bobOffset.y = Math.abs(Math.cos(this.walkCycle)) * 0.008;
     } else {
-      this.bobOffset = Vector3.Lerp(this.bobOffset, Vector3.Zero(), dt * 8);
+      this.bobOffset = Vector3.Lerp(this.bobOffset, Vector3.Zero(), Math.min(1, dt * 8));
     }
 
-    // 3. Reload animation (dip down and return)
+    // 3. Melee Knife Slash Animation
+    let slashOffsetX = 0;
+    let slashOffsetY = 0;
+    let slashOffsetZ = 0;
+    let slashRotX = 0;
+    let slashRotY = 0;
+    let slashRotZ = 0;
+
+    if (this.isMeleeAttacking) {
+      this.meleeProgress -= dt * 3.8; // ~0.26s total swing duration
+      if (this.meleeProgress <= 0) {
+        this.isMeleeAttacking = false;
+        this.meleeProgress = 0;
+      }
+      const p = Math.sin(this.meleeProgress * Math.PI); // Smooth 0 -> 1 -> 0 arc
+      slashOffsetX = this.meleeSlashSide * p * -0.16;
+      slashOffsetY = -p * 0.05;
+      slashOffsetZ = p * 0.24; // Big forward stab/thrust
+      slashRotX = p * 0.35;
+      slashRotY = this.meleeSlashSide * p * -0.65;
+      slashRotZ = this.meleeSlashSide * p * 0.85;
+    }
+
+    // 4. Weapon Equip / Draw Swoop Animation
+    let drawOffsetY = 0;
+    let drawRotX = 0;
+    if (this.drawProgress > 0) {
+      this.drawProgress -= dt * 4.2; // ~0.24s draw animation
+      if (this.drawProgress <= 0) this.drawProgress = 0;
+      const dp = this.drawProgress;
+      drawOffsetY = -dp * 0.28; // Swoop up from bottom
+      drawRotX = dp * 0.55; // Tilt up into view
+    }
+
+    // 5. Sniper Bolt-Action Cycle Animation
+    let boltDipY = 0;
+    let boltTiltZ = 0;
+    if (this.boltActionProgress > 0) {
+      this.boltActionProgress -= dt * 1.8;
+      if (this.boltActionProgress <= 0) this.boltActionProgress = 0;
+      const bp = Math.sin(this.boltActionProgress * Math.PI);
+      boltDipY = -bp * 0.04;
+      boltTiltZ = bp * 0.12;
+    }
+
+    // 6. Reload animation (dip down and return)
     if (this.isReloading) {
       this.reloadProgress -= dt * 1.3;
       if (this.reloadProgress <= 0) {
@@ -228,16 +337,17 @@ export class BabylonViewmodel {
     }
     const reloadDip = Math.sin(this.reloadProgress * Math.PI) * 0.22;
 
+    // Apply combined transforms to viewmodel root
     this.root.position = new Vector3(
-      0.24 + this.recoilOffset.x + this.bobOffset.x,
-      -0.22 + this.recoilOffset.y + this.bobOffset.y - reloadDip,
-      0.48 + this.recoilOffset.z
+      0.24 + this.recoilOffset.x + this.bobOffset.x + slashOffsetX,
+      -0.22 + this.recoilOffset.y + this.bobOffset.y - reloadDip + drawOffsetY + slashOffsetY + boltDipY,
+      0.48 + this.recoilOffset.z + slashOffsetZ
     );
 
     this.root.rotation = new Vector3(
-      this.recoilRot.x,
-      this.recoilRot.y,
-      this.bobOffset.x * 2
+      this.recoilRot.x + drawRotX + slashRotX,
+      this.recoilRot.y + slashRotY,
+      this.recoilRot.z + this.bobOffset.x * 1.8 + slashRotZ + boltTiltZ
     );
   }
 
@@ -417,6 +527,11 @@ export class BabylonAvatarModel {
     this.setWeapon('rifle');
   }
 
+  // Attack animation state
+  private attackProgress = 0;
+  private attackWeaponId: WeaponId = 'rifle';
+  private walkCycle = 0;
+
   public setWeapon(weaponId: WeaponId) {
     const children = this.weaponMount.getChildren();
     for (const child of children) {
@@ -427,11 +542,17 @@ export class BabylonAvatarModel {
     mesh.parent = this.weaponMount;
   }
 
-  public updateAnimation(animState: number, timeSec: number) {
+  public triggerAttack(weaponId: WeaponId) {
+    this.attackProgress = 1.0;
+    this.attackWeaponId = weaponId;
+  }
+
+  public updateAnimation(animState: number, dt: number) {
     if (animState === 1 || animState === 2) {
-      // Walking / running: swing legs and arms
+      // Walking / running: swing legs and arms smoothly
       const freq = animState === 2 ? 10 : 6;
-      const legAngle = Math.sin(timeSec * freq) * 0.55;
+      this.walkCycle += dt * freq;
+      const legAngle = Math.sin(this.walkCycle) * 0.55;
       this.leftLeg.rotation.x = legAngle;
       this.rightLeg.rotation.x = -legAngle;
 
@@ -443,6 +564,21 @@ export class BabylonAvatarModel {
       this.rightLeg.rotation.x = 0;
       this.leftArm.rotation.x = 0;
       this.rightArm.rotation.x = -0.3; // Aiming forward
+    }
+
+    // Third-person attack animation
+    if (this.attackProgress > 0) {
+      this.attackProgress -= dt * 4.0;
+      if (this.attackProgress <= 0) this.attackProgress = 0;
+      const ap = Math.sin(this.attackProgress * Math.PI);
+      if (this.attackWeaponId === 'knife') {
+        this.rightArm.rotation.x = -0.3 - ap * 1.1; // Forward slash
+        this.rightArm.rotation.y = ap * 0.55;
+      } else {
+        this.rightArm.rotation.x = -0.3 + ap * 0.45; // Gunfire recoil
+      }
+    } else {
+      this.rightArm.rotation.y = 0;
     }
   }
 

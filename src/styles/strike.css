@@ -510,3 +510,49 @@
   color: #a4b0be;
   margin-top: 4px;
 }
+
+/* Sniper ADS Scope Overlay */
+.strike-scope-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at center, transparent 38%, rgba(0, 0, 0, 0.95) 43%, #000 100%);
+}
+
+.strike-scope-overlay::after {
+  content: '';
+  position: absolute;
+  width: 76vmin;
+  height: 76vmin;
+  border: 2px solid rgba(0, 206, 201, 0.4);
+  border-radius: 50%;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.95), 0 0 16px rgba(0, 206, 201, 0.25);
+  pointer-events: none;
+}
+
+.scope-line-h {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1.5px;
+  background: rgba(0, 255, 204, 0.85);
+  box-shadow: 0 0 6px rgba(0, 255, 204, 0.6);
+  pointer-events: none;
+}
+
+.scope-line-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1.5px;
+  background: rgba(0, 255, 204, 0.85);
+  box-shadow: 0 0 6px rgba(0, 255, 204, 0.6);
+  pointer-events: none;
+}
+

@@ -41,7 +41,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [matchRewards, setMatchRewards] = createSignal<{ coins: number; exp: number } | null>(null);
 
   // Settings
-  const [mouseSens, setMouseSens] = createSignal(2.2);
+  const [mouseSens, setMouseSens] = createSignal(1.2);
   const [audioVol, setAudioVol] = createSignal(50);
 
   let matchStartTime = Date.now();
@@ -92,6 +92,8 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
         net?.registerPlayerDeath(attacker);
       }
     });
+
+    eng.setSensitivity(1.2);
 
     net = new StrikeP2PManager(eng, {
       onScoreboardUpdate: (players) => setScoreboard(players),
