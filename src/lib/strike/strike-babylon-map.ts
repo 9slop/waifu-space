@@ -1647,7 +1647,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     (ctx, w, h) => {
       // Atmospheric vertical sky gradient: Deep zenith blue down to warm horizon
       const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-      skyGrad.addColorStop(0.0, '#1c538e');
+      skyGrad.addColorStop(0.0, '#12406f');
+      skyGrad.addColorStop(0.12, '#1c538e');
       skyGrad.addColorStop(0.35, '#3b7bbd');
       skyGrad.addColorStop(0.65, '#6fa6db');
       skyGrad.addColorStop(0.85, '#a4cef0');
@@ -1657,7 +1658,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
 
       // Afternoon sun glow on sky (south-west azimuth, upper sky)
       const sunX = w * 0.38;
-      const sunY = h * 0.28;
+      const sunY = h * 0.3;
       const sunGlow = ctx.createRadialGradient ? ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 180) : null;
       if (sunGlow) {
         sunGlow.addColorStop(0.0, 'rgba(255, 252, 235, 0.95)');
@@ -1668,13 +1669,17 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
         ctx.fillRect(0, 0, w, h);
       }
 
-      // Soft painterly Japanese cumulus and cirrus clouds
+      // Soft painterly Japanese cumulus and cirrus clouds. Centers are spread
+      // evenly with a safe edge margin so no puffy blob ever straddles the
+      // panorama wrap seam (which produced a visible seam + a bright dot at
+      // the top of the sky dome).
       for (let i = 0; i < 18; i++) {
-        const cx = (i * (w / 16) + 40) % w;
-        const cy = h * 0.35 + Math.sin(i * 1.7) * (h * 0.2);
-        const cw = 70 + (i % 5) * 35;
+        const cw = 64 + (i % 5) * 34;
         const ch = 18 + (i % 3) * 10;
-        ctx.fillStyle = 'rgba(245, 250, 255, 0.55)';
+        const margin = cw + 32;
+        const cx = margin + (i * (w - margin * 2)) / 17;
+        const cy = h * 0.34 + Math.sin(i * 1.7) * (h * 0.2);
+        ctx.fillStyle = 'rgba(245, 250, 255, 0.5)';
         ctx.beginPath();
         if (ctx.ellipse) {
           ctx.ellipse(cx, cy, cw, ch, 0, 0, Math.PI * 2);
@@ -1683,12 +1688,23 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
         }
         ctx.fill();
       }
+
+      // Polar vignette: fade the very top of the dome to deep blue so the pole
+      // never reads as a bright pinched dot.
+      const poleMask = ctx.createRadialGradient ? ctx.createRadialGradient(w / 2, 0, 8, w / 2, 0, 220) : null;
+      if (poleMask) {
+        poleMask.addColorStop(0.0, 'rgba(10, 34, 62, 0.6)');
+        poleMask.addColorStop(0.6, 'rgba(10, 34, 62, 0.12)');
+        poleMask.addColorStop(1.0, 'rgba(10, 34, 62, 0)');
+        ctx.fillStyle = poleMask;
+        ctx.fillRect(0, 0, w, h);
+      }
     }
   );
   skyMat.diffuseTexture = skyTex;
   skyMat.emissiveTexture = skyTex;
 
-  const skyDome = MeshBuilder.CreateSphere('skyDome', { diameter: 500, segments: 16 }, scene);
+  const skyDome = MeshBuilder.CreateSphere('skyDome', { diameter: 500, segments: 28 }, scene);
   skyDome.material = skyMat;
   skyDome.isPickable = false;
   skyDome.checkCollisions = false;
