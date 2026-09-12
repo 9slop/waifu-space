@@ -758,7 +758,11 @@ export class StrikeP2PManager {
     if (shoot.targetId === this.myPeerId) {
       const damage = Math.max(1, Math.min(350, Math.round(Number(shoot.damage) || def.damage)));
       const attackerName = shoot.shooterName || wrapper.name || 'Enemy';
-      this.engine.applyDamage(damage, attackerName);
+      const atk = this.engine.remoteAvatars.get(wrapper.peerId);
+      const sourcePos = atk?.root?.position
+        ? { x: atk.root.position.x, y: atk.root.position.y, z: atk.root.position.z }
+        : (shoot.origin ? { x: shoot.origin.x, y: shoot.origin.y, z: shoot.origin.z } : undefined);
+      this.engine.applyDamage(damage, attackerName, sourcePos);
     }
   }
 

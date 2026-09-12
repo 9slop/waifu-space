@@ -84,6 +84,7 @@ export interface StrikeBabylonCallbacks {
   onPlayerDeath?: (attackerName: string) => void;
   onToggleFullscreen?: () => void;
   onDamageReceived?: (damage: number, currentHp: number) => void;
+  onDamageDirection?: (dir: { x: number; z: number }) => void;
   onEscapeMenuToggle?: (visible: boolean) => void;
   onGrenadeCountChange?: (count: number, type: GrenadeType) => void;
   onLocalGrenadeThrow?: (type: GrenadeType, origin: { x: number; y: number; z: number }, velocity: { x: number; y: number; z: number }) => void;
@@ -254,8 +255,8 @@ export class StrikeBabylonEngine {
 
     // 4.5 Tactical Grenade Manager (Molotov, Smoke, HE Explosive)
     this.grenadeManager = new StrikeGrenadeManager(this.scene, {
-      onDamageLocalPlayer: (dmg, source) => {
-        this.applyDamage(dmg, source);
+      onDamageLocalPlayer: (dmg, source, sourcePos) => {
+        this.applyDamage(dmg, source, sourcePos);
       },
       onExplosionShake: (trauma) => {
         this.screenShakeTrauma = Math.min(1.0, this.screenShakeTrauma + trauma);
@@ -1355,13 +1356,24 @@ export class StrikeBabylonEngine {
     }
   }
 
-  public applyDamage(dmg: number, attackerName: string) {
+  public applyDamage(dmg: number, attackerName: string, sourcePos?: { x: number; y: number; z: number }) {
     if (!this.isPlaying || this.isDead) return;
     // 1-second god mode check on spawn
     if (this.isInvulnerable && performance.now() < this.invulnerableUntil) {
       return;
     }
     this.isInvulnerable = false;
+
+    // Report hit direction for the HUD's damage-direction indicator (Fortnite-style)
+    if (sourcePos) {
+      const cam = this.camera.position;
+      const dx = cam.x - sourcePos.x;
+      const dz = cam.z - sourcePos.z;
+      const len = Math.hypot(dx, dz);
+      if (len > 0.001) {
+        this.callbacks.onDamageDirection?.({ x: dx / len, z: dz / len });
+      }
+    }
 
     this.health = Math.max(0, this.health - dmg);
     this.callbacks.onHealthChange(this.health, this.maxHealth);

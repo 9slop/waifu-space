@@ -76,6 +76,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [activeWeapon, setActiveWeapon] = createSignal<WeaponDef>(WEAPON_CATALOG.rifle);
 
   const [hitmarker, setHitmarker] = createSignal<{ isHeadshot: boolean; id: number } | null>(null);
+  const [damageDir, setDamageDir] = createSignal<{ angleDeg: number; key: number } | null>(null);
   const [isScoped, setIsScoped] = createSignal(false);
   const [damageVignette, setDamageVignette] = createSignal(0);
   const [showControlsOverlay, setShowControlsOverlay] = createSignal(true);
@@ -98,6 +99,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [showEscMenu, setShowEscMenu] = createSignal(false);
 
   let isClosingEscMenu = false;
+  let damageDirTimer: number | undefined;
   const closeEscMenu = () => {
     isClosingEscMenu = true;
     setShowEscMenu(false);
@@ -261,6 +263,17 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           setDamageVignette((v) => Math.max(0, v * 0.4));
           setTimeout(() => setDamageVignette(0), 180);
         }, 120);
+      },
+      onDamageDirection: (dir) => {
+        // Convert world-space hit direction to a screen-relative angle (0 = in front / up)
+        const yaw = eng ? eng.camera.rotation.y : 0;
+        const worldDeg = (Math.atan2(dir.x, dir.z) * 180) / Math.PI;
+        let rel = worldDeg - (yaw * 180) / Math.PI;
+        while (rel > 180) rel -= 360;
+        while (rel < -180) rel += 360;
+        setDamageDir({ angleDeg: rel, key: Date.now() });
+        window.clearTimeout(damageDirTimer);
+        damageDirTimer = window.setTimeout(() => setDamageDir(null), 2200);
       },
       onToggleFullscreen: () => {
         toggleFullscreen();
@@ -615,6 +628,21 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
           <div class="ch-line ch-left" />
           <div class="ch-line ch-right" />
         </div>
+      </Show>
+
+      {/* Damage Direction Indicator (Fortnite-style arrow pointing at the shooter) */}
+      <Show when={damageDir()} keyed>
+        {(dir) => (
+          <div
+            class="strike-damage-dir"
+            style={{ transform: `rotate(${dir.angleDeg}deg)` }}
+          >
+            <svg viewBox="0 0 48 46" aria-hidden="true">
+              <path d="M24 2 L44 44 L24 33 L4 44 Z" fill="rgba(255,255,255,0.9)" />
+              <path d="M24 9 L38 38 L24 31 L10 38 Z" fill="#ff5b3d" />
+            </svg>
+          </div>
+        )}
       </Show>
 
       {/* Sniper ADS Scope Overlay */}

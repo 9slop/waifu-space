@@ -55,7 +55,7 @@ export interface ActiveExplosionEffect {
 }
 
 export interface StrikeGrenadeCallbacks {
-  onDamageLocalPlayer: (damage: number, sourceName: string) => void;
+  onDamageLocalPlayer: (damage: number, sourceName: string, sourcePos?: { x: number; y: number; z: number }) => void;
   onFireTick?: (damage: number) => void;
   onExplosionShake?: (trauma: number) => void;
 }
@@ -269,7 +269,7 @@ export class StrikeGrenadeManager {
 
         if (horizDist <= f.radius && vertDist <= 2.2) {
           // Local player is standing in fire zone!
-          this.callbacks.onDamageLocalPlayer(5, 'Molotov Fire');
+          this.callbacks.onDamageLocalPlayer(5, 'Molotov Fire', { x: f.center.x, y: f.center.y, z: f.center.z });
           this.callbacks.onFireTick?.(5);
         }
       }
@@ -510,7 +510,7 @@ export class StrikeGrenadeManager {
     // Screen shake / trauma proportional to proximity
     const trauma = Math.min(1.0, 1.2 * (1 - dist / blastRadius));
     this.callbacks.onExplosionShake?.(trauma);
-    this.callbacks.onDamageLocalPlayer(damage, 'HE Grenade');
+    this.callbacks.onDamageLocalPlayer(damage, 'HE Grenade', { x: explosionPos.x, y: explosionPos.y, z: explosionPos.z });
   }
 
   /**
