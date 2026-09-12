@@ -11,6 +11,7 @@ import {
   StrikeKeybindings,
   DEFAULT_KEYBINDINGS,
   StrikeGraphicsSettings,
+  DEFAULT_GRAPHICS_SETTINGS,
   GRAPHICS_PRESETS,
   GraphicsPreset,
   ShadowQuality,
@@ -460,11 +461,7 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   };
 
   const handleToggleRtx = (enabled: boolean) => {
-    setRtxShadows(enabled);
-    try {
-      localStorage.setItem('waifu_strike_rtx', enabled ? 'true' : 'false');
-    } catch {}
-    engine()?.setRtxShadows(enabled);
+    updateGraphicsSettings({ shadows: enabled ? 'rtx' : 'off' });
   };
 
   const handleSendChat = (e: Event) => {

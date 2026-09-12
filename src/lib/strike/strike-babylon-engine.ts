@@ -831,7 +831,11 @@ export class StrikeBabylonEngine {
   }
 
   private getOrCreateBulletMarkMaterial(): StandardMaterial {
-    if (this.bulletMarkMaterial && !this.bulletMarkMaterial.isDisposed()) {
+    // Only reuse the cached material while it is still alive and registered to the
+    // current scene. Babylon 9 dropped the `isDisposed()` method on Materials (it is
+    // a property there), so `scene.materials.includes()` is the reliable liveness
+    // check that prevents reusing a disposed material and freezing the render loop.
+    if (this.bulletMarkMaterial && this.scene?.materials.includes(this.bulletMarkMaterial)) {
       return this.bulletMarkMaterial;
     }
     const mat = new StandardMaterial('bulletMarkMat', this.scene);
@@ -1249,10 +1253,6 @@ export class StrikeBabylonEngine {
 
   public setKeybindings(bindings: StrikeKeybindings) {
     this.keybindings = { ...bindings };
-  }
-
-  public setRtxShadows(enabled: boolean) {
-    this.mapData?.setRtxShadows?.(enabled);
   }
 
   public handleResize() {
