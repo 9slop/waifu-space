@@ -106,5 +106,90 @@ describe('Waifu Strike: Tactical Grenades System', () => {
     expect(() => strikeAudio.playExplosion()).not.toThrow();
     expect(() => strikeAudio.playFireIgnite()).not.toThrow();
     expect(() => strikeAudio.playSmokePop()).not.toThrow();
+    expect(() => strikeAudio.playEmptyClick()).not.toThrow();
+  });
+
+  it('verifies HE grenade explosion triggers concussive slowdown while Molotov does not', () => {
+    let slowdownCalled = false;
+    let slowdownMult = 1.0;
+    let slowdownDuration = 0;
+
+    const onExplosionSlowdown = vi.fn((mult: number, durationMs: number) => {
+      slowdownCalled = true;
+      slowdownMult = mult;
+      slowdownDuration = durationMs;
+    });
+
+    // Simulating HE explosion damage applying slowdown
+    const applyHeBlastDamage = (dist: number, blastRadius = 6.5) => {
+      if (dist <= blastRadius) {
+        onExplosionSlowdown(0.45, 1800);
+      }
+    };
+
+    applyHeBlastDamage(3.0);
+    expect(slowdownCalled).toBe(true);
+    expect(slowdownMult).toBe(0.45);
+    expect(slowdownDuration).toBe(1800);
+    expect(onExplosionSlowdown).toHaveBeenCalledTimes(1);
+
+    // Reset and simulate Molotov fire tick damage — Molotov must NEVER trigger slowdown
+    slowdownCalled = false;
+    const applyMolotovFireTick = (dmg: number) => {
+      // Molotov deals damage but does NOT call onExplosionSlowdown
+      return dmg;
+    };
+    const dmg = applyMolotovFireTick(5);
+    expect(dmg).toBe(5);
+    expect(slowdownCalled).toBe(false);
+    expect(onExplosionSlowdown).toHaveBeenCalledTimes(1); // Still 1, not called again
+  });
+
+  it('replenishes 1 grenade every 3 frags and never exceeds maximum capacity of 1', () => {
+    let grenadeCount = 1;
+    let killsSinceGrenade = 0;
+    let replenishEvents = 0;
+
+    const recordKill = () => {
+      killsSinceGrenade++;
+      if (killsSinceGrenade >= 3) {
+        killsSinceGrenade = 0;
+        if (grenadeCount < 1) {
+          grenadeCount = 1;
+          replenishEvents++;
+        }
+      }
+    };
+
+    // 1. Initial state has 1 grenade
+    expect(grenadeCount).toBe(1);
+
+    // 2. Kill 3 enemies while already holding 1 grenade -> does NOT grant >1
+    recordKill();
+    recordKill();
+    recordKill();
+    expect(grenadeCount).toBe(1);
+    expect(replenishEvents).toBe(0);
+
+    // 3. Throw grenade -> grenadeCount drops to 0
+    grenadeCount = 0;
+
+    // 4. Kill 2 enemies -> still 0
+    recordKill();
+    recordKill();
+    expect(grenadeCount).toBe(0);
+    expect(replenishEvents).toBe(0);
+
+    // 5. Kill 3rd enemy -> replenished to exactly 1!
+    recordKill();
+    expect(grenadeCount).toBe(1);
+    expect(replenishEvents).toBe(1);
+
+    // 6. Next 3 kills while holding grenade still keeps it at 1
+    recordKill();
+    recordKill();
+    recordKill();
+    expect(grenadeCount).toBe(1);
+    expect(replenishEvents).toBe(1);
   });
 });

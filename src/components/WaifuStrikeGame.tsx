@@ -169,6 +169,14 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
   const [isInSmoke, setIsInSmoke] = createSignal(false);
   const [isLoadoutOpen, setIsLoadoutOpen] = createSignal(false);
   const [isSpawnProtected, setIsSpawnProtected] = createSignal(false);
+  const [emptyGrenadeNudge, setEmptyGrenadeNudge] = createSignal(false);
+  let emptyGrenadeTimer: any = null;
+
+  const triggerEmptyGrenadeNudge = () => {
+    setEmptyGrenadeNudge(true);
+    clearTimeout(emptyGrenadeTimer);
+    emptyGrenadeTimer = setTimeout(() => setEmptyGrenadeNudge(false), 900);
+  };
 
   const updateLoadout = (partial: Partial<PlayerLoadout>) => {
     const updated = { ...loadout(), ...partial };
@@ -317,6 +325,9 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
       },
       onInvulnerableChange: (invulnerable: boolean) => {
         setIsSpawnProtected(invulnerable);
+      },
+      onGrenadeEmptyFeedback: () => {
+        triggerEmptyGrenadeNudge();
       }
     });
 
@@ -1475,12 +1486,25 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
             <span>{loadout().melee === 'katana' ? 'Katana' : 'Knife'}</span>
           </div>
           <div
-            class={`hud-weapon-slot ${grenadeCount() > 0 ? '' : 'disabled'} ${grenadeArmed() ? 'active grenade-armed' : ''}`}
-            title="Press 4 or G to arm grenade, hold LMB to aim, release to throw"
-            onClick={() => (grenadeArmed() ? engine()?.throwGrenade() : engine()?.armGrenade())}
+            class={`hud-weapon-slot ${grenadeCount() > 0 ? '' : 'disabled'} ${grenadeArmed() ? 'active grenade-armed' : ''} ${emptyGrenadeNudge() ? 'empty-nudge' : ''}`}
+            title={grenadeCount() > 0 ? "Press 4 or G to arm grenade, hold LMB to aim, release to throw" : "Grenade depleted (Earn 1 every 3 kills)"}
+            onClick={() => {
+              if (grenadeCount() > 0) {
+                if (grenadeArmed()) {
+                  engine()?.throwGrenade();
+                } else {
+                  engine()?.armGrenade();
+                }
+              } else {
+                engine()?.triggerGrenadeEmptyFeedback();
+              }
+            }}
           >
             <span class="hud-slot-key">[4]</span>
-            <span>{GRENADE_CATALOG[loadout().grenade]?.icon || '💣'} x{grenadeCount()}</span>
+            <span>{GRENADE_CATALOG[loadout().grenade]?.icon || '💣'} {GRENADE_CATALOG[loadout().grenade]?.name?.split(' ')[0] || 'Grenade'}</span>
+            <Show when={emptyGrenadeNudge()}>
+              <div class="hud-slot-empty-notice">Empty (3 Kills = +1)</div>
+            </Show>
           </div>
           <div
             class="hud-weapon-slot"

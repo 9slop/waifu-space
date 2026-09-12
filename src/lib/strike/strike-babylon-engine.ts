@@ -92,6 +92,7 @@ export interface StrikeBabylonCallbacks {
   onSmokeChange?: (inSmoke: boolean) => void;
   onGrenadeArmedChange?: (armed: boolean) => void;
   onInvulnerableChange?: (invulnerable: boolean) => void;
+  onGrenadeEmptyFeedback?: () => void;
 }
 
 export class StrikeBabylonEngine {
@@ -188,6 +189,13 @@ export class StrikeBabylonEngine {
   private grenadeTrajectoryPreview: AbstractMesh | null = null;
   private jumpQueued = false;
 
+  // Explosive grenade concussive slowdown state
+  private speedDebuffMultiplier = 1.0;
+  private speedDebuffUntil = 0;
+  private speedDebuffDuration = 1800;
+  // Tactical grenade replenish: 1 grenade granted per 3 kills (max 1 grenade)
+  private killsSinceLastGrenade = 0;
+
   // Blood FX (CS-style hit blood bursts + wall/floor blood marks)
   private bloodParticles: { mesh: AbstractMesh; velocity: Vector3; life: number }[] = [];
   private bloodMarkMaterial: StandardMaterial | null = null;
@@ -266,6 +274,9 @@ export class StrikeBabylonEngine {
       },
       onExplosionShake: (trauma) => {
         this.screenShakeTrauma = Math.min(1.0, this.screenShakeTrauma + trauma);
+      },
+      onExplosionSlowdown: (mult, durationMs) => {
+        this.applyExplosionSlowdown(mult, durationMs);
       }
     });
 
@@ -678,6 +689,8 @@ export class StrikeBabylonEngine {
 
     // Replenish tactical grenade according to loadout
     this.grenadeCount = 1;
+    this.killsSinceLastGrenade = 0;
+    this.speedDebuffUntil = 0;
     this.callbacks.onGrenadeCountChange?.(this.grenadeCount, this.loadout.grenade);
 
     this.callbacks.onHealthChange(this.health, this.maxHealth, this.armor, this.maxArmor);
@@ -713,9 +726,48 @@ export class StrikeBabylonEngine {
     this.callbacks.onGrenadeCountChange?.(this.grenadeCount, this.loadout.grenade);
   }
 
+  public triggerGrenadeEmptyFeedback() {
+    this.callbacks.onGrenadeEmptyFeedback?.();
+    strikeAudio.playEmptyClick();
+  }
+
+  public applyExplosionSlowdown(multiplier = 0.45, durationMs = 1800) {
+    this.speedDebuffMultiplier = multiplier;
+    this.speedDebuffDuration = durationMs;
+    this.speedDebuffUntil = performance.now() + durationMs;
+    // Concussive shock: immediately cut excessive horizontal velocity
+    const curHoriz = Math.hypot(this.velocity.x, this.velocity.z);
+    if (curHoriz > 2.0) {
+      this.velocity.x *= multiplier;
+      this.velocity.z *= multiplier;
+    }
+  }
+
+  /**
+   * Called when local player secures a kill.
+   * Every 3 kills grants +1 tactical grenade (capped at max 1 grenade).
+   */
+  public registerKill() {
+    this.killsSinceLastGrenade++;
+    if (this.killsSinceLastGrenade >= 3) {
+      this.killsSinceLastGrenade = 0;
+      if (this.grenadeCount < 1) {
+        this.grenadeCount = 1;
+        this.callbacks.onGrenadeCountChange?.(this.grenadeCount, this.loadout.grenade);
+        this.callbacks.onKillAnnouncement?.('+1 GRENADE REPLENISHED');
+        strikeAudio.playGrenadePin();
+      }
+    }
+  }
+
   public throwGrenade() {
-    if (!this.isPlaying || this.isDead || this.isPaused || this.grenadeCount <= 0) return;
-    this.grenadeCount--;
+    if (!this.isPlaying || this.isDead || this.isPaused || this.grenadeCount <= 0) {
+      if (this.grenadeCount <= 0) {
+        this.triggerGrenadeEmptyFeedback();
+      }
+      return;
+    }
+    this.grenadeCount = Math.max(0, this.grenadeCount - 1);
     this.callbacks.onGrenadeCountChange?.(this.grenadeCount, this.loadout.grenade);
 
     const fwdRay = this.camera.getForwardRay(1.0);
@@ -741,10 +793,18 @@ export class StrikeBabylonEngine {
    * shows a simulated trajectory preview; releasing LMB throws the grenade.
    */
   public toggleGrenadeArmed() {
+    if (this.grenadeCount <= 0) {
+      this.triggerGrenadeEmptyFeedback();
+      return;
+    }
     this.setGrenadeArmed(!this.grenadeArmed);
   }
 
   public armGrenade() {
+    if (this.grenadeCount <= 0) {
+      this.triggerGrenadeEmptyFeedback();
+      return;
+    }
     this.setGrenadeArmed(true);
   }
 
@@ -754,6 +814,7 @@ export class StrikeBabylonEngine {
 
   private setGrenadeArmed(armed: boolean) {
     if (armed && this.grenadeCount <= 0) {
+      this.triggerGrenadeEmptyFeedback();
       this.callbacks.onGrenadeArmedChange?.(false);
       return;
     }
@@ -1665,6 +1726,15 @@ export class StrikeBabylonEngine {
     if (def.id === 'pistol') maxSpeed = 6.8; // Deagle carry speed (~255 units/s)
     if (this.isCrouching) maxSpeed *= 0.35; // CS duck speed (~85 units/s)
     else if (this.isWalking) maxSpeed *= 0.52; // CS sneak walk (~130 units/s)
+
+    // Concussive movement slowdown from explosive HE grenade (smooth recovery over duration)
+    const nowPerf = performance.now();
+    if (nowPerf < this.speedDebuffUntil) {
+      const remaining = this.speedDebuffUntil - nowPerf;
+      const ratio = Math.max(0, Math.min(1, remaining / (this.speedDebuffDuration || 1800)));
+      const slowdownFactor = 1.0 - (1.0 - this.speedDebuffMultiplier) * ratio;
+      maxSpeed *= slowdownFactor;
+    }
 
     // Movement input direction
     let forward = 0;

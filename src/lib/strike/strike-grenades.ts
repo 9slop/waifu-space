@@ -9,7 +9,8 @@ import {
   Ray,
   AbstractMesh,
   ParticleSystem,
-  Texture
+  Texture,
+  DynamicTexture
 } from '@babylonjs/core';
 import { GrenadeType } from './strike-types';
 import { strikeAudio } from './strike-weapons';
@@ -63,6 +64,7 @@ export interface StrikeGrenadeCallbacks {
   onDamageLocalPlayer: (damage: number, sourceName: string, sourcePos?: { x: number; y: number; z: number }) => void;
   onFireTick?: (damage: number) => void;
   onExplosionShake?: (trauma: number) => void;
+  onExplosionSlowdown?: (slowdownMult: number, durationMs: number) => void;
 }
 
 export class StrikeGrenadeManager {
@@ -74,13 +76,15 @@ export class StrikeGrenadeManager {
   public activeSmokeClouds: ActiveSmokeCloud[] = [];
   public activeExplosions: ActiveExplosionEffect[] = [];
 
-  // Cached materials
+  // Cached materials & procedural particle textures
   private molotovMat: StandardMaterial | null = null;
   private smokeCanMat: StandardMaterial | null = null;
   private heGrenadeMat: StandardMaterial | null = null;
   private fireGroundMat: StandardMaterial | null = null;
   private smokeParticleMat: StandardMaterial | null = null;
   private explosionBlastMat: StandardMaterial | null = null;
+  private flameTex: DynamicTexture | null = null;
+  private smokeTex: DynamicTexture | null = null;
   private lastLocalPlayerPos: Vector3 = Vector3.Zero();
 
   constructor(scene: Scene, callbacks: StrikeGrenadeCallbacks) {
@@ -125,6 +129,43 @@ export class StrikeGrenadeManager {
     this.explosionBlastMat.emissiveColor = new Color3(1.5, 0.9, 0.3);
     this.explosionBlastMat.alpha = 0.9;
     this.explosionBlastMat.disableLighting = true;
+
+    // Procedural Molotov Flame Texture (soft feathered radial fire sprite)
+    try {
+      this.flameTex = new DynamicTexture('strikeFlameTex', 64, this.scene, false);
+      const ctx = this.flameTex.getContext() as CanvasRenderingContext2D;
+      if (ctx) {
+        ctx.clearRect(0, 0, 64, 64);
+        const g = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
+        g.addColorStop(0.0, 'rgba(255, 255, 220, 1.0)');
+        g.addColorStop(0.25, 'rgba(255, 190, 40, 0.95)');
+        g.addColorStop(0.55, 'rgba(255, 90, 15, 0.7)');
+        g.addColorStop(0.82, 'rgba(200, 30, 5, 0.3)');
+        g.addColorStop(1.0, 'rgba(120, 10, 0, 0.0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 64, 64);
+        this.flameTex.hasAlpha = true;
+        this.flameTex.update();
+      }
+    } catch {}
+
+    // Procedural Molotov Smoke Texture (soft cloud puff sprite)
+    try {
+      this.smokeTex = new DynamicTexture('strikeSmokeTex', 64, this.scene, false);
+      const ctx = this.smokeTex.getContext() as CanvasRenderingContext2D;
+      if (ctx) {
+        ctx.clearRect(0, 0, 64, 64);
+        const g = ctx.createRadialGradient(32, 32, 3, 32, 32, 30);
+        g.addColorStop(0.0, 'rgba(55, 50, 48, 0.75)');
+        g.addColorStop(0.35, 'rgba(65, 60, 58, 0.55)');
+        g.addColorStop(0.7, 'rgba(50, 45, 45, 0.25)');
+        g.addColorStop(1.0, 'rgba(40, 35, 35, 0.0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 64, 64);
+        this.smokeTex.hasAlpha = true;
+        this.smokeTex.update();
+      }
+    } catch {}
   }
 
   /**
@@ -375,12 +416,9 @@ export class StrikeGrenadeManager {
     let fireParticles: ParticleSystem | undefined;
     try {
       fireParticles = new ParticleSystem(`${id}_fire`, 300, this.scene);
-      // Use a 1×1 white square texture (built-in Babylon flare texture)
-      fireParticles.particleTexture = new Texture(
-        'https://assets.babylonjs.com/particles/textures/explosion/Smoke10.png',
-        this.scene,
-        true, true
-      );
+      if (this.flameTex) {
+        fireParticles.particleTexture = this.flameTex;
+      }
       fireParticles.emitter = new Vector3(pos.x, pos.y + 0.05, pos.z);
       // Spread across the fire disc area
       fireParticles.minEmitBox = new Vector3(-radius * 0.55, 0, -radius * 0.55);
@@ -410,11 +448,9 @@ export class StrikeGrenadeManager {
     let smokeParticles: ParticleSystem | undefined;
     try {
       smokeParticles = new ParticleSystem(`${id}_smoke`, 80, this.scene);
-      smokeParticles.particleTexture = new Texture(
-        'https://assets.babylonjs.com/particles/textures/explosion/Smoke10.png',
-        this.scene,
-        true, true
-      );
+      if (this.smokeTex) {
+        smokeParticles.particleTexture = this.smokeTex;
+      }
       smokeParticles.emitter = new Vector3(pos.x, pos.y + 1.5, pos.z);
       smokeParticles.minEmitBox = new Vector3(-radius * 0.3, 0, -radius * 0.3);
       smokeParticles.maxEmitBox = new Vector3(radius * 0.3, 0, radius * 0.3);
@@ -594,6 +630,8 @@ export class StrikeGrenadeManager {
     // Screen shake / trauma proportional to proximity
     const trauma = Math.min(1.0, 1.2 * (1 - dist / blastRadius));
     this.callbacks.onExplosionShake?.(trauma);
+    // Concussive movement speed penalty from explosive blast shockwave (45% speed, smoothly recovering over 1.8s)
+    this.callbacks.onExplosionSlowdown?.(0.45, 1800);
     this.callbacks.onDamageLocalPlayer(damage, 'HE Grenade', { x: explosionPos.x, y: explosionPos.y, z: explosionPos.z });
   }
 
@@ -641,5 +679,9 @@ export class StrikeGrenadeManager {
     this.fireGroundMat?.dispose();
     this.smokeParticleMat?.dispose();
     this.explosionBlastMat?.dispose();
+    this.flameTex?.dispose();
+    this.smokeTex?.dispose();
+    this.flameTex = null;
+    this.smokeTex = null;
   }
 }

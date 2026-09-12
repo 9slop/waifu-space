@@ -916,6 +916,9 @@ export class StrikeP2PManager {
           }
           if (isHeadshot) this.localHeadshots++;
 
+          // Track kill progress toward tactical grenade replenishment (1 per 3 kills, max 1)
+          this.engine.registerKill();
+
           this.callbacks.onKillfeedEntry({
             id: `kill_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             killerName: 'You',

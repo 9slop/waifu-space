@@ -577,6 +577,25 @@ class ProceduralAudioEngine {
     osc2.stop(t + 0.12);
   }
 
+  public playEmptyClick() {
+    const ctx = this.getContext();
+    if (!ctx || !this.masterGain) return;
+    const t = ctx.currentTime;
+
+    // Subtle dry-fire mechanical click
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1200, t);
+    osc.frequency.exponentialRampToValueAtTime(340, t + 0.035);
+    g.gain.setValueAtTime(0.18, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+    osc.connect(g);
+    g.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.035);
+  }
+
 }
 
 export const strikeAudio = new ProceduralAudioEngine();
