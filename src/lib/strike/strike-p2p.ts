@@ -451,7 +451,8 @@ export class StrikeP2PManager {
             hairColor: '#ff7597',
             outfitColor: '#00cec9'
           },
-          this.engine.scene
+          this.engine.scene,
+          this.engine.mapData?.shadowGenerator
         );
         this.engine.remoteAvatars.set(wrapper.peerId, avatar);
       }
@@ -591,7 +592,8 @@ export class StrikeP2PManager {
           hairColor: '#ff7597',
           outfitColor: rawState.avatarOutfit || '#00cec9'
         },
-        this.engine.scene
+        this.engine.scene,
+        this.engine.mapData?.shadowGenerator
       );
       this.engine.remoteAvatars.set(wrapper.peerId, av);
       av.root.position = new Vector3(x, y - 1.62, z);

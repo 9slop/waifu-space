@@ -9,7 +9,8 @@ import {
   PointLight,
   AbstractMesh,
   DynamicTexture,
-  Texture
+  Texture,
+  ShadowGenerator
 } from '@babylonjs/core';
 
 export interface BabylonSpawnPoint {
@@ -20,6 +21,7 @@ export interface BabylonSpawnPoint {
 export interface BabylonMapData {
   spawnPoints: BabylonSpawnPoint[];
   colliders: AbstractMesh[];
+  shadowGenerator?: ShadowGenerator;
 }
 
 /**
@@ -64,16 +66,17 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     vScale: number,
     drawFn: (ctx: CanvasRenderingContext2D, width: number, height: number) => void
   ): DynamicTexture {
-    const dt = new DynamicTexture(`tex_${name}`, { width: w, height: h }, scene, false);
+    const dt = new DynamicTexture(`tex_${name}`, { width: w, height: h }, scene, true, Texture.TRILINEAR_SAMPLINGMODE);
     dt.uScale = uScale;
     dt.vScale = vScale;
     dt.wrapU = Texture.WRAP_ADDRESSMODE;
     dt.wrapV = Texture.WRAP_ADDRESSMODE;
+    dt.anisotropicFilteringLevel = 4;
     const ctx = dt.getContext() as CanvasRenderingContext2D;
     if (ctx) {
       try {
         drawFn(ctx, w, h);
-        dt.update(false); // Synchronous GPU upload
+        dt.update(false); // Synchronous GPU upload with mipmap pyramid generation
       } catch (err) {
         console.warn(`[KyotoMap] Texture draw failed for ${name}:`, err);
       }
@@ -581,11 +584,76 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   lanternGlowMat.emissiveColor = new Color3(0.70, 0.55, 0.25);
   lanternGlowMat.maxSimultaneousLights = 4;
 
-  // Sakura foliage
-  const sakuraMat = new StandardMaterial('matSakura', scene);
-  sakuraMat.diffuseColor = new Color3(0.92, 0.52, 0.68);
-  sakuraMat.emissiveColor = new Color3(0.14, 0.05, 0.09);
-  sakuraMat.maxSimultaneousLights = 4;
+  // Sakura tree foliage (flowering cherry blossom clusters)
+  const sakuraMat = createTexturedMat(
+    'matSakura',
+    new Color3(0.98, 0.95, 0.96),
+    3, 3,
+    (ctx, w, h) => {
+      // Soft blossom pink base
+      ctx.fillStyle = '#f6a5c2';
+      ctx.fillRect(0, 0, w, h);
+      // Delicate petal clusters and emergent lime leaf tips
+      for (let i = 0; i < 900; i++) {
+        const px = Math.random() * w;
+        const py = Math.random() * h;
+        const r = 4 + Math.random() * 8;
+        ctx.fillStyle = Math.random() > 0.4 ? '#ffaec9' : '#f078a0';
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#d6336c';
+        ctx.beginPath();
+        ctx.arc(px, py, r * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let i = 0; i < 400; i++) {
+        ctx.fillStyle = 'rgba(255, 245, 248, 0.6)';
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let i = 0; i < 120; i++) {
+        ctx.fillStyle = '#82c91e';
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    },
+    new Color3(0.04, 0.04, 0.04),
+    new Color3(0.10, 0.04, 0.07),
+    16
+  );
+
+  // Japanese garden bush foliage (Tamamono sculpted azalea/boxwood)
+  const bushMat = createTexturedMat(
+    'matBush',
+    new Color3(0.90, 0.95, 0.90),
+    2, 2,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#264a22'; // Deep forest green base
+      ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 1000; i++) {
+        const bx = Math.random() * w;
+        const by = Math.random() * h;
+        const br = 3 + Math.random() * 6;
+        const tone = Math.random();
+        ctx.fillStyle = tone > 0.6 ? '#4b7d34' : tone > 0.3 ? '#356328' : '#1f3c1b';
+        ctx.beginPath();
+        ctx.arc(bx, by, br, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let i = 0; i < 350; i++) {
+        ctx.fillStyle = 'rgba(125, 195, 75, 0.55)';
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    },
+    new Color3(0.06, 0.08, 0.06),
+    undefined,
+    20
+  );
 
   // Bamboo
   const bambooMat = new StandardMaterial('matBamboo', scene);
@@ -604,10 +672,45 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   neonCyanMat.maxSimultaneousLights = 4;
 
   // ═══════════════════════════════════════════════════════════════════
+  // 1B. LIGHTING & REAL-TIME SHADOW GENERATOR
+  // ═══════════════════════════════════════════════════════════════════
+
+  // Primary warm Japanese afternoon Sun: distinct angled light source
+  const sunLight = new DirectionalLight('sun', new Vector3(0.55, -0.82, 0.45), scene);
+  sunLight.position = new Vector3(-60, 85, -60);
+  sunLight.diffuse = new Color3(1.05, 0.98, 0.88);
+  sunLight.specular = new Color3(0.22, 0.20, 0.16);
+  sunLight.intensity = 0.95; // Balanced, natural warm sunlight
+
+  // Soft atmospheric skylight fill (gentle cool blue from above)
+  const hemiLight = new HemisphericLight('hemi', new Vector3(0.1, 1, 0.1), scene);
+  hemiLight.diffuse = new Color3(0.48, 0.58, 0.72);
+  hemiLight.groundColor = new Color3(0.24, 0.25, 0.24);
+  hemiLight.intensity = 0.55;
+
+  // Secondary soft bounce fill from north-east
+  const fillLight = new DirectionalLight('fill', new Vector3(-0.55, -0.65, -0.45), scene);
+  fillLight.position = new Vector3(60, 65, 60);
+  fillLight.diffuse = new Color3(0.35, 0.42, 0.52);
+  fillLight.intensity = 0.28;
+
+  // Real-time Shadow Generator with Poisson filtering
+  let shadowGen: ShadowGenerator | undefined;
+  try {
+    shadowGen = new ShadowGenerator(1024, sunLight);
+    shadowGen.usePoissonSampling = true;
+    shadowGen.bias = 0.0015;
+    shadowGen.normalBias = 0.02;
+    shadowGen.darkness = 0.45; // Soft natural shadows
+  } catch (err) {
+    console.warn('[KyotoMap] ShadowGenerator skipped:', err);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
   // 2. HELPER FUNCTIONS
   // ═══════════════════════════════════════════════════════════════════
 
-  /** Box with automatic collision registration */
+  /** Box with automatic collision and shadow registration */
   function addBox(
     name: string,
     w: number,
@@ -615,14 +718,19 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     d: number,
     pos: Vector3,
     mat: StandardMaterial,
-    collidable = true
+    collidable = true,
+    castShadow = true
   ): AbstractMesh {
     const box = MeshBuilder.CreateBox(name, { width: w, height: h, depth: d }, scene);
     box.position = pos;
     box.material = mat;
+    box.receiveShadows = true;
     if (collidable) {
       box.checkCollisions = true;
       colliders.push(box);
+    }
+    if (castShadow && shadowGen) {
+      shadowGen.addShadowCaster(box);
     }
     return box;
   }
@@ -697,11 +805,17 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     const pW = 0.8 * scale;
     const pH = 7.0 * scale;
     const span = 4.5 * scale;
-    addBox(`${prefix}_PL`, pW, pH, pW, new Vector3(pos.x - span, pos.y + pH / 2, pos.z), shrineRedMat);
-    addBox(`${prefix}_PR`, pW, pH, pW, new Vector3(pos.x + span, pos.y + pH / 2, pos.z), shrineRedMat);
-    addBox(`${prefix}_Top`, span * 2 + 3.2, 0.85 * scale, 1.1 * scale, new Vector3(pos.x, pos.y + pH - 0.2, pos.z), shrineRedMat);
-    addBox(`${prefix}_Sub`, span * 2 + 1.6, 0.4 * scale, 0.7 * scale, new Vector3(pos.x, pos.y + pH - 1.3, pos.z), shrineRedMat);
-    addBox(`${prefix}_Plq`, 0.85 * scale, 1.1 * scale, 0.25 * scale, new Vector3(pos.x, pos.y + pH - 0.75, pos.z), goldMat, false);
+    const pl = addBox(`${prefix}_PL`, pW, pH, pW, new Vector3(pos.x - span, pos.y + pH / 2, pos.z), shrineRedMat);
+    const pr = addBox(`${prefix}_PR`, pW, pH, pW, new Vector3(pos.x + span, pos.y + pH / 2, pos.z), shrineRedMat);
+    const top = addBox(`${prefix}_Top`, span * 2 + 3.2, 0.85 * scale, 1.1 * scale, new Vector3(pos.x, pos.y + pH - 0.2, pos.z), shrineRedMat);
+    const sub = addBox(`${prefix}_Sub`, span * 2 + 1.6, 0.4 * scale, 0.7 * scale, new Vector3(pos.x, pos.y + pH - 1.3, pos.z), shrineRedMat);
+    addBox(`${prefix}_Plq`, 0.85 * scale, 1.1 * scale, 0.25 * scale, new Vector3(pos.x, pos.y + pH - 0.75, pos.z), goldMat, false, false);
+    if (shadowGen) {
+      shadowGen.addShadowCaster(pl);
+      shadowGen.addShadowCaster(pr);
+      shadowGen.addShadowCaster(top);
+      shadowGen.addShadowCaster(sub);
+    }
   }
 
   /** Sakura tree with stone planter, trunk cylinder, and blossom spheres */
@@ -711,15 +825,40 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     trunk.position = new Vector3(pos.x, 2.2, pos.z);
     trunk.material = barkMat;
     trunk.checkCollisions = true;
+    trunk.receiveShadows = true;
     colliders.push(trunk);
-    const bl1 = MeshBuilder.CreateSphere(`${name}_Bl1`, { diameter: 4.2, segments: 8 }, scene);
+
+    const bl1 = MeshBuilder.CreateSphere(`${name}_Bl1`, { diameter: 4.2, segments: 10 }, scene);
     bl1.position = new Vector3(pos.x, 4.4, pos.z);
     bl1.material = sakuraMat;
     bl1.isPickable = false;
-    const bl2 = MeshBuilder.CreateSphere(`${name}_Bl2`, { diameter: 3.2, segments: 8 }, scene);
+    bl1.receiveShadows = true;
+
+    const bl2 = MeshBuilder.CreateSphere(`${name}_Bl2`, { diameter: 3.2, segments: 10 }, scene);
     bl2.position = new Vector3(pos.x + 0.8, 5.1, pos.z + 0.6);
     bl2.material = sakuraMat;
     bl2.isPickable = false;
+    bl2.receiveShadows = true;
+
+    if (shadowGen) {
+      shadowGen.addShadowCaster(trunk);
+      shadowGen.addShadowCaster(bl1);
+      shadowGen.addShadowCaster(bl2);
+    }
+  }
+
+  /** Sculpted Japanese garden bush mound (Tamamono) */
+  function createGardenBush(name: string, pos: Vector3, radius = 1.0) {
+    const bush = MeshBuilder.CreateSphere(name, { diameterX: radius * 2, diameterY: radius * 1.5, diameterZ: radius * 2, segments: 8 }, scene);
+    bush.position = new Vector3(pos.x, pos.y + radius * 0.75, pos.z);
+    bush.material = bushMat;
+    bush.checkCollisions = true;
+    bush.receiveShadows = true;
+    colliders.push(bush);
+    if (shadowGen) {
+      shadowGen.addShadowCaster(bush);
+    }
+    return bush;
   }
 
   /** Bamboo fence segment */
@@ -740,25 +879,28 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   /** Merchant stall with counter, pillars, and overhanging roof */
   function createMerchantStall(prefix: string, pos: Vector3, w: number, d: number, openSide: 'north' | 'south' | 'east' | 'west' = 'south') {
     const h = 3.2;
-    // Counter (waist-high)
     if (openSide === 'south' || openSide === 'north') {
       const cZ = openSide === 'south' ? pos.z + d / 2 - 0.4 : pos.z - d / 2 + 0.4;
       addBox(`${prefix}_Ctr`, w * 0.8, 1.1, 0.6, new Vector3(pos.x, 0.55, cZ), darkWoodMat);
     }
-    // Back wall
     const bwZ = openSide === 'south' ? pos.z - d / 2 + 0.2 : pos.z + d / 2 - 0.2;
     addBox(`${prefix}_BW`, w, h, 0.4, new Vector3(pos.x, h / 2, bwZ), plasterMat);
-    // Side walls (partial, leaving 1m gap at open end)
     addBox(`${prefix}_SWL`, 0.35, h, d * 0.7, new Vector3(pos.x - w / 2 + 0.2, h / 2, pos.z + (openSide === 'south' ? -d * 0.15 : d * 0.15)), plasterMat);
     addBox(`${prefix}_SWR`, 0.35, h, d * 0.7, new Vector3(pos.x + w / 2 - 0.2, h / 2, pos.z + (openSide === 'south' ? -d * 0.15 : d * 0.15)), plasterMat);
-    // Overhanging tiled roof
     addBox(`${prefix}_Rf`, w + 1.2, 0.4, d + 1.0, new Vector3(pos.x, h + 0.2, pos.z), tileRoofMat);
   }
 
-  /** Stone lantern (base + glow cap) */
+  /** Stone lantern (base + glow cap + warm emitted point light) */
   function createStoneLantern(name: string, pos: Vector3) {
     addBox(`${name}_B`, 0.7, 1.7, 0.7, new Vector3(pos.x, 0.85, pos.z), stoneMat);
-    addBox(`${name}_G`, 0.5, 0.5, 0.5, new Vector3(pos.x, 1.95, pos.z), lanternGlowMat, false);
+    addBox(`${name}_G`, 0.5, 0.5, 0.5, new Vector3(pos.x, 1.95, pos.z), lanternGlowMat, false, false);
+
+    // Warm golden lantern light emission illuminating ground and surroundings
+    const pl = new PointLight(`${name}_PL`, new Vector3(pos.x, 2.1, pos.z), scene);
+    pl.diffuse = new Color3(1.0, 0.78, 0.42);
+    pl.specular = new Color3(0.18, 0.14, 0.08);
+    pl.intensity = 0.65;
+    pl.range = 9.0;
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -770,6 +912,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   ground.position = new Vector3(0, 0, 0);
   ground.material = groundMat;
   ground.checkCollisions = true;
+  ground.receiveShadows = true;
   colliders.push(ground);
 
   // Perimeter walls (height 7.5m)
@@ -808,6 +951,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // Sakura trees for orientation
   createSakuraTree('sakuraT1L', new Vector3(-12, 0, 45));
   createSakuraTree('sakuraT1R', new Vector3(12, 0, 45));
+  createGardenBush('bushT1L', new Vector3(-8, 0, 43), 1.1);
+  createGardenBush('bushT1R', new Vector3(8, 0, 43), 1.1);
 
   // Stone lanterns flanking mid exit
   createStoneLantern('lanT1L', new Vector3(-3, 0, 40));
@@ -828,9 +973,13 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   addBox('t2WallWL', 8, 4.5, 0.8, new Vector3(-18, 2.25, -40), wallMat);
   addBox('t2WallWR', 8, 4.5, 0.8, new Vector3(18, 2.25, -40), wallMat);
 
-  // Bamboo groves
+  // Bamboo groves & foliage
   createBambooFence('bambooT2L', new Vector3(-12, 0, -46), 6, true);
   createBambooFence('bambooT2R', new Vector3(12, 0, -46), 6, true);
+  createSakuraTree('sakuraT2L', new Vector3(-15, 0, -45));
+  createSakuraTree('sakuraT2R', new Vector3(15, 0, -45));
+  createGardenBush('bushT2L', new Vector3(-8, 0, -43), 1.1);
+  createGardenBush('bushT2R', new Vector3(8, 0, -43), 1.1);
 
   // Stone lanterns
   createStoneLantern('lanT2L', new Vector3(-3, 0, -40));
@@ -918,8 +1067,12 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // --- Grand Torii Gate (centerpiece) ---
   createTorii('toriiMid', new Vector3(0, 0, 0), 1.15);
 
-  // --- Central Sakura Tree (soft cover via trunk + planter) ---
+  // --- Central Sakura Tree & garden foliage ---
   createSakuraTree('sakuraMid', new Vector3(0, 0, 8));
+  createGardenBush('bushMid1', new Vector3(-7, 0, 6), 0.95);
+  createGardenBush('bushMid2', new Vector3(7, 0, 6), 0.95);
+  createGardenBush('bushMid3', new Vector3(-7, 0, -6), 0.95);
+  createGardenBush('bushMid4', new Vector3(7, 0, -6), 0.95);
 
   // --- Waist-high stone benches (key peek positions) ---
   addBox('benchMidL', 3, 1.1, 1.2, new Vector3(-5, 0.55, 4), stoneMat);   // A-connector peek
@@ -982,6 +1135,9 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
 
   // --- Defense crate stack (post-plant cover behind altar area) ---
   createCrateCluster('crateASite', new Vector3(-27, 0, -34), false);
+  createSakuraTree('sakuraASite', new Vector3(-20, 0, -34));
+  createGardenBush('bushA1', new Vector3(-24, 0, -25), 1.15);
+  createGardenBush('bushA2', new Vector3(-32, 0, -34), 0.95);
 
   // --- Stone lanterns ---
   createStoneLantern('lanAL', new Vector3(-20, 0, -26));
@@ -1028,6 +1184,9 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // --- Stone barriers (waist-high cover for site defenders) ---
   addBox('bBarrierL', 3.5, 1.25, 0.8, new Vector3(21, 1.075, -29), stoneMat);
   addBox('bBarrierR', 3.5, 1.25, 0.8, new Vector3(33, 1.075, -29), stoneMat);
+  createSakuraTree('sakuraBSite', new Vector3(34, 0, -25));
+  createGardenBush('bushB1', new Vector3(21, 0, -25), 1.15);
+  createGardenBush('bushB2', new Vector3(31, 0, -34), 0.95);
 
   // --- Elevated crate stack on platform ---
   createCrateCluster('crateBSite', new Vector3(30, 0.9, -26), false);
@@ -1147,11 +1306,59 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // 12. ZONE 9: SCENIC BACKGROUND — Sky Dome, Mt. Fuji, Mountains, Clouds
   // ═══════════════════════════════════════════════════════════════════
 
-  // Daytime Japan Sky Dome (Pleasant balanced sky blue)
+  // Daytime Japan Sky Dome with Panoramic Procedural Sky Texture
   const skyMat = new StandardMaterial('matSky', scene);
   skyMat.backFaceCulling = false;
   skyMat.disableLighting = true;
-  skyMat.emissiveColor = new Color3(0.44, 0.68, 0.90);
+
+  const skyTex = createProcTexture(
+    'sky_panorama',
+    1024, 512,
+    1, 1,
+    (ctx, w, h) => {
+      // Atmospheric vertical sky gradient: Deep zenith blue down to warm horizon
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+      skyGrad.addColorStop(0.0, '#1c538e');
+      skyGrad.addColorStop(0.35, '#3b7bbd');
+      skyGrad.addColorStop(0.65, '#6fa6db');
+      skyGrad.addColorStop(0.85, '#a4cef0');
+      skyGrad.addColorStop(1.0, '#dbebf7');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Afternoon sun glow on sky (south-west azimuth, upper sky)
+      const sunX = w * 0.38;
+      const sunY = h * 0.28;
+      const sunGlow = ctx.createRadialGradient ? ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 180) : null;
+      if (sunGlow) {
+        sunGlow.addColorStop(0.0, 'rgba(255, 252, 235, 0.95)');
+        sunGlow.addColorStop(0.2, 'rgba(255, 240, 190, 0.65)');
+        sunGlow.addColorStop(0.5, 'rgba(255, 215, 140, 0.25)');
+        sunGlow.addColorStop(1.0, 'rgba(255, 200, 120, 0.0)');
+        ctx.fillStyle = sunGlow;
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      // Soft painterly Japanese cumulus and cirrus clouds
+      for (let i = 0; i < 18; i++) {
+        const cx = (i * (w / 16) + 40) % w;
+        const cy = h * 0.35 + Math.sin(i * 1.7) * (h * 0.2);
+        const cw = 70 + (i % 5) * 35;
+        const ch = 18 + (i % 3) * 10;
+        ctx.fillStyle = 'rgba(245, 250, 255, 0.55)';
+        ctx.beginPath();
+        if (ctx.ellipse) {
+          ctx.ellipse(cx, cy, cw, ch, 0, 0, Math.PI * 2);
+        } else {
+          ctx.arc(cx, cy, ch, 0, Math.PI * 2);
+        }
+        ctx.fill();
+      }
+    }
+  );
+  skyMat.diffuseTexture = skyTex;
+  skyMat.emissiveTexture = skyTex;
+
   const skyDome = MeshBuilder.CreateSphere('skyDome', { diameter: 500, segments: 16 }, scene);
   skyDome.material = skyMat;
   skyDome.isPickable = false;
@@ -1193,7 +1400,6 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   ];
   for (let r = 0; r < rollingHills.length; r++) {
     const rh = rollingHills[r];
-    // Tapered hill shape: cylinder with smaller top
     const hill = MeshBuilder.CreateCylinder(`hill${r}`, {
       height: rh.h,
       diameterBottom: Math.max(rh.w, rh.d),
@@ -1225,28 +1431,8 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // 13. ZONE 10: LIGHTING & SUN POSITION
+  // 13. ZONE 10: TACTICAL SITE LIGHTING
   // ═══════════════════════════════════════════════════════════════════
-
-  // Primary warm Japanese afternoon Sun: distinct angled light source
-  // Placed high in the south-west sky angled downwards northeast
-  const sunLight = new DirectionalLight('sun', new Vector3(0.55, -0.82, 0.45), scene);
-  sunLight.position = new Vector3(-60, 85, -60);
-  sunLight.diffuse = new Color3(1.15, 1.08, 0.95);
-  sunLight.specular = new Color3(0.3, 0.28, 0.24);
-  sunLight.intensity = 1.05;
-
-  // Soft atmospheric skylight fill (gentle cool blue from above, realistic ambient)
-  const hemiLight = new HemisphericLight('hemi', new Vector3(0.1, 1, 0.1), scene);
-  hemiLight.diffuse = new Color3(0.48, 0.58, 0.72);      // cool sky ambient
-  hemiLight.groundColor = new Color3(0.24, 0.25, 0.24);  // dark warm ground bounce
-  hemiLight.intensity = 0.55;
-
-  // Secondary soft bounce fill from north-east
-  const fillLight = new DirectionalLight('fill', new Vector3(-0.55, -0.65, -0.45), scene);
-  fillLight.position = new Vector3(60, 65, 60);
-  fillLight.diffuse = new Color3(0.35, 0.42, 0.52);
-  fillLight.intensity = 0.30;
 
   // Tactical focal point lights (warm lantern illumination for key sites)
   const focalLights = [
@@ -1285,7 +1471,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     { position: new Vector3(2, 1.0, -43), yaw: Math.PI },
   ];
 
-  return { spawnPoints, colliders };
+  return { spawnPoints, colliders, shadowGenerator: shadowGen };
 }
 
 // Backwards-compatible alias for existing imports

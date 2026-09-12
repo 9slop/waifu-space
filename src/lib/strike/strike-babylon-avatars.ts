@@ -7,7 +7,9 @@ import {
   TransformNode,
   AbstractMesh,
   Camera,
-  DynamicTexture
+  DynamicTexture,
+  Texture,
+  ShadowGenerator
 } from '@babylonjs/core';
 import { WeaponId } from './strike-types';
 import { WEAPON_CATALOG } from './strike-weapons';
@@ -20,124 +22,433 @@ export interface BabylonAvatarOptions {
 }
 
 /**
- * Creates low-poly 3D weapon meshes for Babylon.js first-person viewmodel or third-person avatar hands.
+ * Creates procedural canvas textures with trilinear mipmapping and anisotropic filtering
+ */
+function createProcTexture(
+  name: string,
+  w: number,
+  h: number,
+  scene: Scene,
+  drawFn: (ctx: CanvasRenderingContext2D, width: number, height: number) => void
+): DynamicTexture {
+  const dt = new DynamicTexture(`tex_${name}`, { width: w, height: h }, scene, true, Texture.TRILINEAR_SAMPLINGMODE);
+  dt.wrapU = Texture.WRAP_ADDRESSMODE;
+  dt.wrapV = Texture.WRAP_ADDRESSMODE;
+  dt.anisotropicFilteringLevel = 4;
+  const ctx = dt.getContext() as CanvasRenderingContext2D;
+  if (ctx) {
+    try {
+      drawFn(ctx, w, h);
+      dt.update(false);
+    } catch (err) {
+      console.warn(`[Avatar] Texture draw failed for ${name}:`, err);
+    }
+  }
+  return dt;
+}
+
+function createTexturedMat(
+  name: string,
+  scene: Scene,
+  diffuseColor: Color3,
+  w: number,
+  h: number,
+  drawFn: (ctx: CanvasRenderingContext2D, width: number, height: number) => void,
+  specularColor = new Color3(0.2, 0.2, 0.2),
+  emissiveColor?: Color3,
+  specularPower = 32
+): StandardMaterial {
+  const mat = new StandardMaterial(name, scene);
+  mat.diffuseColor = diffuseColor;
+  mat.specularColor = specularColor;
+  mat.specularPower = specularPower;
+  if (emissiveColor) mat.emissiveColor = emissiveColor;
+  mat.maxSimultaneousLights = 4;
+  const diffTex = createProcTexture(name, w, h, scene, drawFn);
+  mat.diffuseTexture = diffTex;
+  return mat;
+}
+
+/**
+ * Creates textured 3D weapon meshes for Babylon.js first-person viewmodel or third-person avatar hands.
  */
 export function createBabylonWeaponMesh(weaponId: WeaponId, scene: Scene): TransformNode {
   const root = new TransformNode(`WeaponRoot_${weaponId}_${Math.random()}`, scene);
 
-  // Materials
-  const darkMetal = new StandardMaterial(`darkMetal_${weaponId}`, scene);
-  darkMetal.diffuseColor = new Color3(0.16, 0.18, 0.22);
-  darkMetal.specularColor = new Color3(0.3, 0.3, 0.3);
-
-  const lightMetal = new StandardMaterial(`lightMetal_${weaponId}`, scene);
-  lightMetal.diffuseColor = new Color3(0.42, 0.46, 0.52);
-
-  const accentPink = new StandardMaterial(`accentPink_${weaponId}`, scene);
-  accentPink.diffuseColor = new Color3(1.0, 0.42, 0.62);
-  accentPink.emissiveColor = new Color3(0.3, 0.08, 0.15);
-
-  const goldMat = new StandardMaterial(`goldMat_${weaponId}`, scene);
-  goldMat.diffuseColor = new Color3(0.95, 0.76, 0.24);
-
   if (weaponId === 'rifle') {
+    // Textured Rifle Materials
+    const rifleBodyMat = createTexturedMat(`rifleBody_${Math.random()}`, scene, new Color3(0.9, 0.9, 0.9), 256, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#1c1f26'; // Dark matte receiver
+      ctx.fillRect(0, 0, w, h);
+      // Split line
+      ctx.fillStyle = '#0e1014';
+      ctx.fillRect(0, h * 0.48, w, 4);
+      // Ejection port
+      ctx.fillStyle = '#12141a';
+      ctx.fillRect(w * 0.45, h * 0.2, w * 0.35, h * 0.22);
+      ctx.fillStyle = '#d4af37'; // Brass casing
+      ctx.fillRect(w * 0.52, h * 0.26, w * 0.2, h * 0.1);
+      // Ventilation slots
+      ctx.fillStyle = '#0a0c0f';
+      for (let i = 0; i < 5; i++) {
+        ctx.fillRect(w * 0.08 + i * 18, h * 0.22, 10, h * 0.18);
+      }
+      // Fire selector markings
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText('SAFE', w * 0.2, h * 0.82);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText('SEMI', w * 0.45, h * 0.82);
+      ctx.fillStyle = '#ff2b75';
+      ctx.fillText('AUTO', w * 0.72, h * 0.82);
+      // Edge highlights
+      ctx.strokeStyle = '#383f4d';
+      ctx.lineWidth = 3;
+      if (ctx.strokeRect) ctx.strokeRect(2, 2, w - 4, h - 4);
+    }, new Color3(0.25, 0.25, 0.28), undefined, 48);
+
+    const rifleBarrelMat = createTexturedMat(`rifleBarrel_${Math.random()}`, scene, new Color3(0.85, 0.88, 0.9), 128, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#2b303b';
+      ctx.fillRect(0, 0, w, h);
+      for (let x = 0; x < w; x += 16) {
+        ctx.fillStyle = '#181b22';
+        ctx.fillRect(x, 0, 7, h);
+        ctx.fillStyle = '#485060';
+        ctx.fillRect(x + 7, 0, 2, h);
+      }
+    }, new Color3(0.4, 0.4, 0.45), undefined, 64);
+
+    const rifleMagMat = createTexturedMat(`rifleMag_${Math.random()}`, scene, new Color3(1.0, 0.85, 0.9), 128, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#ff2b75'; // Cyberpunk hot pink
+      ctx.fillRect(0, 0, w, h);
+      // Diagonal ribbed waffle grip
+      ctx.strokeStyle = '#d61858';
+      ctx.lineWidth = 4;
+      for (let y = -w; y < h + w; y += 18) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y + w);
+        ctx.stroke();
+      }
+      // Transparent round indicator window
+      ctx.fillStyle = '#181a20';
+      ctx.fillRect(w * 0.7, h * 0.15, w * 0.22, h * 0.7);
+      for (let r = 0; r < 6; r++) {
+        ctx.fillStyle = '#eab308';
+        ctx.fillRect(w * 0.72, h * 0.2 + r * 26, w * 0.18, 14);
+      }
+      ctx.font = 'bold 10px monospace';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('30', w * 0.12, h * 0.25);
+      ctx.fillText('20', w * 0.12, h * 0.5);
+      ctx.fillText('10', w * 0.12, h * 0.75);
+    }, new Color3(0.2, 0.15, 0.18), new Color3(0.12, 0.03, 0.06), 32);
+
+    const rifleStockMat = createTexturedMat(`rifleStock_${Math.random()}`, scene, new Color3(0.85, 0.85, 0.85), 128, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#16181d';
+      ctx.fillRect(0, 0, w, h);
+      // Carbon weave
+      for (let y = 0; y < h; y += 8) {
+        for (let x = 0; x < w; x += 8) {
+          ctx.fillStyle = ((x + y) % 16 === 0) ? '#282c35' : '#1b1e25';
+          ctx.fillRect(x, y, 8, 8);
+        }
+      }
+      // Rubber recoil pad
+      ctx.fillStyle = '#0a0b0e';
+      ctx.fillRect(w * 0.8, 0, w * 0.2, h);
+      for (let y = 4; y < h; y += 10) {
+        ctx.fillStyle = '#22262e';
+        ctx.fillRect(w * 0.8, y, w * 0.2, 4);
+      }
+    }, new Color3(0.15, 0.15, 0.15), undefined, 24);
+
+    const rifleSightMat = createTexturedMat(`rifleSight_${Math.random()}`, scene, new Color3(1.0, 0.8, 0.9), 64, 64, (ctx, w, h) => {
+      ctx.fillStyle = '#ff2b75';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#22c55e'; // Tritium night sight dot
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }, new Color3(0.3, 0.1, 0.2), new Color3(0.2, 0.35, 0.1), 40);
+
     // Receiver
     const body = MeshBuilder.CreateBox('rifleBody', { width: 0.08, height: 0.12, depth: 0.45 }, scene);
-    body.material = darkMetal;
+    body.material = rifleBodyMat;
     body.parent = root;
 
     // Barrel
     const barrel = MeshBuilder.CreateCylinder('rifleBarrel', { height: 0.38, diameter: 0.035 }, scene);
     barrel.rotation.x = Math.PI / 2;
     barrel.position = new Vector3(0, 0.02, 0.38);
-    barrel.material = lightMetal;
+    barrel.material = rifleBarrelMat;
     barrel.parent = root;
 
     // Curved Magazine
     const mag = MeshBuilder.CreateBox('rifleMag', { width: 0.05, height: 0.22, depth: 0.09 }, scene);
     mag.position = new Vector3(0, -0.12, 0.06);
     mag.rotation.x = -0.25;
-    mag.material = accentPink;
+    mag.material = rifleMagMat;
     mag.parent = root;
 
     // Stock
     const stock = MeshBuilder.CreateBox('rifleStock', { width: 0.07, height: 0.14, depth: 0.22 }, scene);
     stock.position = new Vector3(0, -0.02, -0.3);
-    stock.material = darkMetal;
+    stock.material = rifleStockMat;
     stock.parent = root;
 
     // Iron Sights
     const sight = MeshBuilder.CreateBox('rifleSight', { width: 0.04, height: 0.05, depth: 0.08 }, scene);
     sight.position = new Vector3(0, 0.08, 0.1);
-    sight.material = accentPink;
+    sight.material = rifleSightMat;
     sight.parent = root;
   } else if (weaponId === 'sniper') {
+    // Textured Sniper Materials
+    const sniperBodyMat = createTexturedMat(`sniperBody_${Math.random()}`, scene, new Color3(0.9, 0.95, 1.0), 256, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#12151b'; // Deep carbon chassis
+      ctx.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 6) {
+        ctx.fillStyle = (y % 12 === 0) ? '#1a1e27' : '#141720';
+        ctx.fillRect(0, y, w, 6);
+      }
+      // Glowing cyan cyber circuit lines
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(10, h * 0.3);
+      ctx.lineTo(w * 0.4, h * 0.3);
+      ctx.lineTo(w * 0.5, h * 0.6);
+      ctx.lineTo(w * 0.9, h * 0.6);
+      ctx.stroke();
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath();
+      ctx.arc(w * 0.9, h * 0.6, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = 'bold 11px monospace';
+      ctx.fillStyle = '#00e5ff';
+      ctx.fillText('AWM // .338 MAG', w * 0.15, h * 0.85);
+    }, new Color3(0.2, 0.3, 0.35), new Color3(0.04, 0.15, 0.18), 48);
+
+    const sniperBarrelMat = createTexturedMat(`sniperBarrel_${Math.random()}`, scene, new Color3(0.9, 0.9, 0.95), 128, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#222731';
+      ctx.fillRect(0, 0, w, h);
+      for (let x = 0; x < w; x += 14) {
+        ctx.fillStyle = '#13161c';
+        ctx.fillRect(x, 0, 6, h);
+        ctx.fillStyle = '#414959';
+        ctx.fillRect(x + 6, 0, 2, h);
+      }
+    }, new Color3(0.35, 0.38, 0.42), undefined, 64);
+
+    const sniperBrakeMat = createTexturedMat(`sniperBrake_${Math.random()}`, scene, new Color3(0.95, 0.9, 1.0), 128, 128, (ctx, w, h) => {
+      const grad = ctx.createLinearGradient ? ctx.createLinearGradient(0, 0, w, 0) : null;
+      if (grad) {
+        grad.addColorStop(0.0, '#2b303c');
+        grad.addColorStop(0.4, '#382a4d');
+        grad.addColorStop(0.7, '#6b21a8');
+        grad.addColorStop(1.0, '#00e5ff');
+        ctx.fillStyle = grad;
+      } else {
+        ctx.fillStyle = '#6b21a8';
+      }
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#0b0d11';
+      for (let i = 0; i < 3; i++) {
+        ctx.fillRect(18 + i * 36, h * 0.2, 16, h * 0.6);
+      }
+    }, new Color3(0.3, 0.2, 0.4), new Color3(0.05, 0.05, 0.1), 48);
+
+    const sniperScopeMat = createTexturedMat(`sniperScope_${Math.random()}`, scene, new Color3(0.85, 0.85, 0.88), 128, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#161920';
+      ctx.fillRect(0, 0, w, h);
+      for (let x = 0; x < w; x += 6) {
+        ctx.fillStyle = (x % 12 === 0) ? '#2d3340' : '#1a1d25';
+        ctx.fillRect(x, h * 0.35, 3, h * 0.3);
+      }
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = '#00e5ff';
+      ctx.fillText('10x-40x56', 8, h * 0.85);
+    }, new Color3(0.25, 0.25, 0.28), undefined, 32);
+
+    const sniperLensMat = createTexturedMat(`sniperLens_${Math.random()}`, scene, new Color3(0.9, 1.0, 1.0), 128, 128, (ctx, w, h) => {
+      const lensGrad = ctx.createRadialGradient ? ctx.createRadialGradient(w/2, h/2, 5, w/2, h/2, w/2) : null;
+      if (lensGrad) {
+        lensGrad.addColorStop(0.0, '#002b28');
+        lensGrad.addColorStop(0.7, '#004d40');
+        lensGrad.addColorStop(1.0, '#00b4d8');
+        ctx.fillStyle = lensGrad;
+      } else {
+        ctx.fillStyle = '#004d40';
+      }
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#00e5ff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, w * 0.35, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(w / 2, 6);
+      ctx.lineTo(w / 2, h - 6);
+      ctx.moveTo(6, h / 2);
+      ctx.lineTo(w - 6, h / 2);
+      ctx.stroke();
+    }, new Color3(0.2, 0.5, 0.6), new Color3(0.1, 0.35, 0.4), 80);
+
+    const sniperStockMat = createTexturedMat(`sniperStock_${Math.random()}`, scene, new Color3(0.85, 0.85, 0.85), 128, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#16181d';
+      ctx.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 8) {
+        for (let x = 0; x < w; x += 8) {
+          ctx.fillStyle = ((x + y) % 16 === 0) ? '#242831' : '#17191f';
+          ctx.fillRect(x, y, 8, 8);
+        }
+      }
+    }, new Color3(0.2, 0.2, 0.2), undefined, 24);
+
     // Sleek long body
     const body = MeshBuilder.CreateBox('sniperBody', { width: 0.09, height: 0.13, depth: 0.65 }, scene);
-    body.material = darkMetal;
+    body.material = sniperBodyMat;
     body.parent = root;
 
     // Heavy long barrel
     const barrel = MeshBuilder.CreateCylinder('sniperBarrel', { height: 0.65, diameter: 0.04 }, scene);
     barrel.rotation.x = Math.PI / 2;
     barrel.position = new Vector3(0, 0.02, 0.58);
-    barrel.material = lightMetal;
+    barrel.material = sniperBarrelMat;
     barrel.parent = root;
 
     // Muzzle Brake
     const brake = MeshBuilder.CreateBox('sniperBrake', { width: 0.06, height: 0.06, depth: 0.1 }, scene);
     brake.position = new Vector3(0, 0.02, 0.92);
-    brake.material = accentPink;
+    brake.material = sniperBrakeMat;
     brake.parent = root;
 
     // Large Sniper Scope
     const scopeTube = MeshBuilder.CreateCylinder('sniperScope', { height: 0.35, diameter: 0.07 }, scene);
     scopeTube.rotation.x = Math.PI / 2;
     scopeTube.position = new Vector3(0, 0.12, 0.05);
-    scopeTube.material = darkMetal;
+    scopeTube.material = sniperScopeMat;
     scopeTube.parent = root;
 
     // Scope Lens accent ring
     const lensFront = MeshBuilder.CreateCylinder('sniperLens', { height: 0.05, diameter: 0.085 }, scene);
     lensFront.rotation.x = Math.PI / 2;
     lensFront.position = new Vector3(0, 0.12, 0.22);
-    lensFront.material = accentPink;
+    lensFront.material = sniperLensMat;
     lensFront.parent = root;
 
     // Sniper Stock
     const stock = MeshBuilder.CreateBox('sniperStock', { width: 0.07, height: 0.16, depth: 0.32 }, scene);
     stock.position = new Vector3(0, -0.02, -0.45);
-    stock.material = darkMetal;
+    stock.material = sniperStockMat;
     stock.parent = root;
   } else if (weaponId === 'pistol') {
+    // Textured Pistol Materials
+    const pistolSlideMat = createTexturedMat(`pistolSlide_${Math.random()}`, scene, new Color3(0.95, 0.95, 0.98), 256, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#7a8291';
+      ctx.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 3) {
+        ctx.fillStyle = (y % 6 === 0) ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)';
+        ctx.fillRect(0, y, w, 1.5);
+      }
+      ctx.fillStyle = '#373d48';
+      for (let s = 0; s < 5; s++) {
+        ctx.fillRect(16 + s * 10, h * 0.15, 5, h * 0.7);
+        ctx.fillRect(w - 65 + s * 10, h * 0.15, 5, h * 0.7);
+      }
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = '#22262e';
+      ctx.fillText('WAIFU-9 // 9x19 MATCH', w * 0.28, h * 0.58);
+    }, new Color3(0.45, 0.48, 0.55), undefined, 64);
+
+    const pistolGripMat = createTexturedMat(`pistolGrip_${Math.random()}`, scene, new Color3(0.9, 0.9, 0.9), 128, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#1e2128';
+      ctx.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 8) {
+        for (let x = 0; x < w; x += 8) {
+          ctx.fillStyle = ((x + y) % 16 === 0) ? '#313744' : '#14161b';
+          ctx.fillRect(x, y, 4, 4);
+        }
+      }
+      ctx.fillStyle = '#ff2b75';
+      ctx.fillRect(w * 0.75, h * 0.25, 14, 10);
+    }, new Color3(0.18, 0.18, 0.2), undefined, 28);
+
     // Slide
     const slide = MeshBuilder.CreateBox('pistolSlide', { width: 0.06, height: 0.08, depth: 0.24 }, scene);
-    slide.material = lightMetal;
+    slide.material = pistolSlideMat;
     slide.parent = root;
 
     // Grip
     const grip = MeshBuilder.CreateBox('pistolGrip', { width: 0.05, height: 0.16, depth: 0.09 }, scene);
     grip.position = new Vector3(0, -0.1, -0.05);
     grip.rotation.x = -0.2;
-    grip.material = accentPink;
+    grip.material = pistolGripMat;
     grip.parent = root;
   } else if (weaponId === 'knife') {
+    // Textured Damascus Knife Materials
+    const knifeBladeMat = createTexturedMat(`knifeBlade_${Math.random()}`, scene, new Color3(0.98, 0.98, 1.0), 256, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#bcc4d1';
+      ctx.fillRect(0, 0, w, h);
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 18; i++) {
+        const yBase = i * 8;
+        ctx.strokeStyle = (i % 2 === 0) ? 'rgba(75, 85, 102, 0.45)' : 'rgba(240, 245, 255, 0.55)';
+        ctx.beginPath();
+        ctx.moveTo(0, yBase);
+        for (let x = 0; x <= w; x += 20) {
+          const wave = Math.sin(x * 0.08 + i * 1.5) * 6;
+          ctx.lineTo(x, yBase + wave);
+        }
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, h * 0.78, w, h * 0.22);
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(w * 0.15, h * 0.38, w * 0.65, 3.5);
+    }, new Color3(0.55, 0.58, 0.65), undefined, 96);
+
+    const knifeGuardMat = createTexturedMat(`knifeGuard_${Math.random()}`, scene, new Color3(0.9, 0.85, 0.8), 64, 64, (ctx, w, h) => {
+      ctx.fillStyle = '#2c313a';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 3;
+      if (ctx.strokeRect) ctx.strokeRect(2, 2, w - 4, h - 4);
+    }, new Color3(0.35, 0.32, 0.25), undefined, 48);
+
+    const knifeHandleMat = createTexturedMat(`knifeHandle_${Math.random()}`, scene, new Color3(0.9, 0.9, 0.9), 128, 128, (ctx, w, h) => {
+      ctx.fillStyle = '#1c1f26';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#2d3340';
+      ctx.lineWidth = 5;
+      for (let y = -w; y < h + w; y += 18) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y + 24);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#ff2b75';
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, 7, 0, Math.PI * 2);
+      ctx.fill();
+    }, new Color3(0.2, 0.2, 0.2), undefined, 24);
+
     // Blade
     const blade = MeshBuilder.CreateBox('knifeBlade', { width: 0.02, height: 0.06, depth: 0.28 }, scene);
     blade.position = new Vector3(0, 0, 0.14);
-    blade.material = goldMat;
+    blade.material = knifeBladeMat;
     blade.parent = root;
 
     // Guard
     const guard = MeshBuilder.CreateBox('knifeGuard', { width: 0.08, height: 0.02, depth: 0.04 }, scene);
-    guard.material = darkMetal;
+    guard.material = knifeGuardMat;
     guard.parent = root;
 
     // Handle
     const handle = MeshBuilder.CreateCylinder('knifeHandle', { height: 0.14, diameter: 0.03 }, scene);
     handle.rotation.x = Math.PI / 2;
     handle.position = new Vector3(0, 0, -0.09);
-    handle.material = accentPink;
+    handle.material = knifeHandleMat;
     handle.parent = root;
   }
 
@@ -380,26 +691,245 @@ export class BabylonAvatarModel {
   private nameplateTexture: DynamicTexture;
   private scene: Scene;
 
-  constructor(id: string | number, opts: BabylonAvatarOptions, scene: Scene) {
+  constructor(id: string | number, opts: BabylonAvatarOptions, scene: Scene, shadowGenerator?: ShadowGenerator) {
     this.playerId = id;
     this.scene = scene;
     this.root = new TransformNode(`PlayerAvatar_${id}`, scene);
 
-    const skinMat = new StandardMaterial(`skinMat_${id}`, scene);
-    skinMat.diffuseColor = new Color3(1.0, 0.90, 0.72);
+    // ==================== PROCEDURAL WAIFU TEXTURES ====================
+    // 1. Anime Face Texture (Big expressive gradient eyes, lashes, blush, smile)
+    const faceMat = createTexturedMat(`faceMat_${id}`, scene, new Color3(1.0, 0.98, 0.98), 256, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#ffe4d6'; // Fair anime skin base
+      ctx.fillRect(0, 0, w, h);
 
-    const hairMat = new StandardMaterial(`hairMat_${id}`, scene);
-    hairMat.diffuseColor = opts.hairColor
-      ? Color3.FromHexString(opts.hairColor)
-      : new Color3(1.0, 0.45, 0.62);
+      const eyeY = h * 0.44;
+      const leftEyeX = w * 0.32;
+      const rightEyeX = w * 0.68;
+      const eyeW = 26;
+      const eyeH = 32;
 
-    const outfitMat = new StandardMaterial(`outfitMat_${id}`, scene);
-    outfitMat.diffuseColor = opts.outfitColor
-      ? Color3.FromHexString(opts.outfitColor)
-      : new Color3(0.18, 0.20, 0.26);
+      const drawEye = (cx: number, cy: number) => {
+        // Sclera
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        if (ctx.ellipse) {
+          ctx.ellipse(cx, cy, eyeW * 0.5, eyeH * 0.5, 0, 0, Math.PI * 2);
+        } else {
+          ctx.arc(cx, cy, eyeW * 0.5, 0, Math.PI * 2);
+        }
+        ctx.fill();
 
-    const whiteMat = new StandardMaterial(`whiteMat_${id}`, scene);
-    whiteMat.diffuseColor = new Color3(0.95, 0.95, 0.95);
+        // Gradient Iris (Deep indigo to vibrant cyan)
+        const irisGrad = ctx.createLinearGradient ? ctx.createLinearGradient(cx, cy - eyeH * 0.4, cx, cy + eyeH * 0.4) : null;
+        if (irisGrad) {
+          irisGrad.addColorStop(0.0, '#312e81');
+          irisGrad.addColorStop(0.5, '#4f46e5');
+          irisGrad.addColorStop(1.0, '#06b6d4');
+          ctx.fillStyle = irisGrad;
+        } else {
+          ctx.fillStyle = '#4f46e5';
+        }
+        ctx.beginPath();
+        if (ctx.ellipse) {
+          ctx.ellipse(cx, cy + 2, eyeW * 0.42, eyeH * 0.42, 0, 0, Math.PI * 2);
+        } else {
+          ctx.arc(cx, cy + 2, eyeW * 0.42, 0, Math.PI * 2);
+        }
+        ctx.fill();
+
+        // Pupil
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        if (ctx.ellipse) {
+          ctx.ellipse(cx, cy + 1, eyeW * 0.22, eyeH * 0.24, 0, 0, Math.PI * 2);
+        } else {
+          ctx.arc(cx, cy + 1, eyeW * 0.22, 0, Math.PI * 2);
+        }
+        ctx.fill();
+
+        // Primary white specular circle
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(cx - 5, cy - 6, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Secondary small twinkle
+        ctx.beginPath();
+        ctx.arc(cx + 4, cy + 5, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyelashes & upper lid line
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy - 2, eyeW * 0.52, Math.PI * 1.15, Math.PI * 1.85);
+        ctx.stroke();
+
+        // Crease
+        ctx.strokeStyle = 'rgba(120, 80, 70, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(cx, cy - 7, eyeW * 0.48, Math.PI * 1.25, Math.PI * 1.75);
+        ctx.stroke();
+      };
+
+      drawEye(leftEyeX, eyeY);
+      drawEye(rightEyeX, eyeY);
+
+      // Styled anime eyebrows
+      ctx.strokeStyle = opts.hairColor ? opts.hairColor : '#ff6b9d';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(leftEyeX, eyeY - 18, 16, Math.PI * 1.2, Math.PI * 1.7);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(rightEyeX, eyeY - 18, 16, Math.PI * 1.3, Math.PI * 1.8);
+      ctx.stroke();
+
+      // Rosy anime cheek blush
+      ctx.fillStyle = 'rgba(255, 120, 149, 0.45)';
+      for (let i = -1; i <= 1; i++) {
+        ctx.fillRect(leftEyeX - 10 + i * 5, eyeY + 18 + i * 2, 4, 10);
+        ctx.fillRect(rightEyeX - 2 + i * 5, eyeY + 18 + i * 2, 4, 10);
+      }
+
+      // Petite anime smile
+      ctx.strokeStyle = '#be185d';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(w / 2, eyeY + 28, 10, 0.2, Math.PI - 0.2);
+      ctx.stroke();
+    }, new Color3(0.08, 0.08, 0.08), undefined, 16);
+
+    // 2. Hair Texture with anime "Angel Ring" sheen halo
+    const baseHairColor = opts.hairColor ? opts.hairColor : '#ff6b9d';
+    const hairMat = createTexturedMat(`hairMat_${id}`, scene, new Color3(1.0, 1.0, 1.0), 128, 256, (ctx, w, h) => {
+      ctx.fillStyle = baseHairColor;
+      ctx.fillRect(0, 0, w, h);
+      for (let x = 0; x < w; x += 4) {
+        ctx.fillStyle = (x % 8 === 0) ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.10)';
+        ctx.fillRect(x, 0, 2, h);
+      }
+      const sheenY = h * 0.32;
+      const sheenGrad = ctx.createLinearGradient ? ctx.createLinearGradient(0, sheenY - 18, 0, sheenY + 18) : null;
+      if (sheenGrad) {
+        sheenGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.0)');
+        sheenGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.55)');
+        sheenGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+        ctx.fillStyle = sheenGrad;
+        ctx.fillRect(0, sheenY - 18, w, 36);
+      }
+    }, new Color3(0.2, 0.2, 0.2), undefined, 32);
+
+    // 3. Sailor Uniform Torso Texture
+    const baseOutfitColor = opts.outfitColor ? opts.outfitColor : '#1e293b';
+    const outfitMat = createTexturedMat(`outfitMat_${id}`, scene, new Color3(1.0, 1.0, 1.0), 256, 256, (ctx, w, h) => {
+      ctx.fillStyle = baseOutfitColor;
+      ctx.fillRect(0, 0, w, h);
+      // Sailor collar bib
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.moveTo(w * 0.2, 0);
+      ctx.lineTo(w * 0.8, 0);
+      ctx.lineTo(w * 0.5, h * 0.45);
+      ctx.closePath();
+      ctx.fill();
+      // Nautical stripes
+      ctx.strokeStyle = '#1e3a8a';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.25, 0);
+      ctx.lineTo(w * 0.5, h * 0.38);
+      ctx.lineTo(w * 0.75, 0);
+      ctx.stroke();
+      // Gold uniform buttons
+      for (let b = 0; b < 3; b++) {
+        const by = h * 0.52 + b * 26;
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(w / 2, by, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(w / 2 - 1, by - 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // Waistband & buckle
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, h * 0.88, w, h * 0.12);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(w * 0.44, h * 0.89, w * 0.12, h * 0.1);
+    }, new Color3(0.12, 0.12, 0.12), undefined, 24);
+
+    // 4. Pleated Skirt Texture
+    const skirtMat = createTexturedMat(`skirtMat_${id}`, scene, new Color3(1.0, 1.0, 1.0), 256, 128, (ctx, w, h) => {
+      ctx.fillStyle = baseOutfitColor;
+      ctx.fillRect(0, 0, w, h);
+      const pleats = 16;
+      const pw = w / pleats;
+      for (let i = 0; i < pleats; i++) {
+        const px = i * pw;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+        ctx.fillRect(px, 0, pw * 0.35, h);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.fillRect(px + pw * 0.35, 0, 2, h);
+      }
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, h - 16, w, 3.5);
+      ctx.fillRect(0, h - 8, w, 3.5);
+    }, new Color3(0.12, 0.12, 0.12), undefined, 20);
+
+    // 5. Thigh-High Stockings & Loafers Texture
+    const legsMat = createTexturedMat(`legsMat_${id}`, scene, new Color3(1.0, 1.0, 1.0), 128, 256, (ctx, w, h) => {
+      // Fair skin thigh
+      ctx.fillStyle = '#ffe4d6';
+      ctx.fillRect(0, 0, w, h * 0.18);
+      // Lace band
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(0, h * 0.18, w, 6);
+      // Microfiber stockings
+      ctx.fillStyle = '#181b24';
+      ctx.fillRect(0, h * 0.22, w, h * 0.58);
+      // Shin sheen
+      const shinGrad = ctx.createLinearGradient ? ctx.createLinearGradient(w * 0.3, 0, w * 0.7, 0) : null;
+      if (shinGrad) {
+        shinGrad.addColorStop(0.0, 'rgba(255, 255, 255, 0.0)');
+        shinGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.16)');
+        shinGrad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+        ctx.fillStyle = shinGrad;
+        ctx.fillRect(w * 0.25, h * 0.25, w * 0.5, h * 0.52);
+      }
+      // Leather loafers & sole
+      ctx.fillStyle = '#0f1014';
+      ctx.fillRect(0, h * 0.80, w, h * 0.20);
+      ctx.fillStyle = '#3e2415';
+      ctx.fillRect(0, h - 10, w, 10);
+    }, new Color3(0.2, 0.2, 0.2), undefined, 36);
+
+    // 6. Tactical Shooter Gloves & Arms Texture
+    const armsMat = createTexturedMat(`armsMat_${id}`, scene, new Color3(1.0, 1.0, 1.0), 128, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#ffe4d6';
+      ctx.fillRect(0, 0, w, h * 0.45);
+      ctx.fillStyle = '#1e232d'; // Tactical glove
+      ctx.fillRect(0, h * 0.45, w, h * 0.55);
+      ctx.fillStyle = '#11141a'; // Knuckle pads
+      for (let k = 0; k < 4; k++) {
+        ctx.fillRect(8 + k * 16, h * 0.65, 12, 16);
+      }
+      ctx.fillStyle = '#0f1116';
+      ctx.fillRect(0, h * 0.48, w, 12);
+      ctx.fillStyle = '#ff2b75';
+      ctx.fillRect(w * 0.7, h * 0.49, 16, 10);
+    }, new Color3(0.18, 0.18, 0.22), undefined, 24);
+
+    // 7. Bow Ribbon Material
+    const ribbonMat = createTexturedMat(`ribbonMat_${id}`, scene, new Color3(1.0, 0.9, 0.9), 64, 64, (ctx, w, h) => {
+      ctx.fillStyle = '#ff2b75';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = '#be185d';
+      ctx.lineWidth = 3;
+      if (ctx.strokeRect) ctx.strokeRect(2, 2, w - 4, h - 4);
+    }, new Color3(0.2, 0.1, 0.15), undefined, 20);
 
     // Hitbox transparent material: alpha 0.001 keeps it pickable by Babylon pickWithRay
     const hitboxMat = new StandardMaterial(`hitboxMat_${id}`, scene);
@@ -410,9 +940,10 @@ export class BabylonAvatarModel {
     // Head Sphere (Hitbox: head)
     this.headMesh = MeshBuilder.CreateSphere(`avatarHead_${id}`, { diameter: 0.52, segments: 10 }, scene);
     this.headMesh.position = new Vector3(0, 1.55, 0);
-    this.headMesh.material = skinMat;
+    this.headMesh.material = faceMat;
     this.headMesh.parent = this.root;
     this.headMesh.isPickable = true;
+    this.headMesh.receiveShadows = true;
     this.headMesh.metadata = { isHitbox: true, part: 'head', playerId: id };
 
     // Hair Cap
@@ -422,6 +953,14 @@ export class BabylonAvatarModel {
     hairCap.parent = this.headMesh;
     hairCap.isPickable = true;
     hairCap.metadata = { isHitbox: true, part: 'head', playerId: id };
+
+    // Hair Bangs (anime waifu silhouette)
+    const hairBangs = MeshBuilder.CreateBox(`hairBangs_${id}`, { width: 0.44, height: 0.18, depth: 0.18 }, scene);
+    hairBangs.position = new Vector3(0, 0.14, 0.19);
+    hairBangs.rotation.x = -0.25;
+    hairBangs.material = hairMat;
+    hairBangs.parent = this.headMesh;
+    hairBangs.isPickable = false;
 
     // Twin tails
     const leftTail = MeshBuilder.CreateCylinder(`lTail_${id}`, { height: 0.5, diameterTop: 0.18, diameterBottom: 0.02 }, scene);
@@ -440,24 +979,7 @@ export class BabylonAvatarModel {
     rightTail.isPickable = true;
     rightTail.metadata = { isHitbox: true, part: 'head', playerId: id };
 
-    // Anime Eyes
-    const eyeMat = new StandardMaterial(`eyeMat_${id}`, scene);
-    eyeMat.diffuseColor = new Color3(0.15, 0.15, 0.2);
-    eyeMat.emissiveColor = new Color3(0.15, 0.15, 0.2);
-
-    const leftEye = MeshBuilder.CreatePlane(`lEye_${id}`, { size: 0.07 }, scene);
-    leftEye.position = new Vector3(-0.09, 0.02, 0.25);
-    leftEye.material = eyeMat;
-    leftEye.parent = this.headMesh;
-    leftEye.isPickable = false;
-
-    const rightEye = MeshBuilder.CreatePlane(`rEye_${id}`, { size: 0.07 }, scene);
-    rightEye.position = new Vector3(0.09, 0.02, 0.25);
-    rightEye.material = eyeMat;
-    rightEye.parent = this.headMesh;
-    rightEye.isPickable = false;
-
-    // Generous head hitbox volume for reliable hit registration (visibility > 0 so pickWithRay hits it)
+    // Generous head hitbox volume for reliable hit registration
     const headHitbox = MeshBuilder.CreateSphere(`hitboxHead_${id}`, { diameter: 0.68, segments: 6 }, scene);
     headHitbox.position = new Vector3(0, 1.55, 0);
     headHitbox.material = hitboxMat;
@@ -473,17 +995,26 @@ export class BabylonAvatarModel {
     this.bodyMesh.material = outfitMat;
     this.bodyMesh.parent = this.root;
     this.bodyMesh.isPickable = true;
+    this.bodyMesh.receiveShadows = true;
     this.bodyMesh.metadata = { isHitbox: true, part: 'torso', playerId: id };
+
+    // Front Bow Ribbon
+    const ribbonMesh = MeshBuilder.CreateBox(`ribbon_${id}`, { width: 0.18, height: 0.12, depth: 0.08 }, scene);
+    ribbonMesh.position = new Vector3(0, 0.16, 0.15);
+    ribbonMesh.material = ribbonMat;
+    ribbonMesh.parent = this.bodyMesh;
+    ribbonMesh.isPickable = false;
 
     // Skirt
     const skirt = MeshBuilder.CreateCylinder(`skirt_${id}`, { height: 0.26, diameterTop: 0.45, diameterBottom: 0.65, tessellation: 10 }, scene);
     skirt.position = new Vector3(0, -0.32, 0);
-    skirt.material = outfitMat;
+    skirt.material = skirtMat;
     skirt.parent = this.bodyMesh;
     skirt.isPickable = true;
+    skirt.receiveShadows = true;
     skirt.metadata = { isHitbox: true, part: 'torso', playerId: id };
 
-    // Torso Hitbox Volume (visibility > 0 so pickWithRay hits it)
+    // Torso Hitbox Volume
     const torsoHitbox = MeshBuilder.CreateBox(`hitboxTorso_${id}`, { width: 0.62, height: 0.72, depth: 0.44 }, scene);
     torsoHitbox.position = new Vector3(0, 1.12, 0);
     torsoHitbox.material = hitboxMat;
@@ -495,34 +1026,36 @@ export class BabylonAvatarModel {
     // ==================== 3. LEGS & LIMBS ====================
     this.leftLeg = MeshBuilder.CreateBox(`lLeg_${id}`, { width: 0.15, height: 0.74, depth: 0.17 }, scene);
     this.leftLeg.position = new Vector3(-0.13, 0.42, 0);
-    this.leftLeg.material = whiteMat;
+    this.leftLeg.material = legsMat;
     this.leftLeg.parent = this.root;
     this.leftLeg.isPickable = true;
+    this.leftLeg.receiveShadows = true;
     this.leftLeg.metadata = { isHitbox: true, part: 'limb', playerId: id };
 
     this.rightLeg = MeshBuilder.CreateBox(`rLeg_${id}`, { width: 0.15, height: 0.74, depth: 0.17 }, scene);
     this.rightLeg.position = new Vector3(0.13, 0.42, 0);
-    this.rightLeg.material = whiteMat;
+    this.rightLeg.material = legsMat;
     this.rightLeg.parent = this.root;
     this.rightLeg.isPickable = true;
+    this.rightLeg.receiveShadows = true;
     this.rightLeg.metadata = { isHitbox: true, part: 'limb', playerId: id };
 
     // ==================== 4. ARMS & WEAPON MOUNT ====================
     this.leftArm = MeshBuilder.CreateBox(`lArm_${id}`, { width: 0.12, height: 0.46, depth: 0.13 }, scene);
     this.leftArm.position = new Vector3(-0.29, 1.15, 0);
-    this.leftArm.material = skinMat;
+    this.leftArm.material = armsMat;
     this.leftArm.parent = this.root;
     this.leftArm.isPickable = true;
     this.leftArm.metadata = { isHitbox: true, part: 'limb', playerId: id };
 
     this.rightArm = MeshBuilder.CreateBox(`rArm_${id}`, { width: 0.12, height: 0.46, depth: 0.13 }, scene);
     this.rightArm.position = new Vector3(0.29, 1.15, 0);
-    this.rightArm.material = skinMat;
+    this.rightArm.material = armsMat;
     this.rightArm.parent = this.root;
     this.rightArm.isPickable = true;
     this.rightArm.metadata = { isHitbox: true, part: 'limb', playerId: id };
 
-    // Limbs Hitbox Volume (visibility > 0 so pickWithRay hits it)
+    // Limbs Hitbox Volume
     const limbsHitbox = MeshBuilder.CreateBox(`hitboxLimbs_${id}`, { width: 0.65, height: 0.78, depth: 0.42 }, scene);
     limbsHitbox.position = new Vector3(0, 0.4, 0);
     limbsHitbox.material = hitboxMat;
@@ -530,6 +1063,23 @@ export class BabylonAvatarModel {
     limbsHitbox.isPickable = true;
     limbsHitbox.metadata = { isHitbox: true, part: 'limb', playerId: id };
     limbsHitbox.parent = this.root;
+
+    // Real-time Shadow Casting for character avatar
+    const shadowGen = shadowGenerator || (scene.lights.map((l) => l.getShadowGenerator()).find(Boolean) as ShadowGenerator | undefined);
+    if (shadowGen) {
+      shadowGen.addShadowCaster(this.headMesh);
+      shadowGen.addShadowCaster(hairCap);
+      shadowGen.addShadowCaster(hairBangs);
+      shadowGen.addShadowCaster(leftTail);
+      shadowGen.addShadowCaster(rightTail);
+      shadowGen.addShadowCaster(this.bodyMesh);
+      shadowGen.addShadowCaster(skirt);
+      shadowGen.addShadowCaster(ribbonMesh);
+      shadowGen.addShadowCaster(this.leftLeg);
+      shadowGen.addShadowCaster(this.rightLeg);
+      shadowGen.addShadowCaster(this.leftArm);
+      shadowGen.addShadowCaster(this.rightArm);
+    }
 
     this.weaponMount = new TransformNode(`avatarWeaponMount_${id}`, scene);
     this.weaponMount.position = new Vector3(0.25, 1.05, 0.28);

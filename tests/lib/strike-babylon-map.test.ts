@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { NullEngine, Scene, StandardMaterial, DynamicTexture } from '@babylonjs/core';
+import { NullEngine, Scene, StandardMaterial, DynamicTexture, PointLight } from '@babylonjs/core';
 import { createKyotoMap } from '../../src/lib/strike/strike-babylon-map';
+import { createBabylonWeaponMesh, BabylonAvatarModel } from '../../src/lib/strike/strike-babylon-avatars';
 
 describe('strike-babylon-map (Kyoto v2)', () => {
   let engine: NullEngine;
