@@ -34,7 +34,9 @@ export function CalendarWeekView(props: {
     const start = getStartOfWeek(props.currentDate);
     const days: Date[] = [];
     for (let i = 0; i < 7; i++) {
-      days.push(new Date(start.getTime() + i * 86400000));
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      days.push(d);
     }
     return days;
   };

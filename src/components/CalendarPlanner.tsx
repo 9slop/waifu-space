@@ -153,7 +153,8 @@ const sidebarTasks = createMemo(() => {
     if (view === 'week') {
       const start = new Date(d);
       start.setDate(start.getDate() - start.getDay());
-      const end = new Date(start.getTime() + 6 * 86400000);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
       return `${start.toLocaleDateString(loc, { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString(loc, { month: 'short', day: 'numeric', year: 'numeric' })}`;
     }
     return d.toLocaleDateString(loc, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
