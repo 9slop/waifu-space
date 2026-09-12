@@ -83,7 +83,7 @@ describe('EventModal Component (EventModal.tsx)', () => {
       />
     ));
 
-    const closeBtn = screen.getByText('✕');
+    const closeBtn = screen.getByRole('button', { name: /close/i });
     fireEvent.click(closeBtn);
 
     expect(onClose).toHaveBeenCalled();

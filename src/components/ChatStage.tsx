@@ -6,6 +6,7 @@ import {
   ChatMessage
 } from '../lib/store';
 import { t } from '../lib/i18n';
+import { PhFlowerLotus, PhUserCircle, PhTrash, PhPaperPlaneRight, GlyphText } from './icons';
 
 export function ChatStage() {
   const [inputText, setInputText] = createSignal('');
@@ -60,7 +61,7 @@ export function ChatStage() {
             aria-label={t('chat.clearTooltip')}
             onClick={clearChatHistory}
           >
-            🗑️
+            <PhTrash />
           </button>
         </div>
       </div>
@@ -79,13 +80,13 @@ export function ChatStage() {
           {(msg: ChatMessage) => (
             <div class={`chat-bubble-row ${msg.sender === 'user' ? 'user-row' : 'waifu-row'}`}>
               <div class="chat-bubble-avatar">
-                {msg.sender === 'user' ? '👤' : '🌸'}
+                {msg.sender === 'user' ? <PhUserCircle /> : <PhFlowerLotus />}
               </div>
               <div class="chat-bubble-content">
                 <span class="chat-bubble-sender">
                   {msg.sender === 'user' ? t('chat.you') : state.waifu.name}
                 </span>
-                <div class="chat-bubble-text">{msg.text}</div>
+                <div class="chat-bubble-text"><GlyphText text={msg.text} /></div>
                 <span class="chat-bubble-time">{formatTime(msg.timestamp)}</span>
               </div>
             </div>
@@ -135,7 +136,7 @@ export function ChatStage() {
           title={t('chat.sendTooltip')}
           aria-label={t('chat.sendTooltip')}
         >
-          <span>➤</span>
+          <span><PhPaperPlaneRight /></span>
         </button>
       </form>
     </div>

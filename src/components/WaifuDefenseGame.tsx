@@ -24,6 +24,21 @@ import {
 } from '../lib/defense-map';
 import { setDefenseGameActive } from '../lib/defense-bridge';
 import { t } from '../lib/i18n';
+import {
+  EmojiIcon,
+  PhMedal,
+  PhFlowerLotus,
+  PhSword,
+  PhArrowsClockwise,
+  PhConfetti,
+  PhCoins,
+  PhStarFour,
+  PhHeartBreak,
+  PhLightbulb,
+  PhArrowRight,
+  PhAlien,
+  PhSpiral
+} from './icons';
 
 interface TowerPlot {
   id: number;
@@ -957,7 +972,7 @@ export function WaifuDefenseGame() {
 
         <div class="hud-stat">
           <span class="hud-label">{t('defense.silver')}</span>
-          <span class="hud-value silver-val">🥈 {silver()}</span>
+          <span class="hud-value silver-val"><PhMedal /> {silver()}</span>
         </div>
 
         <div class="hud-stat">
@@ -975,19 +990,19 @@ export function WaifuDefenseGame() {
             onClick={triggerSakuraNova}
             title={t('defense.novaTooltip')}
           >
-            🌸 {t('defense.sakuraNova')} {ultimateCooldown() > 0 ? `(${ultimateCooldown()}s)` : t('defense.ready')}
+            <PhFlowerLotus /> {t('defense.sakuraNova')} {ultimateCooldown() > 0 ? `(${ultimateCooldown()}s)` : t('defense.ready')}
           </button>
         </div>
 
         <div class="hud-stat">
           <Show when={!waveInProgress() && gameStatus() !== 'gameover'}>
             <button class="btn-start-wave" onClick={startWave}>
-              ⚔️ {t('defense.startWave', { wave: wave() })}
+              <PhSword /> {t('defense.startWave', { wave: wave() })}
             </button>
           </Show>
           <Show when={gameStatus() === 'gameover'}>
             <button class="btn-retry" onClick={resetGame}>
-              🔄 {t('defense.tryAgain')}
+              <PhArrowsClockwise /> {t('defense.tryAgain')}
             </button>
           </Show>
         </div>
@@ -1007,7 +1022,7 @@ export function WaifuDefenseGame() {
         <Show when={bossBar() && waveInProgress()}>
           <div class="boss-bar-overlay" data-testid="boss-bar">
             <div class="boss-bar-label">
-              {bossBar()!.isMiniBoss ? `🦹 ${t('defense.miniboss') || 'MINI-BOSS'}` : `👹 ${t('defense.boss')}`} — {t('defense.wave')} {bossBar()!.wave}
+              {bossBar()!.isMiniBoss ? <><PhSpiral /> {t('defense.miniboss') || 'MINI-BOSS'}</> : <><PhAlien /> {t('defense.boss')}</>} — {t('defense.wave')} {bossBar()!.wave}
             </div>
             <div class="boss-bar-track">
               <div
@@ -1024,13 +1039,13 @@ export function WaifuDefenseGame() {
         {/* OVERLAYS */}
         <Show when={gameStatus() === 'victory' && lastWaveReward()}>
           <div class="game-overlay-banner victory-banner">
-            <h3>🎉 {t('defense.waveDefended', { wave: wave() })}</h3>
+            <h3><PhConfetti /> {t('defense.waveDefended', { wave: wave() })}</h3>
             <p>{t('defense.victoryDesc')}</p>
             <div class="rewards-row">
-              <span>+🪙 {lastWaveReward()!.coins} Coins</span>
-              <span>+🌟 {lastWaveReward()!.exp} Waifu XP</span>
+              <span><PhCoins /> +{lastWaveReward()!.coins} Coins</span>
+              <span><PhStarFour /> +{lastWaveReward()!.exp} Waifu XP</span>
               <Show when={lastWaveReward()!.silverEarned > 0}>
-                <span>+🥈 {lastWaveReward()!.silverEarned} {t('defense.silver')}</span>
+                <span><PhMedal /> +{lastWaveReward()!.silverEarned} {t('defense.silver')}</span>
               </Show>
             </div>
             <button
@@ -1039,14 +1054,14 @@ export function WaifuDefenseGame() {
                 startWave();
               }}
             >
-              {t('defense.startWave', { wave: wave() })} ➡️
+              {t('defense.startWave', { wave: wave() })} <PhArrowRight />
             </button>
           </div>
         </Show>
 
         <Show when={gameStatus() === 'gameover'}>
           <div class="game-overlay-banner defeat-banner">
-            <h3>💔 {t('defense.shrineFell')}</h3>
+            <h3><PhHeartBreak /> {t('defense.shrineFell')}</h3>
             <p>{t('defense.defeatDesc', { name: state.waifu?.name || 'Your waifu' })}</p>
             <button class="btn-primary" onClick={resetGame}>
               {t('defense.restartDefense')}
@@ -1059,7 +1074,7 @@ export function WaifuDefenseGame() {
       <div class="tower-controls-deck">
         <Show when={selectedPlot()} fallback={
           <div class="tower-picker-hint">
-            <span>💡 {t('defense.plotHint')}</span>
+            <span><PhLightbulb /> {t('defense.plotHint')}</span>
           </div>
         }>
           {plot => (
@@ -1076,7 +1091,7 @@ export function WaifuDefenseGame() {
                           onClick={() => buildTowerOnPlot(plot(), typeKey as any)}
                         >
                           <span class="tower-icon">
-                            <Show when={typeKey === 'sanctuary'} fallback={spec.icon}>
+                            <Show when={typeKey === 'sanctuary'} fallback={<EmojiIcon glyph={spec.icon} />}>
                               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M12 2L15 8H9L12 2Z" fill="#ff77aa" stroke="#ff4081" />
                                 <circle cx="12" cy="14" r="5" fill="#ffb6c1" stroke="#ff69b4" />
@@ -1091,7 +1106,7 @@ export function WaifuDefenseGame() {
                                 {t(`defense.tags.${spec.role}`)}
                               </span>
                             </div>
-                            <small>🥈 {spec.cost} {t('defense.silver')}</small>
+                            <small><PhMedal /> {spec.cost} {t('defense.silver')}</small>
                           </div>
                         </button>
                       )}
@@ -1105,7 +1120,7 @@ export function WaifuDefenseGame() {
                   <div class="tower-upgrade-panel" data-testid="tower-upgrade-panel">
                     <div class="tower-current-info">
                       <span class="panel-icon">
-                        <Show when={tower().type === 'sanctuary'} fallback={TOWER_SPECS[tower().type].icon}>
+                        <Show when={tower().type === 'sanctuary'} fallback={<EmojiIcon glyph={TOWER_SPECS[tower().type].icon} />}>
                           <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M12 2L15 8H9L12 2Z" fill="#ff77aa" stroke="#ff4081" />
                             <circle cx="12" cy="14" r="5" fill="#ffb6c1" stroke="#ff69b4" />
@@ -1131,14 +1146,14 @@ export function WaifuDefenseGame() {
                         onClick={() => upgradeTower(plot())}
                       >
                         {tower().level >= MAX_TOWER_LEVEL
-                          ? (t('defense.maxLevel', { level: MAX_TOWER_LEVEL }) || `⭐ Max Level (Lv ${MAX_TOWER_LEVEL})`)
-                          : `🥈 ${t('defense.upgrade', { level: tower().level + 1, cost: getTowerUpgradeCost(tower().type, tower().level) })}`}
+                          ? (<><PhStarFour /> {t('defense.maxLevel', { level: MAX_TOWER_LEVEL })}</>)
+                          : (<><PhMedal /> {t('defense.upgrade', { level: tower().level + 1, cost: getTowerUpgradeCost(tower().type, tower().level) })}</>)}
                       </button>
                       <button
                         class="btn-sell"
                         onClick={() => sellTower(plot())}
                       >
-                        🥈 {t('defense.sell', { cost: getTowerRefund(tower().type, tower().level) })}
+                        <PhMedal /> {t('defense.sell', { cost: getTowerRefund(tower().type, tower().level) })}
                       </button>
                     </div>
                   </div>

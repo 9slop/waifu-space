@@ -3,6 +3,16 @@ import { state, setState, openLootbox, RpgCosmeticItem, showToast, isCosmeticUnl
 import { t, getCosmeticName, getCosmeticDesc, getCategoryName, getRarityName } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
 import { getLootboxCost } from '../lib/economy';
+import {
+  EmojiIcon,
+  PhGift,
+  PhCoins,
+  PhPackage,
+  PhSparkle,
+  PhCrown,
+  PhMagicWand,
+  PhRecycle
+} from './icons';
 
 export function LootboxModal() {
   const [selectedChest, setSelectedChest] = createSignal<'standard' | 'royal'>('standard');
@@ -107,14 +117,14 @@ export function LootboxModal() {
     <div class="lootbox-system-card" role="region" aria-labelledby="lootbox-modal-title">
       <div class="lootbox-header">
         <div class="lootbox-title-group">
-          <h2 id="lootbox-modal-title">🎁 {t('gacha.title')}</h2>
+          <h2 id="lootbox-modal-title"><PhGift /> {t('gacha.title')}</h2>
           <p class="lootbox-subtitle">
             {t('gacha.subtitle')}
           </p>
         </div>
         <div class="lootbox-coin-display">
           <span>{t('gacha.yourBalance')}</span>
-          <strong class="coin-val">🪙 {userCoins()}</strong>
+          <strong class="coin-val"><PhCoins /> {userCoins()}</strong>
         </div>
       </div>
 
@@ -130,11 +140,11 @@ export function LootboxModal() {
           onKeyDown={e => onActivateKey(e, () => setSelectedChest('standard'))}
         >
           <div class="chest-badge standard-badge">{t('gacha.regular')}</div>
-          <div class="chest-icon">📦</div>
+          <div class="chest-icon"><PhPackage /></div>
           <div class="chest-name">{t('gacha.silverChest')}</div>
           <div class="chest-rates">{t('gacha.silverRates')}</div>
           <div class="chest-cost">
-            <span>{t('gacha.price')}</span> <strong>🪙 {standardCost()}</strong>
+            <span>{t('gacha.price')}</span> <strong><PhCoins /> {standardCost()}</strong>
           </div>
         </div>
 
@@ -148,11 +158,11 @@ export function LootboxModal() {
           onKeyDown={e => onActivateKey(e, () => setSelectedChest('royal'))}
         >
           <div class="chest-badge royal-badge">{t('gacha.highRarityGuaranteed')}</div>
-          <div class="chest-icon">✨👑✨</div>
+          <div class="chest-icon"><PhSparkle /><PhCrown /><PhSparkle /></div>
           <div class="chest-name">{t('gacha.royalChest')}</div>
           <div class="chest-rates">{t('gacha.royalRates')}</div>
           <div class="chest-cost">
-            <span>{t('gacha.price')}</span> <strong>🪙 {royalCost()}</strong>
+            <span>{t('gacha.price')}</span> <strong><PhCoins /> {royalCost()}</strong>
           </div>
         </div>
       </div>
@@ -165,7 +175,7 @@ export function LootboxModal() {
           onClick={handleOpenChest}
         >
           {isOpening() ? (
-            <span class="opening-spinner">🔮 {t('gacha.unlocking')}</span>
+            <span class="opening-spinner"><PhMagicWand /> {t('gacha.unlocking')}</span>
           ) : (
             <span>
               {selectedChest() === 'standard' ? t('gacha.openSilver') : t('gacha.openRoyal')}
@@ -179,7 +189,7 @@ export function LootboxModal() {
         <div class="chest-animation-stage">
           <div class="chest-vortex"></div>
           <div class="bouncing-chest">
-            {selectedChest() === 'standard' ? '📦' : '👑'}
+            {selectedChest() === 'standard' ? <PhPackage /> : <PhCrown />}
           </div>
           <div class="opening-status-text">{t('gacha.animationText')}</div>
         </div>
@@ -197,13 +207,13 @@ export function LootboxModal() {
               <span class="category-tag">{getCategoryName(item().category)}</span>
             </div>
 
-            <div class="revealed-icon">{item().icon}</div>
+            <div class="revealed-icon"><EmojiIcon glyph={item().icon} /></div>
             <h3 class="revealed-name">{getCosmeticName(item().id, item().name)}</h3>
             <p class="revealed-desc">{getCosmeticDesc(item().id, item().description)}</p>
 
             <Show when={duplicateCompensation() !== null}>
               <div class="duplicate-banner">
-                ♻️ {t('gacha.alreadyOwned', { coins: duplicateCompensation()! })}
+                <PhRecycle /> {t('gacha.alreadyOwned', { coins: duplicateCompensation()! })}
               </div>
             </Show>
 
@@ -212,7 +222,7 @@ export function LootboxModal() {
                 class="btn-equip-revealed"
                 onClick={() => equipItem(item())}
               >
-                ✨ {t('gacha.equipNow')}
+                <PhSparkle /> {t('gacha.equipNow')}
               </button>
               <button
                 class="btn-dismiss-revealed"
@@ -236,7 +246,7 @@ export function LootboxModal() {
             <For each={history()}>
               {entry => (
                 <div class={`history-pill ${getRarityClass(entry.item.rarity)}`}>
-                  <span>{entry.item.icon}</span>
+                  <span><EmojiIcon glyph={entry.item.icon} /></span>
                   <span class="pill-name">{getCosmeticName(entry.item.id, entry.item.name)}</span>
                   <Show when={entry.wasDup}>
                     <span class="dup-indicator">({t('gacha.dup')})</span>

@@ -3,6 +3,17 @@ import { state } from '../lib/store';
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
 import { AvatarFrameOverlay } from './AvatarFrame';
+import {
+  PhX,
+  PhTrophy,
+  PhShieldCheck,
+  PhHeart,
+  PhAlien,
+  PhCoins,
+  PhMedal,
+  PhFlowerLotus,
+  PhSkull
+} from './icons';
 
 interface LeaderboardEntry {
   rank: number;
@@ -97,10 +108,10 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
         data-testid="leaderboard-modal"
       >
         <div class="leaderboard-modal-card" onClick={e => e.stopPropagation()}>
-          <button class="modal-close-btn" onClick={props.onClose} aria-label={t('common.close')}>✕</button>
+          <button class="modal-close-btn" onClick={props.onClose} aria-label={t('common.close')}><PhX /></button>
 
           <div class="leaderboard-modal-header">
-            <span class="hall-icon">🏆</span>
+            <span class="hall-icon"><PhTrophy /></span>
             <h2 id="leaderboard-modal-title">{t('leaderboard.title')}</h2>
             <p>{t('leaderboard.subtitle')}</p>
           </div>
@@ -111,21 +122,21 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
               data-testid="leaderboard-tab-wave"
               onClick={() => handleTabChange('wave')}
             >
-              🛡️ {t('leaderboard.tabDefenseWave')}
+              <PhShieldCheck /> {t('leaderboard.tabDefenseWave')}
             </button>
             <button
               class={`board-tab ${filter() === 'bond' ? 'active' : ''}`}
               data-testid="leaderboard-tab-bond"
               onClick={() => handleTabChange('bond')}
             >
-              💖 {t('leaderboard.tabBondLevel')}
+              <PhHeart /> {t('leaderboard.tabBondLevel')}
             </button>
             <button
               class={`board-tab ${filter() === 'goblins' ? 'active' : ''}`}
               data-testid="leaderboard-tab-goblins"
               onClick={() => handleTabChange('goblins')}
             >
-              👹 {t('leaderboard.tabGoblins')}
+              <PhAlien /> {t('leaderboard.tabGoblins')}
             </button>
           </div>
 
@@ -145,7 +156,7 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
                     <Show when={filter() === 'goblins'}>
                       <th class="text-right">{t('leaderboard.colGoblins')}</th>
                     </Show>
-                    <th class="text-right">🪙 {t('rpg.dashboard.goldCoins')}</th>
+                    <th class="text-right"><PhCoins /> {t('rpg.dashboard.goldCoins')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -155,11 +166,11 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
                       return (
                         <tr class={`leaderboard-row ${isMe ? 'is-self' : ''} rank-${entry.rank}`}>
                           <td class="rank-col">
-                            {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`}
+                            {entry.rank === 1 ? <PhMedal /> : entry.rank === 2 ? <PhMedal /> : entry.rank === 3 ? <PhMedal /> : `#${entry.rank}`}
                           </td>
                           <td class="user-col">
                             <span class="user-avatar-tiny-wrap">
-                              <Show when={entry.avatarUrl} fallback={<span class="user-avatar-tiny">🌸</span>}>
+                              <Show when={entry.avatarUrl} fallback={<span class="user-avatar-tiny"><PhFlowerLotus /></span>}>
                                 <img
                                   src={entry.avatarUrl}
                                   alt=""
@@ -172,7 +183,6 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
                               </Show>
                               <AvatarFrameOverlay frameId={entry.avatarFrame} class="user-avatar-tiny-frame" />
                             </span>
-                            <span class="username-txt">{entry.username}</span>
                             <Show when={isMe}>
                               <span class="badge-self">{t('leaderboard.you')}</span>
                             </Show>
@@ -184,7 +194,7 @@ export function LeaderboardModal(props: { isOpen: boolean; onClose: () => void }
                             <td class="stat-col text-right font-bold">Lv. {entry.bondLevel}</td>
                           </Show>
                           <Show when={filter() === 'goblins'}>
-                            <td class="stat-col text-right font-bold">{entry.goblinsDefeated} 💀</td>
+                            <td class="stat-col text-right font-bold">{entry.goblinsDefeated} <PhSkull /></td>
                           </Show>
                           <td class="coins-col text-right">{entry.coins.toLocaleString()}</td>
                         </tr>

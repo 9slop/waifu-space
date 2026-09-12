@@ -4,6 +4,7 @@ import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate
 import { t, formatDate, holidayTooltip } from '../lib/i18n';
 import { countryFlagEmoji } from '../lib/countries';
 import { onActivateKey } from '../lib/accessibility';
+import { PhCake, PhArrowsClockwise, GlyphText } from './icons';
 
 export function CalendarMonthView(props: {
   currentDate: Date;
@@ -176,13 +177,13 @@ export function CalendarMonthView(props: {
                               }}
                             />
                           )}
-                          {ev.type === 'birthday' && <span class="pill-icon">🎂</span>}
-                          {ev._holiday && <span class="pill-holiday-flag">{ev._holiday.culture ? '🎉' : countryFlagEmoji(ev._holiday.countryCode)}</span>}
+                          {ev.type === 'birthday' && <span class="pill-icon"><PhCake /></span>}
+                          {ev._holiday && <span class="pill-holiday-flag"><GlyphText text={ev._holiday.culture ? '🎉' : countryFlagEmoji(ev._holiday.countryCode)} /></span>}
                           <span class="pill-title">
                             {startTime && <small>{startTime} </small>}
                             {ev.title}
                             {ev.recurrence && ev.recurrence !== 'none' && (
-                              <span class="pill-repeat-icon" title={t('calendar.sidebar.repeats', { rule: ev.recurrence })}> 🔁</span>
+                              <span class="pill-repeat-icon" title={t('calendar.sidebar.repeats', { rule: ev.recurrence })}> <PhArrowsClockwise /></span>
                             )}
                           </span>
                         </div>

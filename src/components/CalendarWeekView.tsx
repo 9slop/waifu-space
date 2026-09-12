@@ -5,6 +5,7 @@ import { layoutTimedEvents } from '../lib/calendar-layout';
 import { t, getLocale, holidayTooltip } from '../lib/i18n';
 import { countryFlagEmoji } from '../lib/countries';
 import { onActivateKey } from '../lib/accessibility';
+import { PhArrowsClockwise, PhMapPin, GlyphText } from './icons';
 
 export function CalendarWeekView(props: {
   currentDate: Date;
@@ -260,7 +261,7 @@ export function CalendarWeekView(props: {
                           }}
                         />
                       )}
-                      {ev._holiday && <span class="pill-holiday-flag">{ev._holiday.culture ? '🎉' : countryFlagEmoji(ev._holiday.countryCode)}</span>}
+                      {ev._holiday && <span class="pill-holiday-flag"><GlyphText text={ev._holiday.culture ? '🎉' : countryFlagEmoji(ev._holiday.countryCode)} /></span>}
                       <span class="allday-pill-title">{ev.title}</span>
                     </div>
                   )}
@@ -388,11 +389,11 @@ export function CalendarWeekView(props: {
                                   )}
                                   <span class="card-title">{ev.title}</span>
                                   {ev.recurrence && ev.recurrence !== 'none' && (
-                                    <span class="card-repeat-icon" title={`Repeats: ${ev.recurrence}`}>🔁</span>
+                                    <span class="card-repeat-icon" title={`Repeats: ${ev.recurrence}`}><PhArrowsClockwise /></span>
                                   )}
                                 </div>
                                 <span class="card-time">{timeStr}</span>
-                                {ev.location && <span class="card-loc">📍 {ev.location}</span>}
+                                {ev.location && <span class="card-loc"><PhMapPin /> {ev.location}</span>}
                               </div>
                             );
                           }}

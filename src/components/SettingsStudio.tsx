@@ -14,6 +14,7 @@ import { PERSONALITIES } from '../lib/personality';
 import { STOCK_WALLPAPERS } from '../lib/wallpapers';
 import { exportToICS, importFromICS } from '../lib/ical';
 import { WaifuAvatar } from './WaifuAvatar';
+import { PhGearSix } from './icons';
 import { t, SUPPORTED_LANGUAGES, setLanguage, SupportedLanguage, getPersonalityName, getCosmeticName, getMoodName } from '../lib/i18n';
 
 import { compressImage } from '../lib/image-compress';
@@ -245,7 +246,7 @@ export function SettingsStudio() {
         <Show when={activeTab() === 'profile'}>
           <div class="settings-section active">
             <div class="section-card">
-              <h3 class="section-title">👤 {t('profile.editProfile')}</h3>
+              <h3 class="section-title"><PhGearSix /> {t('profile.editProfile')}</h3>
               <p class="section-subtitle">
                 Customize your commander public profile, bio, and avatar.
               </p>

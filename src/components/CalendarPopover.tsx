@@ -4,6 +4,7 @@ import { toggleTask } from '../lib/store';
 import { t, getLocale, holidayTooltip } from '../lib/i18n';
 import { countryFlagEmoji } from '../lib/countries';
 import { useFocusTrap } from '../lib/accessibility';
+import { PhArrowLeft, PhCheckCircle, PhPencilSimple, PhTrash, PhX, PhMapPin, GlyphText } from './icons';
 
 const POPOVER_TITLE_ID = 'calendar-popover-title';
 
@@ -67,7 +68,7 @@ export function CalendarPopover(props: {
                     title={t('calendar.popover.toggleCompleted')}
                     onClick={handleToggle}
                   >
-                    {ev().completed ? '↩️' : '✅'}
+                    {ev().completed ? <PhArrowLeft /> : <PhCheckCircle />}
                   </button>
                 )}
                 {/* Country holidays are read-only: no edit or delete affordances. */}
@@ -77,14 +78,14 @@ export function CalendarPopover(props: {
                     title={t('calendar.popover.editEvent')}
                     onClick={() => props.onEdit(ev())}
                   >
-                    ✏️
+                    <PhPencilSimple />
                   </button>
                   <button
                     class="popover-btn popover-btn-del"
                     title={t('calendar.popover.deleteEvent')}
                     onClick={handleDelete}
                   >
-                    🗑️
+                    <PhTrash />
                   </button>
                 </Show>
                 <button
@@ -93,7 +94,7 @@ export function CalendarPopover(props: {
                   aria-label={t('calendar.a11y.closeDialog')}
                   onClick={props.onClose}
                 >
-                  ✕
+                  <PhX />
                 </button>
               </div>
             </div>
@@ -107,15 +108,17 @@ export function CalendarPopover(props: {
                 class={`popover-badge ${ev()._holiday ? 'popover-badge-holiday' : ''}`}
                 style={{ background: ev().color || '#ff6584' }}
               >
-                {holiday()
-                  ? holiday()!.culture
-                    ? `🎉 ${t('calendar.holidays.culturalBadge')} · ${t('calendar.holidays.badge')}`
-                    : `${countryFlagEmoji(holiday()!.countryCode)} ${holiday()!.countryCode} · ${t('calendar.holidays.badge')}`
-                  : ev().type.toUpperCase()}
+                <GlyphText text={
+                  holiday()
+                    ? holiday()!.culture
+                      ? `🎉 ${t('calendar.holidays.culturalBadge')} · ${t('calendar.holidays.badge')}`
+                      : `${countryFlagEmoji(holiday()!.countryCode)} ${holiday()!.countryCode} · ${t('calendar.holidays.badge')}`
+                    : ev().type.toUpperCase()
+                } />
                 {ev().completed ? ` (${t('calendar.popover.completed')})` : ''}
               </div>
               {ev().location && (
-                <div class="popover-loc">📍 {ev().location}</div>
+                <div class="popover-loc"><PhMapPin /> {ev().location}</div>
               )}
               {ev().description && (
                 <div class="popover-desc">{ev().description}</div>

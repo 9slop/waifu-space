@@ -3,7 +3,7 @@ import { state, fetchCountryCatalog, setCountryHolidays, setCulturalHolidaysEnab
 import { CountryInfo, countryFlagEmoji } from '../lib/countries';
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
-import { SettingsIcon } from './icons';
+import { SettingsIcon, PhX, PhConfetti } from './icons';
 
 const TITLE_ID = 'holidays-modal-title';
 
@@ -77,7 +77,7 @@ export function CountryHolidaysModal(props: { isOpen: boolean; onClose: () => vo
             <SettingsIcon size={16} class="modal-title-icon" /> {t('calendar.holidays.title')}
           </h3>
           <button class="modal-close-btn" type="button" onClick={props.onClose} aria-label={t('common.close')}>
-            ✕
+            <PhX />
           </button>
         </div>
 
@@ -90,7 +90,7 @@ export function CountryHolidaysModal(props: { isOpen: boolean; onClose: () => vo
               checked={!!state.settings.showCulturalHolidays}
               onChange={e => setCulturalHolidaysEnabled(e.currentTarget.checked)}
             />
-            <span class="holiday-culture-emoji">🎉</span>
+            <span class="holiday-culture-emoji"><PhConfetti /></span>
             <span class="holiday-culture-label">{t('calendar.holidays.culturalLabel')}</span>
           </label>
           <p class="holiday-culture-desc">{t('calendar.holidays.culturalDesc')}</p>

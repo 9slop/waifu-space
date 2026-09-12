@@ -161,7 +161,7 @@ describe('CalendarPlanner Component & SSR Safety (Issue #11)', () => {
     fireEvent.click(thirtyFirst!);
 
     expect(screen.getByText('Halloween')).toBeInTheDocument();
-    expect(container.querySelector('.pill-holiday-flag')?.textContent).toBe('🎉');
+    expect(container.querySelector('.pill-holiday-flag svg')).not.toBeNull();
 
     // Opening it surfaces the read-only cultural badge — never edit/delete.
     const pill = screen.getByText('Halloween').closest('.event-pill');

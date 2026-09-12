@@ -24,8 +24,8 @@ describe('i18n Localization Engine', () => {
 
   it('supports English and Japanese languages', () => {
     expect(SUPPORTED_LANGUAGES).toEqual([
-      { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
-      { code: 'ja', name: 'Japanese', nativeName: '日本語', flag: '🇯🇵' }
+      { code: 'en', name: 'English', nativeName: 'English', flag: '' },
+      { code: 'ja', name: 'Japanese', nativeName: '日本語', flag: '' }
     ]);
   });
 

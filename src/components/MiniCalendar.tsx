@@ -1,6 +1,7 @@
 import { createSignal, createEffect, untrack, For } from 'solid-js';
 import { t, getLocale } from '../lib/i18n';
 import { onActivateKey } from '../lib/accessibility';
+import { PhCaretLeft, PhCaretRight } from './icons';
 
 export function MiniCalendar(props: {
   selectedDate: Date;
@@ -82,8 +83,8 @@ export function MiniCalendar(props: {
           {navDate().toLocaleDateString(getLocale(), { month: 'short', year: 'numeric' })}
         </span>
         <div class="mini-nav">
-          <button type="button" aria-label={t('calendar.a11y.prevMonth')} onClick={prevMonth}>◀</button>
-          <button type="button" aria-label={t('calendar.a11y.nextMonth')} onClick={nextMonth}>▶</button>
+          <button type="button" aria-label={t('calendar.a11y.prevMonth')} onClick={prevMonth}><PhCaretLeft /></button>
+          <button type="button" aria-label={t('calendar.a11y.nextMonth')} onClick={nextMonth}><PhCaretRight /></button>
         </div>
       </div>
       <div class="mini-cal-grid">
