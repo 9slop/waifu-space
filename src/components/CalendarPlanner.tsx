@@ -450,9 +450,6 @@ const sidebarTasks = createMemo(() => {
             aria-label={t('calendar.toolbar.countryHolidaysTooltip')}
           >
             <SettingsIcon size={18} />
-            <Show when={((state.settings.countryHolidays || []) as string[]).length > 0}>
-              <span class="holiday-count-badge">{(state.settings.countryHolidays || []).length}</span>
-            </Show>
             <Show when={holidayLoading()}>
               <span class="holiday-loading-dot" aria-hidden="true" />
             </Show>
