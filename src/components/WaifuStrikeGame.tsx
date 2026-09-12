@@ -1166,10 +1166,10 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                     </div>
                     <div class="loadout-card-name">🌸 Sakura Rifle (AR-47)</div>
                     <div class="loadout-stats-grid">
-                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">34 (102 Head)</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">34 (109 Head)</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Fire Rate</span><span class="stat-val">600 RPM</span></div>
                       <div class="loadout-stat"><span class="stat-lbl">Magazine</span><span class="stat-val">30 / 90</span></div>
-                      <div class="loadout-stat"><span class="stat-lbl">Mobility</span><span class="stat-val">6.0 m/s</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Mobility</span><span class="stat-val">6.6 m/s</span></div>
                     </div>
                   </div>
 
@@ -1186,10 +1186,10 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                     </div>
                     <div class="loadout-card-name">⚡ Aether Railgun (SR-99)</div>
                     <div class="loadout-stats-grid">
-                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">52 (78 Head)</span></div>
-                      <div class="loadout-stat"><span class="stat-lbl">Optic</span><span class="stat-val">Zoom Scope</span></div>
-                      <div class="loadout-stat"><span class="stat-lbl">Magazine</span><span class="stat-val">5 / 25</span></div>
-                      <div class="loadout-stat"><span class="stat-lbl">Mobility</span><span class="stat-val">5.2 m/s</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val" style={{ color: '#ffd32a' }}>115 (460 Head)</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Optic</span><span class="stat-val">Pinpoint Scope</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Magazine</span><span class="stat-val">5 / 30</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Mobility</span><span class="stat-val">5.6 m/s</span></div>
                     </div>
                   </div>
                 </div>
@@ -1209,10 +1209,10 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
                     </div>
                     <div class="loadout-card-name">🦅 Neo Deagle (.50 AE)</div>
                     <div class="loadout-stats-grid">
-                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">40 (80 Head)</span></div>
-                      <div class="loadout-stat"><span class="stat-lbl">Fire Rate</span><span class="stat-val">260 RPM</span></div>
-                      <div class="loadout-stat"><span class="stat-lbl">Magazine</span><span class="stat-val">7 / 35</span></div>
-                      <div class="loadout-stat"><span class="stat-lbl">Mobility</span><span class="stat-val">6.2 m/s</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Damage</span><span class="stat-val">48 (144 Head)</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Fire Rate</span><span class="stat-val">320 RPM</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Magazine</span><span class="stat-val">7 / 70</span></div>
+                      <div class="loadout-stat"><span class="stat-lbl">Mobility</span><span class="stat-val">6.8 m/s</span></div>
                     </div>
                   </div>
                 </div>
