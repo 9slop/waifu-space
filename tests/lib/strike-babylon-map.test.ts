@@ -151,4 +151,35 @@ describe('strike-babylon-map (Kyoto v2)', () => {
     expect(avatar.headMesh.receiveShadows).toBe(true);
     expect(avatar.bodyMesh.receiveShadows).toBe(true);
   });
+
+  it('enriches the East Quarter, B-Site, and Secret Passage with Kura storehouses and Grand Shrine', () => {
+    const mapData = createKyotoMap(scene);
+
+    // Verify Grand Kyoto Shrine Sanctuary (Hondo) north backdrop
+    const shrineHondo = scene.getMeshByName('shrineHondoBody');
+    expect(shrineHondo).toBeDefined();
+    expect(shrineHondo?.checkCollisions).toBe(true);
+
+    // Verify traditional Kura storehouses along East perimeter
+    const kura1 = scene.getMeshByName('kuraE1_Body');
+    const kura2 = scene.getMeshByName('kuraE2_Body');
+    const kura3 = scene.getMeshByName('kuraE3_Body');
+    expect(kura1).toBeDefined();
+    expect(kura2).toBeDefined();
+    expect(kura3).toBeDefined();
+
+    // Verify outer east alley wall closing the void
+    const secWallEastN = scene.getMeshByName('secWallEastN');
+    const secWallEastS = scene.getMeshByName('secWallEastS');
+    expect(secWallEastN).toBeDefined();
+    expect(secWallEastS).toBeDefined();
+
+    // Verify straw material and sake barrel stacks
+    const strawMat = scene.getMaterialByName('matStraw') as StandardMaterial;
+    expect(strawMat).toBeDefined();
+    const sakeB1 = scene.getMeshByName('sakeB1_b1');
+    expect(sakeB1).toBeDefined();
+    expect(sakeB1?.material).toBe(strawMat);
+  });
 });
+

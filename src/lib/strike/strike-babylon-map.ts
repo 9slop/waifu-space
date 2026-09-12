@@ -575,6 +575,35 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     16
   );
 
+  // --- 14. Straw / Canvas (Sake Barrels & Rice Bales) ---
+  const strawMat = createTexturedMat(
+    'matStraw',
+    new Color3(0.92, 0.88, 0.76),
+    2, 2,
+    (ctx, w, h) => {
+      ctx.fillStyle = '#c8af82'; // Natural straw / jute
+      ctx.fillRect(0, 0, w, h);
+      // Woven rope bands and straw grain
+      for (let y = 0; y < h; y += 6) {
+        ctx.fillStyle = (y % 18 === 0) ? '#846944' : 'rgba(100, 80, 50, 0.25)';
+        ctx.fillRect(0, y, w, y % 18 === 0 ? 3 : 1);
+      }
+      for (let i = 0; i < 400; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? 'rgba(240, 230, 200, 0.4)' : 'rgba(70, 50, 25, 0.3)';
+        ctx.fillRect(Math.random() * w, Math.random() * h, 3, 1.5);
+      }
+      // Shrine insignia seal in center (classic red/black calligraphy)
+      ctx.strokeStyle = '#991b1b';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(w * 0.35, h * 0.35, w * 0.3, h * 0.3);
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(w * 0.42, h * 0.42, w * 0.16, h * 0.16);
+    },
+    new Color3(0.04, 0.04, 0.04),
+    undefined,
+    16
+  );
+
   // --- Non-Textured Specialty Materials ---
   // Gold accents & sacred altar
   const goldMat = new StandardMaterial('matGold', scene);
@@ -912,6 +941,126 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
     lanternLights.push(pl);
   }
 
+  /**
+   * Stack of traditional Kyoto sake barrels (Komodaru)
+   * Straw wrapped barrel pyramid with bamboo rope bands and shrine seal.
+   */
+  function createSakeBarrelStack(prefix: string, pos: Vector3, isLarge = false) {
+    const r = 0.55;
+    const h = 1.1;
+
+    // Bottom tier
+    const b1 = MeshBuilder.CreateCylinder(`${prefix}_b1`, { height: h, diameter: r * 2, tessellation: 16 }, scene);
+    b1.position = new Vector3(pos.x - r * 0.95, pos.y + h / 2, pos.z);
+    b1.material = strawMat;
+    b1.checkCollisions = true;
+    b1.receiveShadows = true;
+    colliders.push(b1);
+
+    const b2 = MeshBuilder.CreateCylinder(`${prefix}_b2`, { height: h, diameter: r * 2, tessellation: 16 }, scene);
+    b2.position = new Vector3(pos.x + r * 0.95, pos.y + h / 2, pos.z);
+    b2.material = strawMat;
+    b2.checkCollisions = true;
+    b2.receiveShadows = true;
+    colliders.push(b2);
+
+    // Top tier
+    const bTop = MeshBuilder.CreateCylinder(`${prefix}_top`, { height: h, diameter: r * 2, tessellation: 16 }, scene);
+    bTop.position = new Vector3(pos.x, pos.y + h + h / 2 - 0.1, pos.z);
+    bTop.material = strawMat;
+    bTop.checkCollisions = true;
+    bTop.receiveShadows = true;
+    colliders.push(bTop);
+
+    if (isLarge) {
+      const b3 = MeshBuilder.CreateCylinder(`${prefix}_b3`, { height: h, diameter: r * 2, tessellation: 16 }, scene);
+      b3.position = new Vector3(pos.x, pos.y + h / 2, pos.z + r * 1.6);
+      b3.material = strawMat;
+      b3.checkCollisions = true;
+      b3.receiveShadows = true;
+      colliders.push(b3);
+      if (shadowGen) shadowGen.addShadowCaster(b3);
+    }
+
+    if (shadowGen) {
+      shadowGen.addShadowCaster(b1);
+      shadowGen.addShadowCaster(b2);
+      shadowGen.addShadowCaster(bTop);
+    }
+  }
+
+  /** Traditional Kyoto two-wheeled wooden cart (Daisan) */
+  function createWoodenCart(prefix: string, pos: Vector3, yaw = 0) {
+    const cart = MeshBuilder.CreateBox(`${prefix}_bed`, { width: 1.8, height: 0.35, depth: 2.8 }, scene);
+    cart.position = new Vector3(pos.x, pos.y + 0.65, pos.z);
+    cart.rotation.y = yaw;
+    cart.material = darkWoodMat;
+    cart.checkCollisions = true;
+    cart.receiveShadows = true;
+    colliders.push(cart);
+
+    // Side railings
+    addBox(`${prefix}_railL`, 0.12, 0.5, 2.8, new Vector3(pos.x - 0.85, pos.y + 1.0, pos.z), darkWoodMat);
+    addBox(`${prefix}_railR`, 0.12, 0.5, 2.8, new Vector3(pos.x + 0.85, pos.y + 1.0, pos.z), darkWoodMat);
+
+    // Wooden wheels
+    const w1 = MeshBuilder.CreateCylinder(`${prefix}_w1`, { height: 0.2, diameter: 1.2, tessellation: 16 }, scene);
+    w1.rotation.z = Math.PI / 2;
+    w1.position = new Vector3(pos.x - 1.05, pos.y + 0.6, pos.z);
+    w1.material = timberMat;
+    colliders.push(w1);
+
+    const w2 = MeshBuilder.CreateCylinder(`${prefix}_w2`, { height: 0.2, diameter: 1.2, tessellation: 16 }, scene);
+    w2.rotation.z = Math.PI / 2;
+    w2.position = new Vector3(pos.x + 1.05, pos.y + 0.6, pos.z);
+    w2.material = timberMat;
+    colliders.push(w2);
+
+    if (shadowGen) {
+      shadowGen.addShadowCaster(cart);
+      shadowGen.addShadowCaster(w1);
+      shadowGen.addShadowCaster(w2);
+    }
+  }
+
+  /**
+   * Authentic Kyoto Kura (Merchant Fireproof Storehouse)
+   * Heavy white plaster walls, dark timber base & corner columns, black tile gable roof.
+   */
+  function createKuraStorehouse(
+    prefix: string,
+    pos: Vector3,
+    w: number,
+    h: number,
+    d: number
+  ) {
+    // Stone foundation plinth
+    addBox(`${prefix}_Plinth`, w + 0.3, 0.8, d + 0.3, new Vector3(pos.x, pos.y + 0.4, pos.z), stoneMat);
+
+    // Thick plaster storehouse body
+    addBox(`${prefix}_Body`, w, h - 0.8, d, new Vector3(pos.x, pos.y + 0.8 + (h - 0.8) / 2, pos.z), plasterMat);
+
+    // Dark timber corner pillars (proud of plaster by 0.06m to eliminate z-fighting)
+    const pw = 0.55;
+    const offX = w / 2 - pw / 2 + 0.05;
+    const offZ = d / 2 - pw / 2 + 0.05;
+    addBox(`${prefix}_P1`, pw, h, pw, new Vector3(pos.x - offX, pos.y + h / 2, pos.z - offZ), timberMat, false);
+    addBox(`${prefix}_P2`, pw, h, pw, new Vector3(pos.x + offX, pos.y + h / 2, pos.z - offZ), timberMat, false);
+    addBox(`${prefix}_P3`, pw, h, pw, new Vector3(pos.x - offX, pos.y + h / 2, pos.z + offZ), timberMat, false);
+    addBox(`${prefix}_P4`, pw, h, pw, new Vector3(pos.x + offX, pos.y + h / 2, pos.z + offZ), timberMat, false);
+
+    // Horizontal timber beam trim
+    addBox(`${prefix}_Bm`, w + 0.2, 0.4, d + 0.2, new Vector3(pos.x, pos.y + h * 0.65, pos.z), timberMat, false);
+
+    // Iron-barred storehouse window (proud of wall)
+    addBox(`${prefix}_Win`, 2.0, 1.2, 0.15, new Vector3(pos.x, pos.y + h * 0.65, pos.z + d / 2 + 0.08), darkWoodMat, false);
+
+    // Heavy kawara tile roof
+    const oh = 1.2;
+    addBox(`${prefix}_Eaves`, w + oh * 2, 0.6, d + oh * 2, new Vector3(pos.x, pos.y + h + 0.3, pos.z), tileRoofMat);
+    addBox(`${prefix}_Ridge`, (w + oh * 2) * 0.65, 0.7, (d + oh * 2) * 0.65, new Vector3(pos.x, pos.y + h + 0.9, pos.z), tileRoofMat);
+  }
+
   // ═══════════════════════════════════════════════════════════════════
   // 3. ARENA GROUND & PERIMETER WALLS (104m × 104m)
   // ═══════════════════════════════════════════════════════════════════
@@ -1034,39 +1183,73 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
 
   // ═══════════════════════════════════════════════════════════════════
   // 7. ZONE 4: LANE B — "B-SHORT" (East Merchant Quarter, X = +22..+34)
-  //    Close-quarters lane. No sightline > 12m. Lots of 90° turns.
+  //    Close-quarters lane. Tactically sealed perimeter, authentic merchant
+  //    shops, covered arcade timber posts, sake barrels, and wooden handcarts.
   // ═══════════════════════════════════════════════════════════════════
 
-  // --- Merchant stalls creating forced turns ---
+  // --- Authentic Kyoto Merchant Stalls ---
   createMerchantStall('stallB1', new Vector3(26, 0, -16), 5, 4, 'south');
-  createMerchantStall('stallB2', new Vector3(30, 0, -2), 4, 5, 'south');
-  createMerchantStall('stallB3', new Vector3(26, 0, 12), 5, 4, 'north');
+  createMerchantStall('stallB5', new Vector3(26, 0, -6), 4.5, 3.8, 'north');
+  createMerchantStall('stallB2', new Vector3(30, 0, -2), 4, 4.5, 'south');
+  createMerchantStall('stallB6', new Vector3(30, 0, 7), 4.5, 4, 'south');
+  createMerchantStall('stallB3', new Vector3(26, 0, 13), 5, 4, 'north');
   createMerchantStall('stallB4', new Vector3(30, 0, 24), 4, 4, 'south');
 
-  // --- Wall segments creating the winding path ---
-  // West wall of B-Short (separates from mid)
+  // --- Fully Sealed West Wall (separates Lane B from Mid Plaza) ---
+  // Solid plaster walls with authentic timber copings and tactical choke at Z=-2..+1
   addBox('bShortWallW1', 0.8, 4, 10, new Vector3(22, 2, -16), plasterMat);
-  addBox('bShortWallW2', 0.8, 4, 8, new Vector3(22, 2, 2), plasterMat);
-  addBox('bShortWallW3', 0.8, 4, 10, new Vector3(22, 2, 16), plasterMat);
+  addBox('bShortWallW1b', 0.8, 4, 5.5, new Vector3(22, 2, -7), plasterMat); // Seals 9m gap
+  addBox('bShortWallW2', 0.8, 4, 6, new Vector3(22, 2, 2.5), plasterMat);
+  createBambooFence('bambooMidB', new Vector3(22, 0, 8.5), 5.5, true); // Natural bamboo partition
+  addBox('bShortWallW3', 0.8, 4, 10, new Vector3(22, 2, 16.5), plasterMat);
 
-  // East wall segments (between B-Short and Secret Passage)
-  addBox('bShortWallE1', 0.8, 4, 8, new Vector3(34, 2, -10), plasterMat);
-  addBox('bShortWallE2', 0.8, 4, 12, new Vector3(34, 2, 8), plasterMat);
+  // --- Fully Sealed East Wall (separates Lane B from Secret Passage Roji) ---
+  addBox('bShortWallE0', 0.8, 4, 7, new Vector3(34, 2, -17.5), plasterMat);
+  addBox('bShortWallE1', 0.8, 4, 6, new Vector3(34, 2, -10), plasterMat);
+  createBambooFence('bambooShortSec', new Vector3(34, 0, -3.5), 4, true);
+  addBox('bShortWallE2', 0.8, 4, 11, new Vector3(34, 2, 6.5), plasterMat);
+  addBox('bShortWallE2b', 0.8, 4, 5, new Vector3(34, 2, 16.5), plasterMat);
   addBox('bShortWallE3', 0.8, 4, 8, new Vector3(34, 2, 24), plasterMat);
 
-  // --- Barrel clusters (waist-high cover) ---
-  addBox('barrelB1', 1.4, 1.2, 1.4, new Vector3(28, 0.6, -8), crateMat);
-  addBox('barrelB2', 1.4, 1.2, 1.4, new Vector3(24, 0.6, 6), crateMat);
-  addBox('barrelB3', 1.4, 1.2, 1.4, new Vector3(28, 0.6, 18), crateMat);
+  // --- Traditional Kyoto Sake Barrel Stacks (Komodaru) ---
+  createSakeBarrelStack('sakeB1', new Vector3(25, 0, -11), true);
+  createSakeBarrelStack('sakeB2', new Vector3(31, 0, 3), false);
+  createSakeBarrelStack('sakeB3', new Vector3(25, 0, 18), true);
 
-  // --- Noren curtains (visual atmosphere, no collision) ---
+  // --- Traditional Kyoto Wooden Handcarts (Daisan) ---
+  createWoodenCart('cartB1', new Vector3(29, 0, -10), 0.12);
+  createWoodenCart('cartB2', new Vector3(26, 0, 19), -0.15);
+
+  // --- Ceramic Urns & Storage Crates ---
+  addBox('barrelB1', 1.4, 1.2, 1.4, new Vector3(28, 0.6, -7.5), crateMat);
+  addBox('barrelB2', 1.4, 1.2, 1.4, new Vector3(24, 0.6, 6), crateMat);
+
+  // --- Noren Fabric Curtains ---
   addBox('norenB1', 3.5, 2.2, 0.12, new Vector3(28, 2.9, -5), shojiMat, false);
   addBox('norenB2', 3.5, 2.2, 0.12, new Vector3(28, 2.9, 15), shojiMat, false);
 
-  // --- Overhanging roof sections (claustrophobic feel) ---
-  addBox('bRoof1', 6, 0.4, 7, new Vector3(28, 3.8, -8), tileRoofMat, false);
-  addBox('bRoof2', 6, 0.4, 7, new Vector3(28, 3.8, 8), tileRoofMat, false);
-  addBox('bRoof3', 6, 0.4, 7, new Vector3(28, 3.8, 24), tileRoofMat, false);
+  // --- Atmospheric Covered Arcade Arcades (supported by timber columns, not floating!) ---
+  const bArcades = [
+    { name: 'bArc1', z: -8, d: 7.5 },
+    { name: 'bArc2', z: 8, d: 7.5 },
+    { name: 'bArc3', z: 23, d: 7.0 }
+  ];
+  for (const arc of bArcades) {
+    // Roof canopy
+    addBox(`${arc.name}_Rf`, 6.6, 0.45, arc.d, new Vector3(28, 3.85, arc.z), tileRoofMat);
+    // 4 Vertical timber columns supporting the canopy
+    const zOff = arc.d / 2 - 0.4;
+    addBox(`${arc.name}_P1`, 0.38, 3.85, 0.38, new Vector3(25.2, 1.92, arc.z - zOff), timberMat, false);
+    addBox(`${arc.name}_P2`, 0.38, 3.85, 0.38, new Vector3(30.8, 1.92, arc.z - zOff), timberMat, false);
+    addBox(`${arc.name}_P3`, 0.38, 3.85, 0.38, new Vector3(25.2, 1.92, arc.z + zOff), timberMat, false);
+    addBox(`${arc.name}_P4`, 0.38, 3.85, 0.38, new Vector3(30.8, 1.92, arc.z + zOff), timberMat, false);
+    // Hanging paper lantern under each arcade
+    addBox(`${arc.name}_Lant`, 0.45, 0.6, 0.45, new Vector3(28, 3.2, arc.z), lanternGlowMat, false);
+  }
+
+  // --- Stone Lanterns for Alleyway Illumination ---
+  createStoneLantern('lanB_S', new Vector3(31, 0, 21));
+  createStoneLantern('lanB_N', new Vector3(25, 0, -19));
 
   // ═══════════════════════════════════════════════════════════════════
   // 8. ZONE 5: MID — "Torii Avenue" (Central, X = -8..+8, Z = -18..+18)
@@ -1168,6 +1351,7 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // ═══════════════════════════════════════════════════════════════════
   // 10. ZONE 7: B-SITE — "Temple Gate / Shrine" (NE, X = +16..+38, Z = -36..-22)
   //     Three entry points: B-Short stairs, Secret east, main gate.
+  //     Features the Grand Kyoto Shrine Sanctuary (Hondo) north backdrop.
   // ═══════════════════════════════════════════════════════════════════
 
   // --- Elevated stone platform (defenders have height advantage) ---
@@ -1200,18 +1384,57 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   // --- Elevated crate stack on platform ---
   createCrateCluster('crateBSite', new Vector3(30, 0.9, -26), false);
 
+  // --- Traditional Sake Barrel Offerings ---
+  createSakeBarrelStack('sakeBSiteAltar', new Vector3(23, 0.9, -27), true);
+  createSakeBarrelStack('sakeBSiteSouth', new Vector3(23, 0, -22.5), false);
+
   // --- Stone lanterns ---
   createStoneLantern('lanBL', new Vector3(20, 0, -26));
   createStoneLantern('lanBR', new Vector3(34, 0, -26));
 
-  // --- B-Site boundary walls ---
-  // North wall
+  // --- GRAND KYOTO SHRINE SANCTUARY (HONDO) — Majestic North Backdrop ---
+  // Seals the massive north void between Z=-36 and the perimeter wall Z=-52
+  addBox('shrineHondoBody', 24, 7.5, 12, new Vector3(27, 3.75, -44), plasterMat);
+
+  // Massive timber facade pillars
+  addBox('shrineCol1', 0.8, 7.5, 0.8, new Vector3(17, 3.75, -38), timberMat);
+  addBox('shrineCol2', 0.8, 7.5, 0.8, new Vector3(23, 3.75, -38), timberMat);
+  addBox('shrineCol3', 0.8, 7.5, 0.8, new Vector3(31, 3.75, -38), timberMat);
+  addBox('shrineCol4', 0.8, 7.5, 0.8, new Vector3(37, 3.75, -38), timberMat);
+
+  // Grand Shinto entrance Shoji screens & gold trim
+  addBox('shrineShoji', 10, 4.5, 0.2, new Vector3(27, 2.25, -37.9), shojiMat, false);
+  addBox('shrineGoldTrim', 10.4, 0.3, 0.3, new Vector3(27, 4.6, -37.8), goldMat, false);
+
+  // Sacred Shimenawa (woven straw rope)
+  addBox('shrineShimenawa', 12, 0.45, 0.45, new Vector3(27, 6.2, -37.8), strawMat, false);
+
+  // Sweeping Multi-Tiered Kawara Tile Roof
+  addBox('shrineEaves', 28, 0.8, 15, new Vector3(27, 7.8, -44), tileRoofMat);
+  addBox('shrineRidge', 20, 0.9, 10, new Vector3(27, 8.6, -44), tileRoofMat);
+  addBox('shrineRidgePeak', 14, 0.6, 6, new Vector3(27, 9.3, -44), timberMat);
+
+  // Flanking Sanctuary Enclosure Walls (connect Hondo to north-west and north-east)
+  addBox('shrineFlankW', 0.8, 7.5, 12, new Vector3(15, 3.75, -44), wallMat);
+  addBox('shrineFlankE', 0.8, 7.5, 12, new Vector3(39, 3.75, -44), wallMat);
+
+  // --- B-Site Enclosure & Approach Walls ---
+  // North boundary wall in front of Hondo
   addBox('bWallN', 22, 4.5, 0.8, new Vector3(27, 2.25, -36), wallMat);
+
   // East wall with gap for Secret Passage entry (~3m gap at Z=-29)
   addBox('bWallE1', 0.8, 4.5, 4, new Vector3(38, 2.25, -34), wallMat);
   addBox('bWallE2', 0.8, 4.5, 3, new Vector3(38, 2.25, -23.5), wallMat);
-  // West partial wall (gap for B-Short connector)
-  addBox('bWallWN', 4, 4.5, 0.8, new Vector3(19, 2.25, -36), wallMat);
+
+  // West enclosing walls (clean entrance from B-Short)
+  addBox('bWallW_South', 0.8, 4.5, 6, new Vector3(16.5, 2.25, -25), wallMat);
+  addBox('bWallW_North', 0.8, 4.5, 6, new Vector3(16.5, 2.25, -33), wallMat);
+
+  // Sacred Torii approach gate from Secret Passage
+  createTorii('toriiSecApproach', new Vector3(39, 0, -26), 0.85);
+  createStoneLantern('lanSecApproach1', new Vector3(38, 0, -22));
+  createStoneLantern('lanSecApproach2', new Vector3(41, 0, -28));
+  createBambooFence('bambooBSiteFlank', new Vector3(43, 0, -28), 8, true);
 
   // ═══════════════════════════════════════════════════════════════════
   // 11. ZONE 8: CONNECTORS
@@ -1257,27 +1480,55 @@ export function createKyotoMap(scene: Scene): BabylonMapData {
   addBox('midToBWS', 0.7, 3.5, 3.5, new Vector3(8.5, 1.75, -16), plasterMat);
   addBox('midToBCrate', 1.8, 1.3, 1.8, new Vector3(10, 0.65, -16), crateMat);
 
-  // --- Secret Passage / Roji (X = +38..+42, Z = -32..+32) ---
-  // Long narrow covered alley running east edge. Uncontested B-Site flank.
+  // --- Secret Passage / Roji & East Kura District (X = +38..+51, Z = -32..+32) ---
+  // Authentic Kyoto covered alley (Roji) flanked by fireproof earthen storehouses (Kura).
+  // Completely eliminates void gaps on the map's eastern edge.
 
-  // Inner west wall (with gaps at Z = ±30 for entry/exit)
+  // Inner west wall (separates Secret Passage from Lane B, with tactical doorway openings)
   addBox('secretWW1', 0.8, 3.5, 22, new Vector3(38, 1.75, -18), plasterMat);  // North segment (Z=-29..-7)
+  addBox('secretWW_Mid', 0.8, 3.5, 6, new Vector3(38, 1.75, 0), plasterMat);  // Mid segment (Z=-3..+3)
   addBox('secretWW2', 0.8, 3.5, 22, new Vector3(38, 1.75, 18), plasterMat);   // South segment (Z=7..29)
-  // Gaps at Z ≈ -6..6 (mid-passage opening) and Z ≈ 29..31 (south entry), Z ≈ -29..-31 (north exit)
 
-  // Pergola beams (visual rhythm, no collision)
+  // Outer east alley wall (seals the eastern corridor at X=43, fully closing the previous 14m void!)
+  addBox('secWallEastN', 0.8, 4.0, 22, new Vector3(43, 2.0, -18), plasterMat);
+  addBox('secWallEastMid', 0.8, 4.0, 10, new Vector3(43, 2.0, 0), plasterMat);
+  addBox('secWallEastS', 0.8, 4.0, 22, new Vector3(43, 2.0, 18), plasterMat);
+  // Tile roof coping over the east alley wall
+  addBox('secCopingN', 1.4, 0.35, 22, new Vector3(43, 4.15, -18), tileRoofMat, false);
+  addBox('secCopingMid', 1.4, 0.35, 10, new Vector3(43, 4.15, 0), tileRoofMat, false);
+  addBox('secCopingS', 1.4, 0.35, 22, new Vector3(43, 4.15, 18), tileRoofMat, false);
+
+  // --- Traditional Kyoto Kura Storehouses (filling the outer eastern quarter X=44..51) ---
+  createKuraStorehouse('kuraE1', new Vector3(47.5, 0, -20), 7, 6.5, 12);
+  createKuraStorehouse('kuraE2', new Vector3(47.5, 0, 0), 7, 6.8, 12);
+  createKuraStorehouse('kuraE3', new Vector3(47.5, 0, 20), 7, 6.5, 12);
+
+  // Enclosure cap walls sealing the northern and southern edges of the Kura district
+  addBox('kuraCapN', 9.5, 5.5, 0.8, new Vector3(47.5, 2.75, -31), plasterMat);
+  addBox('kuraCapS', 9.5, 5.5, 0.8, new Vector3(47.5, 2.75, 31), plasterMat);
+
+  // Pergola beams across Roji alley with supporting vertical timber posts
   for (let i = 0; i < 7; i++) {
     const zP = -24 + i * 8;
-    addBox(`secBeam${i}`, 5, 0.3, 0.3, new Vector3(40, 3.2, zP), timberMat, false);
-    addBox(`secLant${i}`, 0.45, 0.6, 0.45, new Vector3(40, 2.65, zP), lanternGlowMat, false);
+    // Crossbeam spanning from west wall to east wall
+    addBox(`secBeam${i}`, 5.2, 0.3, 0.3, new Vector3(40.5, 3.2, zP), timberMat, false);
+    // Vertical timber posts supporting the beam
+    addBox(`secPostW${i}`, 0.3, 3.2, 0.3, new Vector3(38.3, 1.6, zP), timberMat, false);
+    addBox(`secPostE${i}`, 0.3, 3.2, 0.3, new Vector3(42.7, 1.6, zP), timberMat, false);
+    // Hanging lantern
+    addBox(`secLant${i}`, 0.45, 0.6, 0.45, new Vector3(40.5, 2.65, zP), lanternGlowMat, false);
   }
 
-  // Bamboo screen gates at entries
-  createBambooFence('bambooSecS', new Vector3(40, 0, 31), 3, true);
-  createBambooFence('bambooSecN', new Vector3(40, 0, -31), 3, true);
+  // Bamboo screen gates at alley entries
+  createBambooFence('bambooSecS', new Vector3(40.5, 0, 31), 3, true);
+  createBambooFence('bambooSecN', new Vector3(40.5, 0, -31), 3, true);
 
-  // Midpoint crate (cover if encountered)
-  addBox('secCrate', 2, 1.3, 2, new Vector3(40, 0.65, 0), crateMat);
+  // Cover & props within Secret Passage
+  createCrateCluster('secCrate', new Vector3(40.5, 0, -3), false);
+  createSakeBarrelStack('secSake', new Vector3(40.5, 0, 4), true);
+  createStoneLantern('secLanMid', new Vector3(40.5, 0, 0.5));
+  createStoneLantern('secLanNorth', new Vector3(40.5, 0, -30));
+  createStoneLantern('secLanSouth', new Vector3(40.5, 0, 30));
 
   // --- Transition corridors: Spawn exits to lane entries ---
 
