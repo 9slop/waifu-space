@@ -331,6 +331,10 @@ export function WaifuStrikeGame(props: WaifuStrikeGameProps) {
             chatScrollRef.scrollTop = chatScrollRef.scrollHeight;
           }
         }, 20);
+        // Auto-expire: remove this message after 30 seconds
+        setTimeout(() => {
+          setChatMessages((prev) => prev.filter((m) => m.id !== msg.id));
+        }, 30_000);
       },
       onConnectionStatus: (conn, peers) => {
         setConnected(conn);
