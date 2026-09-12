@@ -1,7 +1,7 @@
 import { For } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
-import { t, formatDate } from '../lib/i18n';
+import { t, formatDate, holidayTooltip } from '../lib/i18n';
 import { countryFlagEmoji } from '../lib/countries';
 import { onActivateKey } from '../lib/accessibility';
 
@@ -156,7 +156,7 @@ export function CalendarMonthView(props: {
                           role="button"
                           tabindex="0"
                           aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
-                          title={ev._holiday ? `${ev._holiday.countryCode} · ${t('calendar.holidays.badge')}` : undefined}
+                          title={ev._holiday ? holidayTooltip(ev._holiday) : undefined}
                           draggable={!ev._holiday}
                           onDragStart={e => handleDragStart(e, ev)}
                           onClick={e => {
@@ -177,7 +177,7 @@ export function CalendarMonthView(props: {
                             />
                           )}
                           {ev.type === 'birthday' && <span class="pill-icon">🎂</span>}
-                          {ev._holiday && <span class="pill-holiday-flag">{countryFlagEmoji(ev._holiday.countryCode)}</span>}
+                          {ev._holiday && <span class="pill-holiday-flag">{ev._holiday.culture ? '🎉' : countryFlagEmoji(ev._holiday.countryCode)}</span>}
                           <span class="pill-title">
                             {startTime && <small>{startTime} </small>}
                             {ev.title}

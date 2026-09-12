@@ -1,5 +1,5 @@
 import { createSignal, createEffect, For, Show } from 'solid-js';
-import { state, fetchCountryCatalog, setCountryHolidays } from '../lib/store';
+import { state, fetchCountryCatalog, setCountryHolidays, setCulturalHolidaysEnabled } from '../lib/store';
 import { CountryInfo, countryFlagEmoji } from '../lib/countries';
 import { t } from '../lib/i18n';
 import { useFocusTrap } from '../lib/accessibility';
@@ -83,6 +83,17 @@ export function CountryHolidaysModal(props: { isOpen: boolean; onClose: () => vo
 
         <div class="holiday-modal-body">
           <p class="holiday-modal-subtitle">{t('calendar.holidays.subtitle')}</p>
+
+          <label class="holiday-culture-toggle">
+            <input
+              type="checkbox"
+              checked={!!state.settings.showCulturalHolidays}
+              onChange={e => setCulturalHolidaysEnabled(e.currentTarget.checked)}
+            />
+            <span class="holiday-culture-emoji">🎉</span>
+            <span class="holiday-culture-label">{t('calendar.holidays.culturalLabel')}</span>
+          </label>
+          <p class="holiday-culture-desc">{t('calendar.holidays.culturalDesc')}</p>
 
           <input
             type="text"

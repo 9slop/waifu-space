@@ -17,6 +17,7 @@ import {
   refreshHolidayEvents,
 } from '../lib/store';
 import { CalendarEventItem } from '../lib/ical';
+import { buildCulturalHolidayEvents } from '../lib/countries';
 import { MiniCalendar } from './MiniCalendar';
 import { EventModal } from './EventModal';
 import { CalendarPopover } from './CalendarPopover';
@@ -70,14 +71,23 @@ export function CalendarPlanner() {
     });
   });
 
+  // Optional worldwide cultural holidays (Halloween, New Year's Eve, ...).
+  // Purely local derivation — no network — recomputed on the toggle or date.
+  const culturalEvents = createMemo(() => {
+    if (!state.settings.showCulturalHolidays) return [];
+    const base = currentDate().getFullYear();
+    return buildCulturalHolidayEvents([base - 1, base, base + 1]);
+  });
+
   // Read-only country-holiday events are merged into the visible view on top of
   // the user's own calendar entries. They are kept out of state.calendar.events
   // (so they never touch cloud sync, localStorage, or edit flows) and are
   // read-only everywhere.
   const viewEvents = createMemo(() => {
     const holidays = holidayEvents();
-    if (holidays.length === 0) return filteredEvents();
-    return [...filteredEvents(), ...holidays];
+    const cultural = culturalEvents();
+    if (holidays.length === 0 && cultural.length === 0) return filteredEvents();
+    return [...filteredEvents(), ...holidays, ...cultural];
   });
 
   // Refresh holiday data (with the store's in-memory cache) whenever the

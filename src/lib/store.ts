@@ -191,6 +191,7 @@ export interface AppState {
     llmApiKey: string;
     llmModel: string;
     countryHolidays: string[];
+    showCulturalHolidays: boolean;
   };
   chat: {
     messages: ChatMessage[];
@@ -325,7 +326,8 @@ export const DEFAULT_STATE: AppState = {
     llmProvider: 'none',
     llmApiKey: '',
     llmModel: 'gemini-1.5-flash',
-    countryHolidays: []
+    countryHolidays: [],
+    showCulturalHolidays: false
   },
   chat: {
     messages: [
@@ -1217,6 +1219,12 @@ export function setCountryHolidays(codes: string[]): void {
     if (cleaned.length >= 20) break;
   }
   setState('settings', 'countryHolidays', cleaned);
+  saveState();
+}
+
+/** Enables/disables the optional worldwide cultural holidays (Halloween, ...). */
+export function setCulturalHolidaysEnabled(enabled: boolean): void {
+  setState('settings', 'showCulturalHolidays', !!enabled);
   saveState();
 }
 

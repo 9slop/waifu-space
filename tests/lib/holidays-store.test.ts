@@ -9,6 +9,7 @@ import {
   fetchCountryCatalog,
   refreshHolidayEvents,
   setCountryHolidays,
+  setCulturalHolidaysEnabled,
   holidayEvents,
   setHolidayEvents,
   clearHolidayCache
@@ -62,6 +63,21 @@ describe('Store: country holidays (store.ts)', () => {
 
       const saved = JSON.parse(scopedStorage() || '{}');
       expect(saved.settings.countryHolidays).toEqual(['US', 'GB']);
+    });
+  });
+
+  describe('setCulturalHolidaysEnabled', () => {
+    it('toggles the cultural-holiday flag and persists it', () => {
+      expect(state.settings.showCulturalHolidays).toBe(false);
+
+      setCulturalHolidaysEnabled(true);
+      expect(state.settings.showCulturalHolidays).toBe(true);
+
+      const saved = JSON.parse(scopedStorage() || '{}');
+      expect(saved.settings.showCulturalHolidays).toBe(true);
+
+      setCulturalHolidaysEnabled(false);
+      expect(state.settings.showCulturalHolidays).toBe(false);
     });
   });
 

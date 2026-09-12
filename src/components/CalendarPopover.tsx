@@ -1,7 +1,7 @@
 import { Show } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { toggleTask } from '../lib/store';
-import { t, getLocale } from '../lib/i18n';
+import { t, getLocale, holidayTooltip } from '../lib/i18n';
 import { countryFlagEmoji } from '../lib/countries';
 import { useFocusTrap } from '../lib/accessibility';
 
@@ -108,7 +108,9 @@ export function CalendarPopover(props: {
                 style={{ background: ev().color || '#ff6584' }}
               >
                 {holiday()
-                  ? `${countryFlagEmoji(holiday()!.countryCode)} ${holiday()!.countryCode} · ${t('calendar.holidays.badge')}`
+                  ? holiday()!.culture
+                    ? `🎉 ${t('calendar.holidays.culturalBadge')} · ${t('calendar.holidays.badge')}`
+                    : `${countryFlagEmoji(holiday()!.countryCode)} ${holiday()!.countryCode} · ${t('calendar.holidays.badge')}`
                   : ev().type.toUpperCase()}
                 {ev().completed ? ` (${t('calendar.popover.completed')})` : ''}
               </div>

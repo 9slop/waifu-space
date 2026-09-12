@@ -137,6 +137,7 @@ export interface CleanSettings {
   llmApiKey?: string;
   llmModel?: string;
   countryHolidays?: string[];
+  showCulturalHolidays?: boolean;
 }
 
 function toBool(raw: unknown, fallback: boolean): boolean {
@@ -190,6 +191,7 @@ export function sanitizeSettings(input: Record<string, unknown>, fallback: Clean
     }
     out.countryHolidays = codes;
   }
+  if (has('showCulturalHolidays')) out.showCulturalHolidays = toBool(input.showCulturalHolidays, fallback.showCulturalHolidays ?? false);
 
   return out;
 }

@@ -68,6 +68,13 @@ export function getLocale(): string {
   return state?.settings?.language === 'ja' ? 'ja-JP' : 'en-US';
 }
 
+/** Localized tooltip for read-only holiday pills (country or worldwide cultural). */
+export function holidayTooltip(h?: { countryCode: string; culture?: boolean } | null): string {
+  const badge = t('calendar.holidays.badge');
+  if (h?.culture) return `${t('calendar.holidays.culturalBadge')} · ${badge}`;
+  return `${h?.countryCode ?? ''} · ${badge}`;
+}
+
 export function formatDate(date: Date | string | number, options?: Intl.DateTimeFormatOptions): string {
   const d = typeof date === 'object' ? date : new Date(date);
   return d.toLocaleDateString(getLocale(), options);

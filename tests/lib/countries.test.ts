@@ -8,7 +8,11 @@ import {
   buildHolidayEvents,
   sanitizeCountry,
   sanitizeHolidayEntry,
-  HOLIDAY_COLOR
+  HOLIDAY_COLOR,
+  CULTURE_COLOR,
+  CULTURAL_HOLIDAYS,
+  culturalHolidayDate,
+  buildCulturalHolidayEvents
 } from '../../src/lib/countries';
 
 describe('Country helpers (countries.ts)', () => {
@@ -151,6 +155,61 @@ describe('Country helpers (countries.ts)', () => {
 
       expect(sanitizeHolidayEntry({ date: 'bad', name: 'X', countryCode: 'US' })).toBeNull();
       expect(sanitizeHolidayEntry(null)).toBeNull();
+    });
+  });
+
+  describe("Cultural holidays (Halloween, New Year's Eve, ...)", () => {
+    it('defines the expected worldwide cultural entries', () => {
+      const keys = CULTURAL_HOLIDAYS.map(d => d.key);
+      expect(keys).toContain('halloween');
+      expect(keys).toContain('new-years-eve');
+      expect(keys).toContain('valentines-day');
+      expect(keys).toContain('christmas-eve');
+      expect(keys).toContain('mothers-day');
+      expect(keys).toContain('fathers-day');
+    });
+
+    it('resolves fixed-date holidays to the right day', () => {
+      expect(culturalHolidayDate(CULTURAL_HOLIDAYS.find(d => d.key === 'halloween')!, 2026)).toEqual(new Date(2026, 9, 31));
+      expect(culturalHolidayDate(CULTURAL_HOLIDAYS.find(d => d.key === 'new-years-eve')!, 2026)).toEqual(new Date(2026, 11, 31));
+      expect(culturalHolidayDate(CULTURAL_HOLIDAYS.find(d => d.key === 'valentines-day')!, 2026)).toEqual(new Date(2026, 1, 14));
+      expect(culturalHolidayDate(CULTURAL_HOLIDAYS.find(d => d.key === 'christmas-eve')!, 2026)).toEqual(new Date(2026, 11, 24));
+    });
+
+    it('resolves rule-based holidays (2nd Sunday of May, 3rd Sunday of June)', () => {
+      expect(culturalHolidayDate(CULTURAL_HOLIDAYS.find(d => d.key === 'mothers-day')!, 2026)).toEqual(new Date(2026, 4, 10));
+      expect(culturalHolidayDate(CULTURAL_HOLIDAYS.find(d => d.key === 'fathers-day')!, 2026)).toEqual(new Date(2026, 5, 21));
+      // Stable across years (2025: May 11, June 15).
+      expect(culturalHolidayDate(CULTURAL_HOLIDAYS.find(d => d.key === 'mothers-day')!, 2025)).toEqual(new Date(2025, 4, 11));
+      expect(culturalHolidayDate(CULTURAL_HOLIDAYS.find(d => d.key === 'fathers-day')!, 2025)).toEqual(new Date(2025, 5, 15));
+    });
+
+    it('builds read-only all-day cultural events with a 🎉 marker', () => {
+      const events = buildCulturalHolidayEvents([2026]);
+      const halloween = events.find(e => e.id === 'culture-halloween-2026-10-31');
+      expect(halloween).toBeDefined();
+      expect(halloween!.title).toBe('Halloween');
+      expect(halloween!.allDay).toBe(true);
+      expect(halloween!.type).toBe('event');
+      expect(halloween!.completed).toBe(false);
+      expect(halloween!.color).toBe(CULTURE_COLOR);
+      expect(halloween!._holiday).toEqual({ countryCode: '', culture: true });
+
+      const start = new Date(halloween!.start);
+      const end = new Date(halloween!.end);
+      expect(start.getDate()).toBe(31);
+      expect(start.getMonth()).toBe(9);
+      expect(end.getTime() - start.getTime()).toBe(24 * 3600 * 1000);
+    });
+
+    it('deduplicates across years and rejects junk input', () => {
+      const events = buildCulturalHolidayEvents([2025, 2026, 2025]);
+      const ids = events.map(e => e.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(events.filter(e => e.id.startsWith('culture-halloween-')).length).toBe(2); // 2025 + 2026
+
+      expect(buildCulturalHolidayEvents(null as any)).toEqual([]);
+      expect(buildCulturalHolidayEvents(['bad'] as any)).toEqual([]);
     });
   });
 });

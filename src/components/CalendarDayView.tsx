@@ -2,7 +2,7 @@ import { For, Show, onMount, createSignal } from 'solid-js';
 import { CalendarEventItem } from '../lib/ical';
 import { updateCalendarEvent, toggleTask, showToast, isSameDay, getEventsForDate } from '../lib/store';
 import { layoutTimedEvents } from '../lib/calendar-layout';
-import { t, getLocale } from '../lib/i18n';
+import { t, getLocale, holidayTooltip } from '../lib/i18n';
 import { countryFlagEmoji } from '../lib/countries';
 import { onActivateKey } from '../lib/accessibility';
 
@@ -209,7 +209,7 @@ const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
                 role="button"
                 tabindex="0"
                 aria-label={t('calendar.a11y.openEvent', { title: ev.title })}
-                title={ev._holiday ? `${ev._holiday.countryCode} · ${t('calendar.holidays.badge')}` : undefined}
+                title={ev._holiday ? holidayTooltip(ev._holiday) : undefined}
                 draggable={!ev._holiday}
                 onDragStart={e => handleDragStart(e, ev)}
                 onClick={e => {
@@ -229,7 +229,7 @@ const handleDragStart = (e: DragEvent, ev: CalendarEventItem) => {
                     }}
                   />
                 )}
-                {ev._holiday && <span class="pill-holiday-flag">{countryFlagEmoji(ev._holiday.countryCode)}</span>}
+                {ev._holiday && <span class="pill-holiday-flag">{ev._holiday.culture ? '🎉' : countryFlagEmoji(ev._holiday.countryCode)}</span>}
                 <span class="allday-pill-title">{ev.title}</span>
               </div>
             )}

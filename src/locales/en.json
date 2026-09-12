@@ -231,6 +231,9 @@
     "holidays": {
       "title": "Country Holidays",
       "subtitle": "Show public holidays of the selected countries as all-day events in your calendar.",
+      "culturalLabel": "Cultural holidays (Halloween, New Year's Eve, …)",
+      "culturalDesc": "Show worldwide cultural events that are not public holidays — everywhere, on every device.",
+      "culturalBadge": "Cultural",
       "searchPlaceholder": "Search countries...",
       "loading": "Loading countries…",
       "loadError": "Could not load the country list. Please try again later.",

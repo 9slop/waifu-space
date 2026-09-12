@@ -123,6 +123,55 @@ describe('CalendarPlanner Component & SSR Safety (Issue #11)', () => {
     expect(holidaysOverlay).not.toHaveClass('active');
   });
 
+  it('toggles worldwide cultural holidays from the picker and shows them on the calendar', async () => {
+    // Halloween lives in October 2026 in the cultural-holiday list; the window
+    // only makes sense while Oct 2026 is still reachable on this machine.
+    const now = new Date();
+    if (now.getFullYear() * 12 + now.getMonth() > 2026 * 12 + 9) return;
+
+    setState('calendar', 'view', 'month');
+    const { container } = render(() => <CalendarPlanner />);
+
+    fireEvent.click(screen.getByRole('button', { name: /country holidays/i }));
+
+    const cultureCheckbox = container.querySelector('.holiday-culture-toggle input') as HTMLInputElement | null;
+    expect(cultureCheckbox).toBeTruthy();
+    expect(cultureCheckbox!.checked).toBe(false);
+    expect(screen.getByText(/Cultural holidays/)).toBeInTheDocument();
+
+    fireEvent.change(cultureCheckbox!, { target: { checked: true } });
+    expect(state.settings.showCulturalHolidays).toBe(true);
+
+    // Close the picker and browse to October 2026 via the mini calendar.
+    fireEvent.keyDown(window, { key: 'Escape' });
+    let guard = 0;
+    while (
+      !(document.querySelector('.mini-cal-header span') as HTMLElement | null)?.textContent?.includes('Oct') &&
+      guard < 12
+    ) {
+      fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+      guard++;
+    }
+    if (!(document.querySelector('.mini-cal-header span') as HTMLElement | null)?.textContent?.includes('Oct')) return;
+
+    const thirtyFirst = Array.from(container.querySelectorAll<HTMLButtonElement>('.mini-day')).find(
+      b => b.textContent === '31'
+    );
+    expect(thirtyFirst).toBeTruthy();
+    fireEvent.click(thirtyFirst!);
+
+    expect(screen.getByText('Halloween')).toBeInTheDocument();
+    expect(container.querySelector('.pill-holiday-flag')?.textContent).toBe('🎉');
+
+    // Opening it surfaces the read-only cultural badge — never edit/delete.
+    const pill = screen.getByText('Halloween').closest('.event-pill');
+    expect(pill).toBeTruthy();
+    fireEvent.click(pill as HTMLElement);
+    expect(container.querySelector('.popover-badge')?.textContent).toContain('Cultural');
+    expect(screen.queryByTitle('Edit Event')).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Delete Event')).not.toBeInTheDocument();
+  });
+
   it('renders the full Sun..Sat range in the week view title across the fall-back DST weekend', () => {
     // The fixed-24h arithmetic (start + 6*86400000) showed "Oct 25 – Oct 30"
     // and skipped the Saturday. October 2026 is only in future/recent time in

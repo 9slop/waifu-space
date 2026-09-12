@@ -1270,6 +1270,42 @@ body.is-resizing-event {
   margin: 0;
 }
 
+.holiday-culture-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 10px;
+  background: rgba(253, 121, 168, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm, 8px);
+  user-select: none;
+}
+
+.holiday-culture-toggle input[type='checkbox'] {
+  accent-color: var(--primary-accent, #ff6584);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.holiday-culture-emoji {
+  font-size: 15px;
+}
+
+.holiday-culture-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.holiday-culture-desc {
+  font-size: 11px;
+  color: var(--text-muted, #a0a0b0);
+  margin: -4px 2px 2px;
+}
+
 .holiday-search-input {
   width: 100%;
   padding: 8px 12px;
