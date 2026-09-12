@@ -379,6 +379,13 @@ export function createBabylonWeaponMesh(weaponId: WeaponId, scene: Scene): Trans
     slide.material = pistolSlideMat;
     slide.parent = root;
 
+    // Barrel
+    const barrel = MeshBuilder.CreateCylinder('pistolBarrel', { height: 0.08, diameter: 0.025 }, scene);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position = new Vector3(0, 0.01, 0.12);
+    barrel.material = pistolSlideMat;
+    barrel.parent = root;
+
     // Grip
     const grip = MeshBuilder.CreateBox('pistolGrip', { width: 0.05, height: 0.16, depth: 0.09 }, scene);
     grip.position = new Vector3(0, -0.1, -0.05);
