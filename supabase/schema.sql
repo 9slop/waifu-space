@@ -2,6 +2,9 @@
 -- WaifuSpace: Database Schema & Row-Level Security (RLS)
 -- Target: Supabase (PostgreSQL 15+)
 -- ==========================================================
+-- NOTE: The Discord-clone DM/presence/calling tables live in
+-- supabase/schema-dm.sql (conversations, conversation_participants,
+-- messages, user_presence, call_sessions + their RLS/schema policies).
 
 -- Enable pgcrypto for UUID generation if needed
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

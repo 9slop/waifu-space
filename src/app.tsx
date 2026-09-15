@@ -13,6 +13,8 @@ import {
 } from './lib/store';
 import { defenseGameActive, setDefenseGameActive } from './lib/defense-bridge';
 import { t } from './lib/i18n';
+import { configureDmRuntime, initDm, disconnectDm, dmState } from './lib/dm/store';
+import { startPresenceAutoDetect } from './lib/dm/presence-auto';
 import { startNotificationScheduler, stopNotificationScheduler, sendNotification } from './lib/notifications';
 import { SakuraCanvas } from './components/SakuraCanvas';
 import { ToastNotification } from './components/ToastNotification';
@@ -29,7 +31,8 @@ import {
   PhDoor,
   PhWarning,
   PhRunning,
-  PhTimer
+  PhTimer,
+  PhBellRinging
 } from './components/icons';
 
 // Global Styles
@@ -40,6 +43,7 @@ import './styles/calendar.css';
 import './styles/settings.css';
 import './styles/rpg.css';
 import './styles/timebudget.css';
+import './styles/discord.css';
 
 // Legacy theme names from older builds map onto the new palettes.
 const LEGACY_THEME_MAP: Record<string, string> = {
@@ -82,6 +86,7 @@ function AppLayout(props: { children: any }) {
   const [isAuthChecking, setIsAuthChecking] = createSignal(true);
   const [pendingNavHref, setPendingNavHref] = createSignal<string | null>(null);
   let deadlineInterval: any = null;
+  let autoDetectStop: (() => void) | null = null;
 
   const handleNavClick = (e: MouseEvent, href: string) => {
     if (defenseGameActive()) {
@@ -101,6 +106,9 @@ function AppLayout(props: { children: any }) {
 
   onMount(() => {
     loadState();
+
+    const handle = startPresenceAutoDetect();
+    autoDetectStop = handle.stop;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (defenseGameActive()) {
@@ -175,6 +183,8 @@ function AppLayout(props: { children: any }) {
       colorSchemeQuery.removeEventListener('change', onColorSchemeChange);
       clearInterval(deadlineInterval);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      autoDetectStop?.();
+      autoDetectStop = null;
     });
   });
 
@@ -191,6 +201,27 @@ function AppLayout(props: { children: any }) {
       startNotificationScheduler();
     } else {
       stopNotificationScheduler();
+    }
+  });
+
+  // DM realtime is wired once for the whole session and stays alive on every
+  // page of the SPA: incoming calls must ring and messages must arrive live
+  // whichever tab the peer is on. `getAuth` reads the reactive store so a
+  // login/logout is reflected immediately; the effect only re-runs when the
+  // user identity actually changes (not on token refreshes from /api/auth/me).
+  createEffect(() => {
+    const uid = state.user?.id ?? null;
+    if (uid) {
+      configureDmRuntime({
+        getAuth: () => {
+          const user = state.user;
+          if (!user?.token || !user.id) return null;
+          return { token: user.token, id: user.id, username: user.username, avatarUrl: user.avatarUrl };
+        }
+      });
+      void initDm();
+    } else {
+      void disconnectDm();
     }
   });
 
@@ -236,6 +267,13 @@ function AppLayout(props: { children: any }) {
             <span><PhCoins /></span>
             <span>{state.rpg ? state.rpg.coins : 0}</span>
           </A>
+
+          <Show when={state.user && dmState.totalUnread > 0}>
+            <A href="/" class="header-dm-unread-pill" data-testid="header-dm-unread" title={t('dm.section')} end={true} onClick={e => handleNavClick(e, '/')}>
+              <span><PhBellRinging /></span>
+              <span class="header-dm-unread-count">{dmState.totalUnread > 99 ? '99+' : dmState.totalUnread}</span>
+            </A>
+          </Show>
 
           <Show when={state.user} fallback={
             <button
