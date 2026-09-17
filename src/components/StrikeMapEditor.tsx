@@ -478,6 +478,13 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
             >
               Raise
             </button>
+            <button
+              class={`edi-btn ${terrainTool() === 'lower' ? 'active' : ''}`}
+              title="Lower terrain — drag on the ground"
+              onClick={() => handleSetTerrainTool('lower')}
+            >
+              Lower
+            </button>
           </div>
           <div class="edi-hud">
             <Show when={selKind() !== 'none'}>
