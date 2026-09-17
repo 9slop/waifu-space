@@ -75,6 +75,8 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
   const [snapToGround, setSnapToGroundModal] = createSignal(true);
   const [isFullscreen, setIsFullscreen] = createSignal(false);
   const [terrainTool, setTerrainTool] = createSignal<TerrainTool>('none');
+  const [brushSize, setBrushSize] = createSignal(8);
+  const [brushStrength, setBrushStrength] = createSignal(1);
 
   const refresh = () => {
     if (!controller) return;
@@ -223,6 +225,16 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
   const handleSetTerrainTool = (tool: TerrainTool) => {
     controller?.setTerrainTool(tool);
     setTerrainTool(tool);
+  };
+
+  const handleBrushSize = (size: number) => {
+    controller?.setBrushSize(size);
+    setBrushSize(size);
+  };
+
+  const handleBrushStrength = (strength: number) => {
+    controller?.setBrushStrength(strength);
+    setBrushStrength(strength);
   };
 
   const handleToggleSnapToGround = () => {
@@ -492,6 +504,32 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
             >
               Smooth
             </button>
+            <Show when={terrainTool() !== 'none'}>
+              <div class="edi-terrain-controls">
+                <label class="edi-terrain-slider">
+                  <span>Size {brushSize().toFixed(0)}m</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="40"
+                    step="1"
+                    value={brushSize()}
+                    onInput={(e) => handleBrushSize(parseFloat(e.currentTarget.value) || 1)}
+                  />
+                </label>
+                <label class="edi-terrain-slider">
+                  <span>Strength {brushStrength().toFixed(2)}</span>
+                  <input
+                    type="range"
+                    min="0.05"
+                    max="4"
+                    step="0.05"
+                    value={brushStrength()}
+                    onInput={(e) => handleBrushStrength(parseFloat(e.currentTarget.value) || 0.05)}
+                  />
+                </label>
+              </div>
+            </Show>
           </div>
           <div class="edi-hud">
             <Show when={selKind() !== 'none'}>
