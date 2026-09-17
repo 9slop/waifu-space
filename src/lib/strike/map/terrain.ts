@@ -203,14 +203,15 @@ export function smoothHeights(
 /**
  * Writes a heightmap into a ground mesh's vertex Y positions, recomputes
  * smooth normals and refreshes collision height quads so
- * `getHeightAtCoordinates` keeps matching the visible surface.
+ * `getHeightAtCoordinates` keeps matching the visible surface. `lift` raises
+ * the whole surface (used by the paint overlay so it sits above the ground).
  */
-export function applyHeightmapToMesh(mesh: Mesh, heights: number[], subdivisions: number): void {
+export function applyHeightmapToMesh(mesh: Mesh, heights: number[], subdivisions: number, lift = 0): void {
   const expected = terrainVertexCount(subdivisions);
   if (heights.length !== expected) return;
   mesh.updateMeshPositions((positions) => {
     for (let i = 0; i < expected; i++) {
-      positions[i * 3 + 1] = heights[i];
+      positions[i * 3 + 1] = heights[i] + lift;
     }
   }, true);
   mesh.refreshBoundingInfo();

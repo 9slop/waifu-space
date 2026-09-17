@@ -42,6 +42,15 @@ import {
   applyHeightmapToMesh
 } from '../terrain';
 import type { TerrainBrushSpec } from '../terrain';
+import {
+  PAINT_LIFT,
+  createPaintOverlay,
+  findPaintOverlay,
+  getPaintSource,
+  savePaintTexture,
+  stampPaint
+} from '../paint';
+import type { PaintOverlay } from '../paint';
 
 export interface EditorTool {
   type: 'translate' | 'rotate' | 'scale';
@@ -265,6 +274,7 @@ export class StrikeMapEditorController {
 
   // ── Terrain sculpting ────────────────────────────────────────────────────
   private terrainOf = new Map<string, TerrainGroundEntry>();
+  private paintOf = new Map<string, PaintOverlay>();
   private terrainStroke: {
     pointerId: number;
     objectId: string;
@@ -687,6 +697,7 @@ export class StrikeMapEditorController {
    */
   private initTerrainEditors(): void {
     this.terrainOf.clear();
+    this.paintOf.clear();
     for (const o of this.layout.objects) {
       if (o.kind !== 'ground') continue;
       const obj = o as MapGroundObject;
@@ -717,6 +728,7 @@ export class StrikeMapEditorController {
     entry.heights = obj.heightmap;
     disposeObjectMeshes(this.b, entry.id);
     this.controlOf.delete(entry.id);
+    this.paintOf.delete(entry.id);
     this.buildMapObjectNow(obj);
     const control = this.controlOf.get(entry.id);
     entry.control = control instanceof GroundMesh ? control : null;
@@ -781,11 +793,19 @@ export class StrikeMapEditorController {
   private endTerrainStroke(): void {
     if (!this.terrainStroke) return;
     const pointerId = this.terrainStroke.pointerId;
+    const objectId = this.terrainStroke.objectId;
+    const wasPaint = this.terrainTool === 'paint';
     this.terrainStroke = null;
     try {
       if (this.canvas.hasPointerCapture(pointerId)) this.canvas.releasePointerCapture(pointerId);
     } catch {
       /* ignore */
+    }
+    if (wasPaint) {
+      const overlay = this.paintOf.get(objectId);
+      const obj = this.layout.objects.find((o) => o.id === objectId) as MapGroundObject | undefined;
+      const data = overlay ? savePaintTexture(overlay.texture) : null;
+      if (obj && data) obj.paint = data;
     }
     this.onChange?.();
   }
@@ -800,7 +820,7 @@ export class StrikeMapEditorController {
 
   /** Applies the active tool at a world-space surface point. */
   private applyTerrainBrush(objectId: string, point: Vector3): void {
-    if (this.terrainTool === 'none' || this.terrainTool === 'paint') return;
+    if (this.terrainTool === 'none') return;
     const entry = this.terrainOf.get(objectId);
     if (!entry || !this.terrainStroke) return;
 
@@ -808,6 +828,12 @@ export class StrikeMapEditorController {
       this.recordHistory();
       this.terrainStroke.historyPushed = true;
     }
+
+    if (this.terrainTool === 'paint') {
+      this.applyPaintBrush(entry, point);
+      return;
+    }
+
     if (entry.heights === null) this.upgradeTerrainGround(entry);
     if (!entry.heights || !entry.control) return;
 
@@ -832,9 +858,66 @@ export class StrikeMapEditorController {
     const obj = this.layout.objects.find((o) => o.id === objectId) as MapGroundObject | undefined;
     if (obj) obj.heightmap = entry.heights;
     applyHeightmapToMesh(entry.control, entry.heights, entry.subdivisions);
+    // Keep any painted overlay glued to the (now sculpted) surface.
+    if (obj?.paint || this.paintOf.has(objectId)) {
+      const overlay = this.adoptPaintOverlay(objectId);
+      if (overlay) applyHeightmapToMesh(overlay.mesh, entry.heights, entry.subdivisions, PAINT_LIFT);
+    }
     this.terrainStroke.lastWorld = point.clone();
     this.updateTerrainCursor(point);
     this.dirty = true;
+  }
+
+  /** Adopts (or builds) the overlay mesh that renders a ground's painted layer. */
+  private adoptPaintOverlay(objectId: string): PaintOverlay | null {
+    const cached = this.paintOf.get(objectId);
+    if (cached && !cached.mesh.isDisposed()) return cached;
+    const existing = findPaintOverlay(this.scene, objectId);
+    if (existing) {
+      this.paintOf.set(objectId, existing);
+      return existing;
+    }
+    return null;
+  }
+
+  private ensurePaintOverlay(entry: TerrainGroundEntry): PaintOverlay | null {
+    const existing = this.adoptPaintOverlay(entry.id);
+    if (existing) return existing;
+    if (!entry.control) return null;
+    const obj = this.layout.objects.find((o) => o.id === entry.id) as MapGroundObject | undefined;
+    const subdivisions = entry.heights ? entry.subdivisions : entry.meshSubdivisions;
+    if (!subdivisions) return null;
+    const overlay = createPaintOverlay(this.scene, {
+      id: entry.id,
+      width: entry.width,
+      height: entry.height,
+      subdivisions,
+      heights: entry.heights,
+      position: entry.control.position.clone(),
+      paint: obj?.paint ?? null,
+      editor: true
+    });
+    this.paintOf.set(entry.id, overlay);
+    return overlay;
+  }
+
+  /** Stamps the selected texture into a ground's paint overlay at a world point. */
+  private applyPaintBrush(entry: TerrainGroundEntry, point: Vector3): void {
+    if (!entry.control) return;
+    const overlay = this.ensurePaintOverlay(entry);
+    if (!overlay) return;
+    const mats = this.b.mats as unknown as Record<string, StandardMaterial>;
+    const sourceMat = (this.paintMaterial ? mats[this.paintMaterial] : undefined)
+      ?? (entry.control.material as unknown as StandardMaterial | null)
+      ?? undefined;
+    const source = getPaintSource(sourceMat);
+    const local = Vector3.TransformCoordinates(point, entry.control.getInverseWorldMatrix());
+    const alpha = Math.min(0.6, this.brushStrength * 0.25);
+    if (stampPaint(overlay.texture, source, local.x, local.z, entry.width, entry.height, this.brushSize / 2, alpha)) {
+      this.terrainStroke!.lastWorld = point.clone();
+      this.updateTerrainCursor(point);
+      this.dirty = true;
+    }
   }
 
   private getTerrainCursor(): AbstractMesh {
@@ -944,8 +1027,8 @@ export class StrikeMapEditorController {
   private findControlMesh(id: string): AbstractMesh | undefined {
     return this.scene.meshes.find((m) => {
       if (m.isDisposed()) return false;
-      const meta = m.metadata as { editorId?: string } | undefined;
-      return !!meta && meta.editorId === id && !m.parent;
+      const meta = m.metadata as { editorId?: string; paintOverlay?: boolean } | undefined;
+      return !!meta && meta.editorId === id && !meta.paintOverlay && !m.parent;
     });
   }
 
@@ -1839,6 +1922,7 @@ export class StrikeMapEditorController {
     this.canvas.removeEventListener('pointercancel', this.onPointerCancel);
     this.terrainStroke = null;
     this.terrainOf.clear();
+    this.paintOf.clear();
     this.terrainCursor = null;
     this.gizmo.dispose();
     this.canvas.style.cursor = 'default';

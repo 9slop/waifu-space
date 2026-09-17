@@ -77,6 +77,7 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
   const [terrainTool, setTerrainTool] = createSignal<TerrainTool>('none');
   const [brushSize, setBrushSize] = createSignal(8);
   const [brushStrength, setBrushStrength] = createSignal(1);
+  const [paintMaterial, setPaintMaterial] = createSignal<string | null>(null);
 
   const refresh = () => {
     if (!controller) return;
@@ -225,6 +226,15 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
   const handleSetTerrainTool = (tool: TerrainTool) => {
     controller?.setTerrainTool(tool);
     setTerrainTool(tool);
+    if (tool === 'paint' && !paintMaterial()) {
+      const first = controller?.materialKeys?.[0];
+      if (first) handlePaintMaterial(first);
+    }
+  };
+
+  const handlePaintMaterial = (key: string) => {
+    controller?.setPaintMaterial(key);
+    setPaintMaterial(key);
   };
 
   const handleBrushSize = (size: number) => {
@@ -504,6 +514,13 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
             >
               Smooth
             </button>
+            <button
+              class={`edi-btn ${terrainTool() === 'paint' ? 'active' : ''}`}
+              title="Texture brush — paint a material onto the ground"
+              onClick={() => handleSetTerrainTool('paint')}
+            >
+              Paint
+            </button>
             <Show when={terrainTool() !== 'none'}>
               <div class="edi-terrain-controls">
                 <label class="edi-terrain-slider">
@@ -528,6 +545,21 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
                     onInput={(e) => handleBrushStrength(parseFloat(e.currentTarget.value) || 0.05)}
                   />
                 </label>
+                <Show when={terrainTool() === 'paint'}>
+                  <div class="edi-paint-palette" role="listbox" aria-label="Paint material">
+                    <For each={controller?.materialKeys ?? []}>
+                      {(key) => (
+                        <button
+                          class={`edi-paint-swatch ${paintMaterial() === key ? 'active' : ''}`}
+                          title={key}
+                          onClick={() => handlePaintMaterial(key)}
+                        >
+                          {key}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Show>
               </div>
             </Show>
           </div>

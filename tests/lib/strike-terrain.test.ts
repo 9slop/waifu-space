@@ -1,5 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { NullEngine, Scene, MeshBuilder, GroundMesh } from '@babylonjs/core';
+import { NullEngine, Scene, MeshBuilder, GroundMesh, Vector3 } from '@babylonjs/core';
+import {
+  PAINT_LIFT,
+  createPaintOverlay,
+  createPaintTexture,
+  findPaintOverlay,
+  stampPaint
+} from '../../src/lib/strike/map/paint';
 import {
   TERRAIN_SUBDIVISIONS,
   brushFalloff,
@@ -187,5 +194,80 @@ describe('applyHeightmapToMesh', () => {
     for (let i = 0; i < positions.length; i += 3) {
       expect(positions[i + 1]).toBeCloseTo(0);
     }
+  });
+
+  it('lifts every vertex by the optional lift offset', () => {
+    const n = 2;
+    const mesh = MeshBuilder.CreateGround('t4', { width: 4, height: 4, subdivisions: n }, scene) as GroundMesh;
+    applyHeightmapToMesh(mesh, makeTerrainHeights(n).fill(0.5), n, 0.25);
+    const positions = mesh.getVerticesData('position')!;
+    for (let i = 0; i < positions.length; i += 3) {
+      expect(positions[i + 1]).toBeCloseTo(0.75);
+    }
+  });
+});
+
+describe('strike terrain paint overlay', () => {
+  let engine: NullEngine;
+  let scene: Scene;
+
+  beforeEach(() => {
+    engine = new NullEngine();
+    scene = new Scene(engine);
+  });
+
+  afterEach(() => {
+    scene.dispose();
+    engine.dispose();
+  });
+
+  it('builds an alpha-blended overlay lifted above the ground surface', () => {
+    const subdivisions = 2;
+    const heights = makeTerrainHeights(subdivisions).fill(1);
+    const overlay = createPaintOverlay(scene, {
+      id: 'g1',
+      width: 8,
+      height: 6,
+      subdivisions,
+      heights,
+      position: new Vector3(3, 0.5, -2),
+      editor: true
+    });
+
+    expect(overlay.mesh.name).toBe('g1__paint');
+    expect(overlay.mesh.isPickable).toBe(false);
+    expect(overlay.mesh.checkCollisions).toBe(false);
+    expect(overlay.mesh.position.equals(new Vector3(3, 0.5, -2))).toBe(true);
+    expect(overlay.mesh.metadata).toEqual({ editorId: 'g1', paintOverlay: true });
+
+    const positions = overlay.mesh.getVerticesData('position')!;
+    for (let i = 0; i < positions.length; i += 3) {
+      expect(positions[i + 1]).toBeCloseTo(1 + PAINT_LIFT);
+    }
+
+    expect(overlay.material.diffuseTexture).toBe(overlay.texture);
+    expect(overlay.material.opacityTexture).toBe(overlay.texture);
+    expect(overlay.material.useAlphaFromDiffuseTexture).toBe(true);
+    expect(overlay.texture.hasAlpha).toBe(true);
+  });
+
+  it('finds a built overlay by ground id and ignores unknown ids', () => {
+    createPaintOverlay(scene, {
+      id: 'g2',
+      width: 4,
+      height: 4,
+      subdivisions: 2,
+      heights: null,
+      position: new Vector3(0, 0, 0),
+      editor: true
+    });
+
+    expect(findPaintOverlay(scene, 'g2')?.mesh.name).toBe('g2__paint');
+    expect(findPaintOverlay(scene, 'missing')).toBeNull();
+  });
+
+  it('stampPaint fails gracefully without a source or canvas', () => {
+    const texture = createPaintTexture(scene, 'paintTex');
+    expect(stampPaint(texture, null, 0, 0, 4, 4, 1, 1)).toBe(false);
   });
 });

@@ -164,6 +164,34 @@
   width: 118px;
   accent-color: #6ea8ff;
 }
+.edi-paint-palette {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  max-height: 148px;
+  overflow-y: auto;
+}
+.edi-paint-swatch {
+  padding: 4px 6px;
+  font-size: 0.62rem;
+  text-align: left;
+  color: #b9c9dd;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.edi-paint-swatch:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.edi-paint-swatch.active {
+  background: linear-gradient(135deg, rgba(120, 180, 255, 0.4), rgba(88, 140, 240, 0.4));
+  border-color: rgba(140, 190, 255, 0.65);
+  color: #eaf3ff;
+}
 
 .edi-cam-hint {
   margin-top: 5px;
