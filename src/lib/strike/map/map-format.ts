@@ -43,6 +43,15 @@ export interface MapGroundObject extends MapObjectBase {
   height: number;
   material: string;
   collidable: boolean;
+  /**
+   * Sculpted terrain: subdivision count of the heightfield grid. Absent on
+   * flat, never-edited grounds (they keep the builder's default mesh).
+   */
+  subdivisions?: number;
+  /** Heightfield: local-space Y offsets per vertex, row-major, (N+1)² entries. */
+  heightmap?: number[];
+  /** Painted overlay texture as a base64 PNG data URL (texture brush). */
+  paint?: string;
 }
 
 export interface MapComponentObject extends MapObjectBase {
@@ -149,10 +158,11 @@ export class MapRecorder {
     height: number,
     pos: Vector3,
     material: string,
-    collidable: boolean
+    collidable: boolean,
+    terrain?: { subdivisions?: number; heightmap?: number[] }
   ): void {
     if (this.inComponent) return;
-    this.objects.push({
+    const ground: MapGroundObject = {
       id: this.nextId(),
       name,
       kind: 'ground',
@@ -162,7 +172,10 @@ export class MapRecorder {
       rotation: [0, 0, 0],
       material,
       collidable
-    });
+    };
+    if (terrain && terrain.subdivisions !== undefined) ground.subdivisions = terrain.subdivisions;
+    if (terrain?.heightmap && terrain.heightmap.length > 0) ground.heightmap = [...terrain.heightmap];
+    this.objects.push(ground);
   }
 
   toLayout(name: string, spawns: MapSpawn[]): MapLayout {
@@ -269,7 +282,7 @@ export function parseLayout(json: string): MapLayout {
             };
           }
           if (o.kind === 'ground') {
-            return {
+            const ground: MapGroundObject = {
               ...base,
               kind: 'ground' as const,
               width: isFiniteNum(o.width) ? o.width : 10,
@@ -277,6 +290,21 @@ export function parseLayout(json: string): MapLayout {
               material: mat,
               collidable: o.collidable !== false
             };
+            if (isFiniteNum(o.subdivisions) && o.subdivisions >= 2) {
+              ground.subdivisions = Math.round(o.subdivisions);
+            }
+            if (
+              ground.subdivisions !== undefined &&
+              Array.isArray(o.heightmap) &&
+              o.heightmap.length === (ground.subdivisions + 1) * (ground.subdivisions + 1) &&
+              o.heightmap.every(isFiniteNum)
+            ) {
+              ground.heightmap = (o.heightmap as number[]).slice();
+            }
+            if (typeof o.paint === 'string' && o.paint.length > 0) {
+              ground.paint = o.paint;
+            }
+            return ground;
           }
           return {
             ...base,

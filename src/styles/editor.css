@@ -120,6 +120,79 @@
 }
 .edi-hud code { color: #ff7597; }
 
+/* ── Terrain tool rail (floating, top-left of the viewport) ── */
+.edi-terrain-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px;
+  background: rgba(10, 14, 22, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  backdrop-filter: blur(8px);
+  z-index: 4;
+}
+.edi-terrain-toolbar .edi-btn {
+  min-width: 74px;
+  text-align: left;
+  padding: 6px 10px;
+}
+.edi-terrain-toolbar .edi-btn.active {
+  background: linear-gradient(135deg, rgba(120, 180, 255, 0.4), rgba(88, 140, 240, 0.4));
+  border-color: rgba(140, 190, 255, 0.65);
+  color: #eaf3ff;
+}
+.edi-terrain-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.edi-terrain-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.68rem;
+  color: #9fb3cc;
+}
+.edi-terrain-slider input[type='range'] {
+  width: 118px;
+  accent-color: #6ea8ff;
+}
+.edi-paint-palette {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  max-height: 148px;
+  overflow-y: auto;
+}
+.edi-paint-swatch {
+  padding: 4px 6px;
+  font-size: 0.62rem;
+  text-align: left;
+  color: #b9c9dd;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 5px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.edi-paint-swatch:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.edi-paint-swatch.active {
+  background: linear-gradient(135deg, rgba(120, 180, 255, 0.4), rgba(88, 140, 240, 0.4));
+  border-color: rgba(140, 190, 255, 0.65);
+  color: #eaf3ff;
+}
+
 .edi-cam-hint {
   margin-top: 5px;
   color: #5f7290;

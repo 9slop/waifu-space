@@ -89,6 +89,14 @@ export interface PointLightOptions {
   range?: number;
 }
 
+/** Mesh options for addGround: higher-resolution subdivision + optional heightfield. */
+export interface GroundBuildOptions {
+  /** Number of cells per side; defaults to the builder's flat-ground mesh. */
+  subdivisions?: number;
+  /** Local Y offsets per vertex, row-major (subdivisions + 1)² entries. */
+  heightmap?: number[];
+}
+
 /**
  * Shared build context passed to every map component and section.
  * Owns collider registration, shadow casting, lantern light collection
@@ -120,14 +128,15 @@ export interface MapBuilder {
     scale?: Vector3
   ): AbstractMesh;
 
-  /** Flat ground plane recorded as a 'ground' object */
+  /** Flat or sculpted ground plane recorded as a 'ground' object */
   addGround(
     name: string,
     width: number,
     height: number,
     pos: Vector3,
     mat: StandardMaterial,
-    collidable?: boolean
+    collidable?: boolean,
+    terrain?: GroundBuildOptions
   ): AbstractMesh;
 
   /** Registers a warm point light that participates in the day/night cycle */

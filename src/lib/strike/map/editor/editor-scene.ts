@@ -8,6 +8,7 @@ import {
   Color3,
   Color4,
   AbstractMesh,
+  GroundMesh,
   GizmoManager,
   MeshBuilder,
   DynamicTexture,
@@ -24,11 +25,52 @@ import { createMapBuilder } from '../builder';
 import { buildLayout, buildLayoutLight, buildMapObject, disposeObjectMeshes, loadDefaultLayout } from '../layout';
 import { buildSky } from '../sections';
 import { emptyLayout, parseLayout, serializeLayout } from '../map-format';
-import type { MapBoxObject, MapLayout, MapLight, MapObject, MapSpawn } from '../map-format';
+import type { MapBoxObject, MapGroundObject, MapLayout, MapLight, MapObject, MapSpawn } from '../map-format';
 import { createComponentObject, COMPONENTS } from '../components/registry';
+import {
+  TERRAIN_SUBDIVISIONS,
+  TERRAIN_MIN_SUBDIVISIONS,
+  makeTerrainHeights,
+  sanitizeTerrainHeights,
+  subdivisionsFromHeightmap,
+  terrainCellSizeX,
+  terrainCellSizeZ,
+  terrainWorldToGrid,
+  raiseHeights,
+  lowerHeights,
+  smoothHeights,
+  applyHeightmapToMesh
+} from '../terrain';
+import type { TerrainBrushSpec } from '../terrain';
+import {
+  PAINT_LIFT,
+  createPaintOverlay,
+  findPaintOverlay,
+  getPaintSource,
+  savePaintTexture,
+  stampPaint
+} from '../paint';
+import type { PaintOverlay } from '../paint';
 
 export interface EditorTool {
   type: 'translate' | 'rotate' | 'scale';
+}
+
+/** Terrain painting tools. 'none' restores normal object editing. */
+export type TerrainTool = 'none' | 'raise' | 'lower' | 'smooth' | 'paint';
+
+/** Live editor state for one sculpted ground object. */
+export interface TerrainGroundEntry {
+  id: string;
+  width: number;
+  height: number;
+  /** Target subdivision count (persisted on the layout object on first edit). */
+  subdivisions: number;
+  /** Subdivisions of the live mesh (differs until a legacy ground is upgraded). */
+  meshSubdivisions: number;
+  /** Working heightfield; null until a legacy (subdivision-1-like) ground gets sculpted. */
+  heights: number[] | null;
+  control: GroundMesh | null;
 }
 
 export interface EditorObjectInfo {
@@ -230,7 +272,27 @@ export class StrikeMapEditorController {
   /** Object selected from the list while locked (scene clicks are ignored). */
   private lockedSel: string | null = null;
 
+  // ── Terrain sculpting ────────────────────────────────────────────────────
+  private terrainOf = new Map<string, TerrainGroundEntry>();
+  private paintOf = new Map<string, PaintOverlay>();
+  private terrainStroke: {
+    pointerId: number;
+    objectId: string;
+    lastWorld: Vector3 | null;
+    historyPushed: boolean;
+  } | null = null;
+  private terrainCursor: AbstractMesh | null = null;
+
   onGizmoMode: 'translate' | 'rotate' | 'scale' = 'translate';
+
+  /** Active terrain tool; 'none' puts the editor back in object-edit mode. */
+  terrainTool: TerrainTool = 'none';
+  /** Terrain brush size in meters (diameter). */
+  brushSize = 8;
+  /** Raise/lower amount in meters per unit of drag (smooth strength factor). */
+  brushStrength = 1;
+  /** Texture brush source material key (paint tool; see TerrainTool). */
+  paintMaterial: string | null = null;
 
   /** Active shift+drag "move to cursor" gesture (null when idle). */
   private dragMove: {
@@ -325,6 +387,7 @@ export class StrikeMapEditorController {
 
     this.applyGizmoMode(this.onGizmoMode);
     this.applySnap();
+    this.applyTerrainMode();
 
     // Shift+drag object-to-cursor movement (only meaningful in translate mode).
     this.canvas.addEventListener('pointerdown', this.onPointerDown);
@@ -334,6 +397,7 @@ export class StrikeMapEditorController {
 
     // Picking: select objects/lights/spawns, clear on empty left-click.
     this.scene.onPointerObservable.add((evt) => {
+      if (this.terrainTool !== 'none') return;
       if (evt.type !== PointerEventTypes.POINTERPICK) return;
       const hit = evt.pickInfo;
       if (!hit?.pickedMesh) {
@@ -485,6 +549,10 @@ export class StrikeMapEditorController {
    * ground or the top of other objects when snap-to-ground is enabled.
    */
   private onPointerDown = (e: PointerEvent) => {
+    if (this.terrainTool !== 'none') {
+      this.terrainPointerDown(e);
+      return;
+    }
     if (this.dragMove) return;
     if (e.button !== 0 || !e.shiftKey) return;
     if (this.onGizmoMode !== 'translate') return;
@@ -518,6 +586,10 @@ export class StrikeMapEditorController {
   };
 
   private onPointerMove = (e: PointerEvent) => {
+    if (this.terrainTool !== 'none') {
+      this.terrainPointerMove(e);
+      return;
+    }
     if (!this.dragMove || e.pointerId !== this.dragMove.pointerId) return;
     // If a gizmo axis drag grabbed the same pointer (shift held near an axis),
     // let the gizmo win — it constrains movement along that axis.
@@ -561,6 +633,10 @@ export class StrikeMapEditorController {
   };
 
   private onPointerUp = (e: PointerEvent) => {
+    if (this.terrainStroke && e.pointerId === this.terrainStroke.pointerId) {
+      this.endTerrainStroke();
+      return;
+    }
     if (!this.dragMove || e.pointerId !== this.dragMove.pointerId) return;
     const dm = this.dragMove;
     this.dragMove = null;
@@ -587,6 +663,10 @@ export class StrikeMapEditorController {
   };
 
   private onPointerCancel = (e: PointerEvent) => {
+    if (this.terrainStroke && e.pointerId === this.terrainStroke.pointerId) {
+      this.endTerrainStroke();
+      return;
+    }
     if (!this.dragMove || e.pointerId !== this.dragMove.pointerId) return;
     this.cancelDragMove();
   };
@@ -602,11 +682,315 @@ export class StrikeMapEditorController {
     }
   }
 
+  // ── Terrain sculpting ────────────────────────────────────────────────────
+
+  /** Live subdivision count of an existing ground mesh (falls back to the builder default). */
+  private meshSubdivisionsOf(control: AbstractMesh | undefined): number {
+    if (!control) return 4;
+    return subdivisionsFromHeightmap(control.getTotalVertices()) ?? 4;
+  }
+
+  /**
+   * Registers a terrain entry per ground object. Legacy grounds (no
+   * subdivisions in the layout) are upgraded lazily on first sculpt so
+   * merely opening the editor never rewrites the map.
+   */
+  private initTerrainEditors(): void {
+    this.terrainOf.clear();
+    this.paintOf.clear();
+    for (const o of this.layout.objects) {
+      if (o.kind !== 'ground') continue;
+      const obj = o as MapGroundObject;
+      const control = this.controlOf.get(o.id);
+      const hasTopology = typeof obj.subdivisions === 'number' && obj.subdivisions >= TERRAIN_MIN_SUBDIVISIONS;
+      const subdivisions = hasTopology ? Math.round(obj.subdivisions as number) : TERRAIN_SUBDIVISIONS;
+      const heights = hasTopology
+        ? sanitizeTerrainHeights(obj.heightmap, subdivisions) ?? makeTerrainHeights(subdivisions)
+        : null;
+      this.terrainOf.set(o.id, {
+        id: o.id,
+        width: obj.width,
+        height: obj.height,
+        subdivisions,
+        meshSubdivisions: hasTopology ? subdivisions : this.meshSubdivisionsOf(control),
+        heights,
+        control: control instanceof GroundMesh ? control : null
+      });
+    }
+  }
+
+  /** Replaces a legacy ground with a resampled, sculptable mesh at the target resolution. */
+  private upgradeTerrainGround(entry: TerrainGroundEntry): void {
+    const obj = this.layout.objects.find((o) => o.id === entry.id) as MapGroundObject | undefined;
+    if (!obj || obj.kind !== 'ground') return;
+    obj.subdivisions = entry.subdivisions;
+    obj.heightmap = entry.heights ?? makeTerrainHeights(entry.subdivisions);
+    entry.heights = obj.heightmap;
+    disposeObjectMeshes(this.b, entry.id);
+    this.controlOf.delete(entry.id);
+    this.paintOf.delete(entry.id);
+    this.buildMapObjectNow(obj);
+    const control = this.controlOf.get(entry.id);
+    entry.control = control instanceof GroundMesh ? control : null;
+    entry.meshSubdivisions = entry.subdivisions;
+  }
+
+  /** Picks the ground under a canvas position (surface-accurate for sculpted terrain). */
+  private pickTerrainAt(x: number, y: number): { id: string; mesh: GroundMesh; point: Vector3 } | null {
+    let pick;
+    try {
+      pick = this.scene.pick(
+        x,
+        y,
+        (m) => {
+          if (!m.isPickable) return false;
+          const meta = m.metadata as { editorId?: string } | undefined;
+          return typeof meta?.editorId === 'string' && this.terrainOf.has(meta.editorId);
+        },
+        false,
+        this.camera
+      );
+    } catch {
+      return null;
+    }
+    if (!pick?.pickedMesh || !pick.pickedPoint) return null;
+    const meta = pick.pickedMesh.metadata as { editorId?: string } | undefined;
+    if (!meta?.editorId) return null;
+    return { id: meta.editorId, mesh: pick.pickedMesh as GroundMesh, point: pick.pickedPoint.clone() };
+  }
+
+  private terrainPointerDown(e: PointerEvent): void {
+    if (this.terrainStroke) return;
+    if (e.button !== 0) return;
+    const { x, y } = this.canvasPoint(e);
+    const hit = this.pickTerrainAt(x, y);
+    if (!hit) return;
+    this.terrainStroke = {
+      pointerId: e.pointerId,
+      objectId: hit.id,
+      lastWorld: null,
+      historyPushed: false
+    };
+    try {
+      this.canvas.setPointerCapture(e.pointerId);
+    } catch {
+      /* pointer may have already been released */
+    }
+    this.applyTerrainBrush(hit.id, hit.point);
+  }
+
+  private terrainPointerMove(e: PointerEvent): void {
+    const { x, y } = this.canvasPoint(e);
+    if (this.terrainStroke && e.pointerId === this.terrainStroke.pointerId) {
+      const hit = this.pickTerrainAt(x, y);
+      if (hit) this.applyTerrainBrush(hit.id, hit.point);
+      return;
+    }
+    const hit = this.pickTerrainAt(x, y);
+    if (hit) this.updateTerrainCursor(hit.point);
+  }
+
+  private endTerrainStroke(): void {
+    if (!this.terrainStroke) return;
+    const pointerId = this.terrainStroke.pointerId;
+    const objectId = this.terrainStroke.objectId;
+    const wasPaint = this.terrainTool === 'paint';
+    this.terrainStroke = null;
+    try {
+      if (this.canvas.hasPointerCapture(pointerId)) this.canvas.releasePointerCapture(pointerId);
+    } catch {
+      /* ignore */
+    }
+    if (wasPaint) {
+      const overlay = this.paintOf.get(objectId);
+      const obj = this.layout.objects.find((o) => o.id === objectId) as MapGroundObject | undefined;
+      const data = overlay ? savePaintTexture(overlay.texture) : null;
+      if (obj && data) obj.paint = data;
+    }
+    this.onChange?.();
+  }
+
+  /** Drag-distance-based raise/lower amount so strokes feel consistent per meter. */
+  private terrainStrokeAmount(point: Vector3): number {
+    const last = this.terrainStroke?.lastWorld;
+    if (!last) return this.brushStrength * 0.15;
+    const dist = Vector3.Distance(last, point);
+    return this.brushStrength * Math.min(0.25, dist / Math.max(0.1, this.brushSize));
+  }
+
+  /** Applies the active tool at a world-space surface point. */
+  private applyTerrainBrush(objectId: string, point: Vector3): void {
+    if (this.terrainTool === 'none') return;
+    const entry = this.terrainOf.get(objectId);
+    if (!entry || !this.terrainStroke) return;
+
+    if (!this.terrainStroke.historyPushed) {
+      this.recordHistory();
+      this.terrainStroke.historyPushed = true;
+    }
+
+    if (this.terrainTool === 'paint') {
+      this.applyPaintBrush(entry, point);
+      return;
+    }
+
+    if (entry.heights === null) this.upgradeTerrainGround(entry);
+    if (!entry.heights || !entry.control) return;
+
+    const local = Vector3.TransformCoordinates(point, entry.control.getInverseWorldMatrix());
+    const gp = terrainWorldToGrid(local.x, local.z, entry.width, entry.height, entry.subdivisions);
+    const spec: TerrainBrushSpec = {
+      centerCol: gp.col,
+      centerRow: gp.row,
+      radiusCols: this.brushSize / 2 / terrainCellSizeX(entry.width, entry.subdivisions),
+      radiusRows: this.brushSize / 2 / terrainCellSizeZ(entry.height, entry.subdivisions)
+    };
+
+    const amount = this.terrainStrokeAmount(point);
+    if (this.terrainTool === 'raise') {
+      raiseHeights(entry.heights, entry.subdivisions, spec, amount);
+    } else if (this.terrainTool === 'lower') {
+      lowerHeights(entry.heights, entry.subdivisions, spec, amount);
+    } else if (this.terrainTool === 'smooth') {
+      smoothHeights(entry.heights, entry.subdivisions, spec, Math.min(0.9, this.brushStrength * 0.5));
+    }
+
+    const obj = this.layout.objects.find((o) => o.id === objectId) as MapGroundObject | undefined;
+    if (obj) obj.heightmap = entry.heights;
+    applyHeightmapToMesh(entry.control, entry.heights, entry.subdivisions);
+    // Keep any painted overlay glued to the (now sculpted) surface.
+    if (obj?.paint || this.paintOf.has(objectId)) {
+      const overlay = this.adoptPaintOverlay(objectId);
+      if (overlay) applyHeightmapToMesh(overlay.mesh, entry.heights, entry.subdivisions, PAINT_LIFT);
+    }
+    this.terrainStroke.lastWorld = point.clone();
+    this.updateTerrainCursor(point);
+    this.dirty = true;
+  }
+
+  /** Adopts (or builds) the overlay mesh that renders a ground's painted layer. */
+  private adoptPaintOverlay(objectId: string): PaintOverlay | null {
+    const cached = this.paintOf.get(objectId);
+    if (cached && !cached.mesh.isDisposed()) return cached;
+    const existing = findPaintOverlay(this.scene, objectId);
+    if (existing) {
+      this.paintOf.set(objectId, existing);
+      return existing;
+    }
+    return null;
+  }
+
+  private ensurePaintOverlay(entry: TerrainGroundEntry): PaintOverlay | null {
+    const existing = this.adoptPaintOverlay(entry.id);
+    if (existing) return existing;
+    if (!entry.control) return null;
+    const obj = this.layout.objects.find((o) => o.id === entry.id) as MapGroundObject | undefined;
+    const subdivisions = entry.heights ? entry.subdivisions : entry.meshSubdivisions;
+    if (!subdivisions) return null;
+    const overlay = createPaintOverlay(this.scene, {
+      id: entry.id,
+      width: entry.width,
+      height: entry.height,
+      subdivisions,
+      heights: entry.heights,
+      position: entry.control.position.clone(),
+      paint: obj?.paint ?? null,
+      editor: true
+    });
+    this.paintOf.set(entry.id, overlay);
+    return overlay;
+  }
+
+  /** Stamps the selected texture into a ground's paint overlay at a world point. */
+  private applyPaintBrush(entry: TerrainGroundEntry, point: Vector3): void {
+    if (!entry.control) return;
+    const overlay = this.ensurePaintOverlay(entry);
+    if (!overlay) return;
+    const mats = this.b.mats as unknown as Record<string, StandardMaterial>;
+    const sourceMat = (this.paintMaterial ? mats[this.paintMaterial] : undefined)
+      ?? (entry.control.material as unknown as StandardMaterial | null)
+      ?? undefined;
+    const source = getPaintSource(sourceMat);
+    const local = Vector3.TransformCoordinates(point, entry.control.getInverseWorldMatrix());
+    const alpha = Math.min(0.6, this.brushStrength * 0.25);
+    if (stampPaint(overlay.texture, source, local.x, local.z, entry.width, entry.height, this.brushSize / 2, alpha)) {
+      this.terrainStroke!.lastWorld = point.clone();
+      this.updateTerrainCursor(point);
+      this.dirty = true;
+    }
+  }
+
+  private getTerrainCursor(): AbstractMesh {
+    if (this.terrainCursor && !this.terrainCursor.isDisposed()) return this.terrainCursor;
+    const disc = MeshBuilder.CreateDisc('ediTerrainCursor', { radius: 1, tessellation: 48 }, this.scene);
+    const mat = new StandardMaterial('ediTerrainCursorMat', this.scene);
+    mat.diffuseColor = new Color3(1.0, 0.85, 0.35);
+    mat.emissiveColor = new Color3(0.9, 0.6, 0.12);
+    mat.specularColor = new Color3(0, 0, 0);
+    mat.disableLighting = true;
+    mat.alpha = 0.6;
+    disc.material = mat;
+    disc.isPickable = false;
+    disc.checkCollisions = false;
+    disc.renderingGroupId = 9;
+    disc.setEnabled(false);
+    this.terrainCursor = disc;
+    return disc;
+  }
+
+  private updateTerrainCursor(point: Vector3): void {
+    const cursor = this.getTerrainCursor();
+    const radius = Math.max(0.25, this.brushSize / 2);
+    cursor.position = new Vector3(point.x, point.y + 0.05, point.z);
+    cursor.scaling = new Vector3(radius, 1, radius);
+    cursor.setEnabled(true);
+  }
+
+  private setTerrainCursorVisible(visible: boolean): void {
+    const cursor = this.getTerrainCursor();
+    cursor.setEnabled(visible);
+  }
+
+  /** Applies the camera-input + brush-cursor changes for the active terrain tool. */
+  private applyTerrainMode(): void {
+    const pointers = this.camera.inputs.attached?.pointers as unknown as { buttons?: number[] } | undefined;
+    if (pointers) pointers.buttons = this.terrainTool === 'none' ? [0, 1, 2] : [2];
+    this.setTerrainCursorVisible(this.terrainTool !== 'none');
+  }
+
+  /** Switches sculpting tools; 'none' restores normal object editing. */
+  setTerrainTool(tool: TerrainTool): void {
+    if (this.terrainTool === tool) return;
+    this.endTerrainStroke();
+    this.terrainTool = tool;
+    this.applyTerrainMode();
+    this.onChange?.();
+  }
+
+  /** Terrain brush size in meters (diameter). */
+  setBrushSize(size: number): void {
+    this.brushSize = Math.max(1, Math.min(64, size));
+    this.onChange?.();
+  }
+
+  /** Raise/lower amount in meters per drag unit; also scales smooth strength. */
+  setBrushStrength(strength: number): void {
+    this.brushStrength = Math.max(0.05, Math.min(8, strength));
+    this.onChange?.();
+  }
+
+  /** Texture brush source material key (used by the paint tool). */
+  setPaintMaterial(key: string | null): void {
+    this.paintMaterial = key;
+    this.onChange?.();
+  }
+
   // ── Scene assembly ───────────────────────────────────────────────────────
 
   private buildWorld(): void {
     buildLayout(this.b, this.layout, true);
     this.reindexControls();
+    this.initTerrainEditors();
   }
 
   /** Full teardown + rebuild of every layout object/light (after open/reset). */
@@ -643,8 +1027,8 @@ export class StrikeMapEditorController {
   private findControlMesh(id: string): AbstractMesh | undefined {
     return this.scene.meshes.find((m) => {
       if (m.isDisposed()) return false;
-      const meta = m.metadata as { editorId?: string } | undefined;
-      return !!meta && meta.editorId === id && !m.parent;
+      const meta = m.metadata as { editorId?: string; paintOverlay?: boolean } | undefined;
+      return !!meta && meta.editorId === id && !meta.paintOverlay && !m.parent;
     });
   }
 
@@ -1536,6 +1920,10 @@ export class StrikeMapEditorController {
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('pointercancel', this.onPointerCancel);
+    this.terrainStroke = null;
+    this.terrainOf.clear();
+    this.paintOf.clear();
+    this.terrainCursor = null;
     this.gizmo.dispose();
     this.canvas.style.cursor = 'default';
     this.canvas.removeEventListener('contextmenu', this.onContextMenu);

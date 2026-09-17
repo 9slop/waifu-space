@@ -5,7 +5,8 @@ import {
   EditorSelectionInfo,
   EditorLightInfo,
   EditorSpawnInfo,
-  EditorSelectionKind
+  EditorSelectionKind,
+  TerrainTool
 } from '../lib/strike/map/editor/editor-scene';
 import { COMPONENTS } from '../lib/strike/map/components/registry';
 import '../styles/editor.css';
@@ -73,6 +74,10 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
   const [snapStep, setSnapStep] = createSignal(0.5);
   const [snapToGround, setSnapToGroundModal] = createSignal(true);
   const [isFullscreen, setIsFullscreen] = createSignal(false);
+  const [terrainTool, setTerrainTool] = createSignal<TerrainTool>('none');
+  const [brushSize, setBrushSize] = createSignal(8);
+  const [brushStrength, setBrushStrength] = createSignal(1);
+  const [paintMaterial, setPaintMaterial] = createSignal<string | null>(null);
 
   const refresh = () => {
     if (!controller) return;
@@ -216,6 +221,30 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
     setSnapStep(step);
     controller?.setSnap(true);
     setSnap(true);
+  };
+
+  const handleSetTerrainTool = (tool: TerrainTool) => {
+    controller?.setTerrainTool(tool);
+    setTerrainTool(tool);
+    if (tool === 'paint' && !paintMaterial()) {
+      const first = controller?.materialKeys?.[0];
+      if (first) handlePaintMaterial(first);
+    }
+  };
+
+  const handlePaintMaterial = (key: string) => {
+    controller?.setPaintMaterial(key);
+    setPaintMaterial(key);
+  };
+
+  const handleBrushSize = (size: number) => {
+    controller?.setBrushSize(size);
+    setBrushSize(size);
+  };
+
+  const handleBrushStrength = (strength: number) => {
+    controller?.setBrushStrength(strength);
+    setBrushStrength(strength);
   };
 
   const handleToggleSnapToGround = () => {
@@ -456,11 +485,93 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
         {/* Center: 3D viewport */}
         <div class="edi-viewport">
           <canvas ref={canvasRef} class="edi-canvas" tabindex="0" />
+          <div class="edi-terrain-toolbar" role="toolbar" aria-label="Terrain tools">
+            <button
+              class={`edi-btn ${terrainTool() === 'none' ? 'active' : ''}`}
+              title="Object editing (select, move, rotate)"
+              onClick={() => handleSetTerrainTool('none')}
+            >
+              Select
+            </button>
+            <button
+              class={`edi-btn ${terrainTool() === 'raise' ? 'active' : ''}`}
+              title="Raise terrain — drag on the ground"
+              onClick={() => handleSetTerrainTool('raise')}
+            >
+              Raise
+            </button>
+            <button
+              class={`edi-btn ${terrainTool() === 'lower' ? 'active' : ''}`}
+              title="Lower terrain — drag on the ground"
+              onClick={() => handleSetTerrainTool('lower')}
+            >
+              Lower
+            </button>
+            <button
+              class={`edi-btn ${terrainTool() === 'smooth' ? 'active' : ''}`}
+              title="Smooth terrain — drag to soften bumps"
+              onClick={() => handleSetTerrainTool('smooth')}
+            >
+              Smooth
+            </button>
+            <button
+              class={`edi-btn ${terrainTool() === 'paint' ? 'active' : ''}`}
+              title="Texture brush — paint a material onto the ground"
+              onClick={() => handleSetTerrainTool('paint')}
+            >
+              Paint
+            </button>
+            <Show when={terrainTool() !== 'none'}>
+              <div class="edi-terrain-controls">
+                <label class="edi-terrain-slider">
+                  <span>Size {brushSize().toFixed(0)}m</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="40"
+                    step="1"
+                    value={brushSize()}
+                    onInput={(e) => handleBrushSize(parseFloat(e.currentTarget.value) || 1)}
+                  />
+                </label>
+                <label class="edi-terrain-slider">
+                  <span>Strength {brushStrength().toFixed(2)}</span>
+                  <input
+                    type="range"
+                    min="0.05"
+                    max="4"
+                    step="0.05"
+                    value={brushStrength()}
+                    onInput={(e) => handleBrushStrength(parseFloat(e.currentTarget.value) || 0.05)}
+                  />
+                </label>
+                <Show when={terrainTool() === 'paint'}>
+                  <div class="edi-paint-palette" role="listbox" aria-label="Paint material">
+                    <For each={controller?.materialKeys ?? []}>
+                      {(key) => (
+                        <button
+                          class={`edi-paint-swatch ${paintMaterial() === key ? 'active' : ''}`}
+                          title={key}
+                          onClick={() => handlePaintMaterial(key)}
+                        >
+                          {key}
+                        </button>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+            </Show>
+          </div>
           <div class="edi-hud">
             <Show when={selKind() !== 'none'}>
               <span>{selectedName()} <code>{selectedHint()}</code></span>
             </Show>
-            <div class="edi-cam-hint">orbit: LMB · pan: RMB · zoom: wheel · fly: WASD/QE · focus: F · home: reset</div>
+            <div class="edi-cam-hint">
+              <Show when={terrainTool() !== 'none'} fallback="orbit: LMB · pan: RMB · zoom: wheel · fly: WASD/QE · focus: F · home: reset">
+                sculpt: LMB · pan: RMB · zoom: wheel
+              </Show>
+            </div>
           </div>
         </div>
 

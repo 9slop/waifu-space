@@ -37,6 +37,32 @@ describe('.wsmap serialization round-trip', () => {
     expect(parsed.objects[0].rotation).toEqual([0.1, 0.2, 0.3]);
   });
 
+  it('preserves terrain and paint fields on grounds', () => {
+    const layout = emptyLayout('paint-test');
+    const subdivisions = 2;
+    const heightmap = Array.from({ length: 9 }, (_, i) => i * 0.1);
+    layout.objects = [
+      {
+        id: 'o_0001',
+        name: 'painted_ground',
+        kind: 'ground',
+        width: 8,
+        height: 8,
+        position: [0, 0, 0],
+        rotation: [0, 0, 0],
+        material: 'ground',
+        collidable: true,
+        subdivisions,
+        heightmap,
+        paint: 'data:image/png;base64,iVBORw0KGgo='
+      }
+    ];
+    layout.spawns = [];
+
+    const parsed = parseLayout(serializeLayout(layout));
+    expect(parsed).toEqual(layout);
+  });
+
   it('handles an empty layout', () => {
     const layout = emptyLayout('empty-test');
     layout.objects = [];

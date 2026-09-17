@@ -4,6 +4,8 @@ import type { PointLight } from '@babylonjs/core';
 import { buildComponent } from './components/registry';
 import kyotoRaw from './kyoto.wsmap?raw';
 import { MAP_FORMAT, parseLayout, vec3 } from './map-format';
+import { createPaintOverlay } from './paint';
+import { subdivisionsFromHeightmap } from './terrain';
 import type {
   MapGroundObject,
   MapObject,
@@ -82,9 +84,25 @@ export function buildMapObject(b: MapBuilder, o: MapObject, editor = false): voi
         obj.height,
         new Vector3(o.position[0], o.position[1], o.position[2]),
         resolveMaterial(b, o.material),
-        obj.collidable
+        obj.collidable,
+        obj.subdivisions !== undefined || obj.heightmap !== undefined
+          ? { subdivisions: obj.subdivisions, heightmap: obj.heightmap }
+          : undefined
       );
       if (editor) mesh.metadata = { editorId: o.id };
+      const paintSubdivisions = obj.subdivisions ?? subdivisionsFromHeightmap(mesh.getTotalVertices());
+      if (obj.paint && paintSubdivisions) {
+        createPaintOverlay(b.scene, {
+          id: o.id,
+          width: obj.width,
+          height: obj.height,
+          subdivisions: paintSubdivisions,
+          heights: obj.heightmap ?? null,
+          position: mesh.position,
+          paint: obj.paint,
+          editor
+        });
+      }
       break;
     }
     case 'component': {
