@@ -485,6 +485,13 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
             >
               Lower
             </button>
+            <button
+              class={`edi-btn ${terrainTool() === 'smooth' ? 'active' : ''}`}
+              title="Smooth terrain — drag to soften bumps"
+              onClick={() => handleSetTerrainTool('smooth')}
+            >
+              Smooth
+            </button>
           </div>
           <div class="edi-hud">
             <Show when={selKind() !== 'none'}>
