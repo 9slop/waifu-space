@@ -82,7 +82,10 @@ export function buildMapObject(b: MapBuilder, o: MapObject, editor = false): voi
         obj.height,
         new Vector3(o.position[0], o.position[1], o.position[2]),
         resolveMaterial(b, o.material),
-        obj.collidable
+        obj.collidable,
+        obj.subdivisions !== undefined || obj.heightmap !== undefined
+          ? { subdivisions: obj.subdivisions, heightmap: obj.heightmap }
+          : undefined
       );
       if (editor) mesh.metadata = { editorId: o.id };
       break;

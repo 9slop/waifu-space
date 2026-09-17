@@ -8,9 +8,10 @@ import {
   PointLight,
   ShadowGenerator
 } from '@babylonjs/core';
-import type { MapBuilder, MapInteractable, MapMaterials, PointLightOptions } from './types';
+import type { MapBuilder, MapInteractable, MapMaterials, PointLightOptions, GroundBuildOptions } from './types';
 import { createMapMaterials } from './materials';
 import { MapRecorder } from './map-format';
+import { applyHeightmapToMesh, subdivisionsFromHeightmap, terrainVertexCount } from './terrain';
 
 export interface MapBuilderOptions {
   /** Editor mode: skip freezing world matrices so meshes stay editable. */
@@ -119,17 +120,33 @@ export function createMapBuilder(
       height: number,
       pos: Vector3,
       mat: StandardMaterial,
-      collidable = true
+      collidable = true,
+      terrain: GroundBuildOptions = {}
     ): AbstractMesh {
-      const ground = MeshBuilder.CreateGround(name, { width, height, subdivisions: 4 }, scene);
+      const subdivisions =
+        terrain.subdivisions ??
+        (terrain.heightmap ? subdivisionsFromHeightmap(terrain.heightmap.length) : undefined) ??
+        4;
+      const ground = MeshBuilder.CreateGround(name, { width, height, subdivisions }, scene);
       ground.position = pos;
       ground.material = mat;
       ground.receiveShadows = true;
+      if (terrain.heightmap && terrain.heightmap.length === terrainVertexCount(subdivisions)) {
+        applyHeightmapToMesh(ground, terrain.heightmap, subdivisions);
+      }
       if (collidable) {
         ground.checkCollisions = true;
         colliders.push(ground);
       }
-      recorder?.recordGround(name, width, height, pos, matKey(mat), collidable);
+      recorder?.recordGround(
+        name,
+        width,
+        height,
+        pos,
+        matKey(mat),
+        collidable,
+        terrain.subdivisions !== undefined || terrain.heightmap ? { subdivisions, heightmap: terrain.heightmap } : undefined
+      );
       if (!(opts.editor ?? false)) {
         ground.freezeWorldMatrix();
         ground.doNotSyncBoundingInfo = true;

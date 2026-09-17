@@ -5,7 +5,8 @@ import {
   EditorSelectionInfo,
   EditorLightInfo,
   EditorSpawnInfo,
-  EditorSelectionKind
+  EditorSelectionKind,
+  TerrainTool
 } from '../lib/strike/map/editor/editor-scene';
 import { COMPONENTS } from '../lib/strike/map/components/registry';
 import '../styles/editor.css';
@@ -73,6 +74,7 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
   const [snapStep, setSnapStep] = createSignal(0.5);
   const [snapToGround, setSnapToGroundModal] = createSignal(true);
   const [isFullscreen, setIsFullscreen] = createSignal(false);
+  const [terrainTool, setTerrainTool] = createSignal<TerrainTool>('none');
 
   const refresh = () => {
     if (!controller) return;
@@ -216,6 +218,11 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
     setSnapStep(step);
     controller?.setSnap(true);
     setSnap(true);
+  };
+
+  const handleSetTerrainTool = (tool: TerrainTool) => {
+    controller?.setTerrainTool(tool);
+    setTerrainTool(tool);
   };
 
   const handleToggleSnapToGround = () => {
@@ -456,11 +463,31 @@ export function StrikeMapEditor(props: { onExit?: () => void }) {
         {/* Center: 3D viewport */}
         <div class="edi-viewport">
           <canvas ref={canvasRef} class="edi-canvas" tabindex="0" />
+          <div class="edi-terrain-toolbar" role="toolbar" aria-label="Terrain tools">
+            <button
+              class={`edi-btn ${terrainTool() === 'none' ? 'active' : ''}`}
+              title="Object editing (select, move, rotate)"
+              onClick={() => handleSetTerrainTool('none')}
+            >
+              Select
+            </button>
+            <button
+              class={`edi-btn ${terrainTool() === 'raise' ? 'active' : ''}`}
+              title="Raise terrain — drag on the ground"
+              onClick={() => handleSetTerrainTool('raise')}
+            >
+              Raise
+            </button>
+          </div>
           <div class="edi-hud">
             <Show when={selKind() !== 'none'}>
               <span>{selectedName()} <code>{selectedHint()}</code></span>
             </Show>
-            <div class="edi-cam-hint">orbit: LMB · pan: RMB · zoom: wheel · fly: WASD/QE · focus: F · home: reset</div>
+            <div class="edi-cam-hint">
+              <Show when={terrainTool() !== 'none'} fallback="orbit: LMB · pan: RMB · zoom: wheel · fly: WASD/QE · focus: F · home: reset">
+                sculpt: LMB · pan: RMB · zoom: wheel
+              </Show>
+            </div>
           </div>
         </div>
 
