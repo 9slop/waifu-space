@@ -1,5 +1,7 @@
 # 🌸 WaifuSpace
 
+⚠️ Due to token shortage and busy schedule of the developers, we will not be able to continue this project at this time. However, as soon as we will have the time and motivation to finish this we will get back to work immediately. Stay tuned for news and updates. Thank you for your attention to this matter!
+
 > **Your personal anime companion & Google Calendar planner dashboard.**  
 
 ---
